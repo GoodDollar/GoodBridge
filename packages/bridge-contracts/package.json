@@ -1,0 +1,42 @@
+{
+  "name": "bridge-contracts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test-coverage": "hardhat coverage",
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "updateabi": "cp artifacts/contracts/BlockHeaderRegistry.sol/BlockHeaderRegistry.json ../bridge-app/src/abi && cp artifacts/contracts/test/ConsensusMock.sol/ConsensusMock.json ../bridge-app/src/abi",
+    "start:dev": "hardhat node & yarn build && yarn updateabi && hardhat run scripts/deployDevEnv.ts --network localhost"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.1.1",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "@typechain/ethers-v5": "^10.1.0",
+    "@typechain/hardhat": "^6.1.2",
+    "@types/chai": "^4.3.3",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^18.7.16",
+    "chai": "^4.3.6",
+    "ethereum-waffle": "^3.4.4",
+    "ethers": "^5.5.3",
+    "hardhat": "^2.11.1",
+    "hardhat-gas-reporter": "^1.0.9",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.1.0",
+    "typescript": "^4.8.3",
+    "prettier": "^2.5.1",
+    "prettier-plugin-solidity": "^1.0.0-beta.19",
+    "solidity-coverage": "^0.8.2"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.4.1",
+    "eth-proof": "^2.1.6",
+    "merkle-patricia-tree": "^2.*",
+    "solidity-rlp": "^2.0.5"
+  }
+}

@@ -1,0 +1,5 @@
+**/node_modules
+**/.yarn/cache
+packages/**/dist
+packages/bridge-contracts/typechain-types/@openzeppelin
+packages/bridge-contracts/typechain-types/factories
