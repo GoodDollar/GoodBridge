@@ -210,13 +210,29 @@ export interface BlockHeaderRegistryInterface extends utils.Interface {
   decodeFunctionResult(functionFragment: "voting", data: BytesLike): Result;
 
   events: {
+    "BlockAdded(address,uint256,bytes32,address[],uint256)": EventFragment;
     "BlockchainAdded(uint256,string)": EventFragment;
     "BlockchainRemoved(uint256)": EventFragment;
   };
 
+  getEvent(nameOrSignatureOrTopic: "BlockAdded"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "BlockchainAdded"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "BlockchainRemoved"): EventFragment;
 }
+
+export interface BlockAddedEventObject {
+  validator: string;
+  chainId: BigNumber;
+  rlpHeaderHash: string;
+  validators: string[];
+  cycleEnd: BigNumber;
+}
+export type BlockAddedEvent = TypedEvent<
+  [string, BigNumber, string, string[], BigNumber],
+  BlockAddedEventObject
+>;
+
+export type BlockAddedEventFilter = TypedEventFilter<BlockAddedEvent>;
 
 export interface BlockchainAddedEventObject {
   chainId: BigNumber;
@@ -453,6 +469,21 @@ export interface BlockHeaderRegistry extends BaseContract {
   };
 
   filters: {
+    "BlockAdded(address,uint256,bytes32,address[],uint256)"(
+      validator?: PromiseOrValue<string> | null,
+      chainId?: PromiseOrValue<BigNumberish> | null,
+      rlpHeaderHash?: PromiseOrValue<BytesLike> | null,
+      validators?: null,
+      cycleEnd?: null
+    ): BlockAddedEventFilter;
+    BlockAdded(
+      validator?: PromiseOrValue<string> | null,
+      chainId?: PromiseOrValue<BigNumberish> | null,
+      rlpHeaderHash?: PromiseOrValue<BytesLike> | null,
+      validators?: null,
+      cycleEnd?: null
+    ): BlockAddedEventFilter;
+
     "BlockchainAdded(uint256,string)"(
       chainId?: null,
       rpc?: null

@@ -78,6 +78,13 @@ contract BlockHeaderRegistry {
 
     event BlockchainAdded(uint256 chainId, string rpc);
     event BlockchainRemoved(uint256 chainId);
+    event BlockAdded(
+        address indexed validator,
+        uint256 indexed chainId,
+        bytes32 indexed rlpHeaderHash,
+        address[] validators,
+        uint256 cycleEnd
+    );
 
     constructor(address _voting, address _consensus) {
         voting = _voting;
@@ -171,6 +178,13 @@ contract BlockHeaderRegistry {
 
             signedBlocks[payload].signatures.push(
                 abi.encode(_block.signature.r, _block.signature.vs)
+            );
+            emit BlockAdded(
+                msg.sender,
+                _block.chainId,
+                rlpHeaderHash,
+                _block.validators,
+                _block.cycleEnd
             );
         }
     }
