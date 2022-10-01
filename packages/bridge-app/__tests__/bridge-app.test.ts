@@ -7,7 +7,7 @@ const delay = async (milis) => {
     setTimeout(res,milis)
   })
 }
-jest.setTimeout(300000)
+jest.setTimeout(120000)
 
 describe('block header registry', () => {
     const localNode = new ethers.providers.JsonRpcProvider("http://localhost:8545")
@@ -86,14 +86,15 @@ describe('block header registry', () => {
     BridgeApp.initBlockchain(122, "https://rpc.fuse.io")
     BridgeApp.initBlockchain(56, "https://bscrpc.com")
     expect(BridgeApp.blockchains['122'].web3).not.toBeNull()
-    expect(BridgeApp.blockchains['122'].lastBlock).toBeNull()
+    expect(BridgeApp.blockchains['122'].lastBlock).toBeUndefined()
     expect(BridgeApp.blockchains['122'].rpc).toBe("https://rpc.fuse.io")
     expect(BridgeApp.blockchains['56'].web3).not.toBeNull()
-    expect(BridgeApp.blockchains['56'].lastBlock).toBeNull()
+    expect(BridgeApp.blockchains['56'].lastBlock).toBeUndefined()
     expect(BridgeApp.blockchains['56'].rpc).toBe("https://bscrpc.com")
   })
 
   it("fetches, signs and submits blocks for registered blockchains", async () => {
+    BridgeApp.setStepSize(2)
     BridgeApp.initBlockRegistryContract(signer,"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0","0x5fbdb2315678afecb367f032d93f642f64180aa3","http://localhost:8545")
 
     BridgeApp.initBlockchain(122, "https://rpc.fuse.io")
@@ -102,7 +103,7 @@ describe('block header registry', () => {
     expect(blocks.length).toEqual(2)
     const fuseBlock = blocks.find(_ => _.chainId===122)
     const bscBlock = blocks.find(_ => _.chainId===56)
-    await delay(5000)
+    await delay(BridgeApp.stepSize * 6000) //wait for stepSize blocks 
     const nextBlocks = await BridgeApp.fetchNewBlocks(signer)
     const fuseBlock2 = nextBlocks.find(_ => _.chainId===122)
     const bscBlock2 = nextBlocks.find(_ => _.chainId===56)
@@ -113,42 +114,41 @@ describe('block header registry', () => {
     expect(r).toBeDefined()
   })
 
-  it("emits new blocks when called",async () => {
+  it("bridge app should init blockchains, fetch blocks and add blocks to registry",async () => {
     delete BridgeApp.blockchains['122']
     delete BridgeApp.blockchains['56']
+    BridgeApp.setStepSize(2)
+
     BridgeApp.initBlockRegistryContract(signer,"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0","0x5fbdb2315678afecb367f032d93f642f64180aa3","http://localhost:8545")
 
-    // BridgeApp.initBlockchain(122, "https://rpc.fuse.io")
-    // BridgeApp.initBlockchain(56, "https://bscrpc.com")
-
+    await BridgeApp.refreshRPCs()
     //should initialize chains from contract as defined in deployDevEnv.ts script
-    const blocks = await BridgeApp.emitRegistry()
     expect(BridgeApp.blockchains['122'].web3).not.toBeNull()
-    expect(BridgeApp.blockchains['122'].lastBlock).not.toBeNull()
+    expect(BridgeApp.blockchains['122'].lastBlock).toBeUndefined()
     expect(BridgeApp.blockchains['122'].rpc).toBe("https://rpc.fuse.io")
 
+    const blocks = await BridgeApp.emitRegistry()
     expect(blocks.length).toEqual(1)
     const fuseBlock = blocks.find(_ => _.chainId===122)
-    await delay(6000)
+    await delay(BridgeApp.stepSize * 6000)
     const nextBlocks = await BridgeApp.emitRegistry()
     const fuseBlock2 = nextBlocks.find(_ => _.chainId===122)
     expect(fuseBlock2.rlpHeader).not.toEqual(fuseBlock.rlpHeader)
   })
 
   it("emits multiple blocks",async () => {
+    BridgeApp.setStepSize(2)
     delete BridgeApp.blockchains['122']
     delete BridgeApp.blockchains['56']
     BridgeApp.initBlockRegistryContract(signer,"0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0","0x5fbdb2315678afecb367f032d93f642f64180aa3","http://localhost:8545")
-
-    // BridgeApp.initBlockchain(122, "https://rpc.fuse.io")
-    // BridgeApp.initBlockchain(56, "https://bscrpc.com")
+    await BridgeApp.refreshRPCs()
 
     //should initialize chains from contract as defined in deployDevEnv.ts script
     const blocks = await BridgeApp.emitRegistry()    
     expect(blocks.length).toEqual(1)
-    await delay(60000)
+    await delay(30000)
     const nextBlocks = await BridgeApp.emitRegistry()
-    expect(nextBlocks.length).toBeGreaterThan(10)
+    expect(nextBlocks.length).toBeGreaterThan(1)
   })
 
 });

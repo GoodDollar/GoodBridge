@@ -7,6 +7,7 @@ import { Receipt, Proof } from "eth-object"
 import { encode } from "eth-util-lite"
 import { promisfy } from "promisfy"
 import * as RLP from "rlp"
+
 export interface BlockHeader {
   number: number;
   hash: string;
@@ -144,8 +145,8 @@ export const getBlockchainHeader = async (blockTag: string, chainId: number, rpc
   return prepareBlock(block, chainId)
 }
 
-export const prepareBlock = (block: BlockTransactionString, chainId?: number) => {
-  const header = pick(block, ["parentHash", "sha3Uncles", "miner", "stateRoot", "transactionsRoot", "receiptsRoot", "logsBloom", "difficulty", "number", "gasLimit", "gasUsed", "timestamp", "extraData", "sealFields", "mixHash", "nonce", "baseFeePerGas"])
+export const prepareBlock = (block: BlockHeader, chainId?: number) => {
+  const header = pick(block, ["parentHash", "sha3Uncles", "miner", "stateRoot", "transactionsRoot", "receiptsRoot", "logsBloom", "difficulty", "number", "gasLimit", "gasUsed", "timestamp", "extraData", "sealFields","step","signature","mixHash", "nonce", "baseFeePerGas"])
   //special parsing for celo
   //https://github.com/celo-org/celo-blockchain/blob/e0c433849e3e6bfe32a421fd8dc05372286ba6d3/core/types/block.go
   //https://github.com/celo-org/celo-blockchain/blob/1a239cbf64188d7c0bd49ce6ae2fe63faab691a1/core/types/istanbul.go
@@ -159,7 +160,7 @@ export const prepareBlock = (block: BlockTransactionString, chainId?: number) =>
 
   const rlpHeader = getRlpHeader(header)
   const blockHash = ethers.utils.keccak256(rlpHeader);
-  // console.log({header,rlpHeader, blockHash})
+  // console.log({block,header,rlpHeader, blockHash})
   if (blockHash !== block.hash) {
     throw new Error("rlp hash doesnt match expected blockhash")
   }
