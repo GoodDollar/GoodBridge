@@ -1,12 +1,12 @@
 import * as ethers from 'ethers';
-import { abi as RegistryABI } from "./abi/BlockHeaderRegistry.json"
-import { flatten, pick } from "lodash"
-import { JsonRpcBatchProvider } from '@ethersproject/providers'
-import Tree from "merkle-patricia-tree"
-import { Receipt, Proof } from "eth-object"
-import { encode } from "eth-util-lite"
-import { promisfy } from "promisfy"
-import * as RLP from "rlp"
+import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
+import { flatten, pick } from 'lodash';
+import { JsonRpcBatchProvider } from '@ethersproject/providers';
+import Tree from 'merkle-patricia-tree';
+import { Receipt, Proof } from 'eth-object';
+import { encode } from 'eth-util-lite';
+import { promisfy } from 'promisfy';
+import * as RLP from 'rlp';
 
 export interface BlockHeader {
   number: number;
@@ -46,40 +46,47 @@ export interface BlockHeader {
 //   address[] validators;
 // }
 
-const rpcs: { [chainId: string]: JsonRpcBatchProvider } = {}
+const rpcs: { [chainId: string]: JsonRpcBatchProvider } = {};
 
 export function getRlpHeader(web3Header: Partial<BlockHeader>) {
-  const rlpBytes = flatten(Object.entries(web3Header).map(([k, v]) => {
-    if (!v || v === '0x' || v === '0x0')
-      return '0x';
-    // if (typeof v === 'string' && v.startsWith("0x")) {
-    //   //binance has 0x0000...0 fields that need to be kept
-    //   if (v.length%2 !== 0 && !v.match(/^0x00+$/) && ["number", "gasLimit", "gasUsed", "timestamp", "nonce", "difficulty", "baseFeePerGas"].includes(k)) //make sure its even length bytes
-    //     return ethers.utils.hexlify(ethers.BigNumber.from(v))
-    //   else return v;
-    // }
-    if (k === 'sealFields')
-      return (v as Array<string>).map(_ => ethers.utils.RLP.decode(_))
-    // // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // return ethers.utils.hexlify(ethers.BigNumber.from(v))
-    return v
-  }
-  ))
-  const rlpHeader = "0x" + RLP.encode(rlpBytes).toString("hex")
+  const rlpBytes = flatten(
+    Object.entries(web3Header).map(([k, v]) => {
+      if (!v || v === '0x' || v === '0x0') return '0x';
+      // if (typeof v === 'string' && v.startsWith("0x")) {
+      //   //binance has 0x0000...0 fields that need to be kept
+      //   if (v.length%2 !== 0 && !v.match(/^0x00+$/) && ["number", "gasLimit", "gasUsed", "timestamp", "nonce", "difficulty", "baseFeePerGas"].includes(k)) //make sure its even length bytes
+      //     return ethers.utils.hexlify(ethers.BigNumber.from(v))
+      //   else return v;
+      // }
+      if (k === 'sealFields') return (v as Array<string>).map((_) => ethers.utils.RLP.decode(_));
+      // // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // return ethers.utils.hexlify(ethers.BigNumber.from(v))
+      return v;
+    }),
+  );
+  const rlpHeader = '0x' + RLP.encode(rlpBytes).toString('hex');
   // const hashTest = ethers.utils.keccak256("0x"+rlpHeaderTest.toString("hex"));
   // console.log({hashTest})
   // const rlpHeader = ethers.utils.RLP.encode(rlpBytes)
   return rlpHeader;
 }
 
-export async function signBlock(rlpHeader: string, chainId: number, signer: ethers.Signer, cycleEnd: number, validators: Array<string>) {
+export async function signBlock(
+  rlpHeader: string,
+  chainId: number,
+  signer: ethers.Signer,
+  cycleEnd: number,
+  validators: Array<string>,
+) {
   const blockHash = ethers.utils.keccak256(rlpHeader);
 
-  const packed = ethers.utils.solidityPack(["bytes32", "uint256", "address[]", "uint256"], [blockHash, chainId, validators, cycleEnd])
+  const packed = ethers.utils.solidityPack(
+    ['bytes32', 'uint256', 'address[]', 'uint256'],
+    [blockHash, chainId, validators, cycleEnd],
+  );
   const payload = ethers.utils.keccak256(packed);
 
-
-  const signature = ethers.utils.splitSignature(await signer.signMessage(ethers.utils.arrayify(payload)))
+  const signature = ethers.utils.splitSignature(await signer.signMessage(ethers.utils.arrayify(payload)));
 
   return {
     rlpHeader,
@@ -87,16 +94,16 @@ export async function signBlock(rlpHeader: string, chainId: number, signer: ethe
     chainId: Number(chainId),
     signature: {
       r: signature.r,
-      vs: signature._vs
+      vs: signature._vs,
     },
     cycleEnd,
     validators,
-  }
+  };
 }
 
 export const getRegistryContract = (address: string, signer: ethers.Signer) => {
-  return new ethers.Contract(address, RegistryABI, signer)
-}
+  return new ethers.Contract(address, RegistryABI, signer);
+};
 
 // ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 // 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
@@ -136,48 +143,68 @@ export const getRegistryContract = (address: string, signer: ethers.Signer) => {
 // transactionsRoot: "0xd443bc42f99dbfdd1f8a54be2c863ecd7c2f12e24252aa47e4fa33eed418aa2b"
 // uncles: []
 export const getBlockchainHeader = async (blockTag: string, chainId: number, rpc: string) => {
-  const web3 = rpcs[String(chainId)] || new JsonRpcBatchProvider(rpc)
-  rpcs[String(chainId)] = web3
-  const block = await web3.send(
-    'eth_getBlockByNumber',
-    [blockTag === "latest" ? "latest" : ethers.utils.hexlify(Number(blockTag)), false]
-  );
-  return prepareBlock(block, chainId)
-}
+  const web3 = rpcs[String(chainId)] || new JsonRpcBatchProvider(rpc);
+  rpcs[String(chainId)] = web3;
+  const block = await web3.send('eth_getBlockByNumber', [
+    blockTag === 'latest' ? 'latest' : ethers.utils.hexlify(Number(blockTag)),
+    false,
+  ]);
+  return prepareBlock(block, chainId);
+};
 
 export const prepareBlock = (block: BlockHeader, chainId?: number) => {
-  const header = pick(block, ["parentHash", "sha3Uncles", "miner", "stateRoot", "transactionsRoot", "receiptsRoot", "logsBloom", "difficulty", "number", "gasLimit", "gasUsed", "timestamp", "extraData", "sealFields","step","signature","mixHash", "nonce", "baseFeePerGas"])
+  const header = pick(block, [
+    'parentHash',
+    'sha3Uncles',
+    'miner',
+    'stateRoot',
+    'transactionsRoot',
+    'receiptsRoot',
+    'logsBloom',
+    'difficulty',
+    'number',
+    'gasLimit',
+    'gasUsed',
+    'timestamp',
+    'extraData',
+    'sealFields',
+    'step',
+    'signature',
+    'mixHash',
+    'nonce',
+    'baseFeePerGas',
+  ]);
   //special parsing for celo
   //https://github.com/celo-org/celo-blockchain/blob/e0c433849e3e6bfe32a421fd8dc05372286ba6d3/core/types/block.go
   //https://github.com/celo-org/celo-blockchain/blob/1a239cbf64188d7c0bd49ce6ae2fe63faab691a1/core/types/istanbul.go
   if (chainId === 42220) {
-    delete header['gasLimit']
-    const istanbulExtra = ethers.utils.RLP.decode("0x" + header.extraData.slice(66))//0x+32bytes = 66
-    istanbulExtra[4] = ['0x', '0x', '0x'] //AggregatedSeal
-    const cleanExtra = ethers.utils.RLP.encode(istanbulExtra)
-    header.extraData = header.extraData.slice(0, 66) + cleanExtra.slice(2)
+    delete header['gasLimit'];
+    const istanbulExtra = ethers.utils.RLP.decode('0x' + header.extraData.slice(66)); //0x+32bytes = 66
+    istanbulExtra[4] = ['0x', '0x', '0x']; //AggregatedSeal
+    const cleanExtra = ethers.utils.RLP.encode(istanbulExtra);
+    header.extraData = header.extraData.slice(0, 66) + cleanExtra.slice(2);
   }
 
-  const rlpHeader = getRlpHeader(header)
+  const rlpHeader = getRlpHeader(header);
   const blockHash = ethers.utils.keccak256(rlpHeader);
   // console.log({block,header,rlpHeader, blockHash})
   if (blockHash !== block.hash) {
-    throw new Error("rlp hash doesnt match expected blockhash")
+    throw new Error('rlp hash doesnt match expected blockhash');
   }
-  return { block, blockHeader: header, rlpHeader, computedHash: blockHash }
-}
+  return { block, blockHeader: header, rlpHeader, computedHash: blockHash };
+};
 /**
  * key for merkle patricia tree proof
- * @param index 
- * @param proofLength 
- * @returns 
+ * @param index
+ * @param proofLength
+ * @returns
  */
 export const index2key = (index, proofLength) => {
   const actualkey = [];
-  const encoded = encode(index).toString("hex");
-  const key = [...new Array(encoded.length / 2).keys()].map(i => parseInt(encoded[i * 2] + encoded[i * 2 + 1], 16));
+  const encoded = encode(index).toString('hex');
+  const key = [...new Array(encoded.length / 2).keys()].map((i) => parseInt(encoded[i * 2] + encoded[i * 2 + 1], 16));
 
-  key.forEach(val => {
+  key.forEach((val) => {
     if (actualkey.length + 1 === proofLength) {
       actualkey.push(val);
     } else {
@@ -185,46 +212,64 @@ export const index2key = (index, proofLength) => {
       actualkey.push(val % 16);
     }
   });
-  return '0x' + actualkey.map(v => v.toString(16).padStart(2, '0')).join('');
-}
+  return '0x' + actualkey.map((v) => v.toString(16).padStart(2, '0')).join('');
+};
 
 export const receiptProof = async (txHash: string, provider: ethers.providers.JsonRpcProvider, chainId?: number) => {
-  const targetReceipt = await provider.send("eth_getTransactionReceipt", [txHash])
-  if (!targetReceipt) { throw new Error("txhash/targetReceipt not found. (use Archive node)") }
-
-  const rpcBlock = await provider.send("eth_getBlockByHash", [targetReceipt.blockHash, false])
-  const blockHeader = prepareBlock(rpcBlock, chainId)
-  const withReceiptType = !!blockHeader.blockHeader.baseFeePerGas || [42220].includes(chainId)
-  let blockReceipt
-  if (chainId === 42220) {
-    blockReceipt = provider.send("eth_getBlockReceipt", [targetReceipt.blockHash])
+  const targetReceipt = await provider.send('eth_getTransactionReceipt', [txHash]);
+  if (!targetReceipt) {
+    throw new Error('txhash/targetReceipt not found. (use Archive node)');
   }
-  const receipts = (await Promise.all(rpcBlock.transactions.map(async (siblingTxHash) => {
-    return provider.send("eth_getTransactionReceipt", [siblingTxHash])
-  }).concat(blockReceipt))).filter(_ => _)
+
+  const rpcBlock = await provider.send('eth_getBlockByHash', [targetReceipt.blockHash, false]);
+  const blockHeader = prepareBlock(rpcBlock, chainId);
+  const withReceiptType = !!blockHeader.blockHeader.baseFeePerGas || [42220].includes(chainId);
+  let blockReceipt;
+  if (chainId === 42220) {
+    blockReceipt = provider.send('eth_getBlockReceipt', [targetReceipt.blockHash]);
+  }
+  const receipts = (
+    await Promise.all(
+      rpcBlock.transactions
+        .map(async (siblingTxHash) => {
+          return provider.send('eth_getTransactionReceipt', [siblingTxHash]);
+        })
+        .concat(blockReceipt),
+    )
+  ).filter((_) => _);
 
   const tree = new Tree();
 
-  await Promise.all(receipts.map((siblingReceipt, index) => {
-    const siblingPath = encode(index)
-    let serializedReceipt = Receipt.fromRpc(siblingReceipt).serialize()
-    if (withReceiptType && siblingReceipt.type && siblingReceipt.type != '0x0') {
-      serializedReceipt = Buffer.concat([Buffer.from([siblingReceipt.type]), serializedReceipt])
-    }
-    return promisfy(tree.put, tree)(siblingPath, serializedReceipt)
-  }))
+  await Promise.all(
+    receipts.map((siblingReceipt, index) => {
+      const siblingPath = encode(index);
+      let serializedReceipt = Receipt.fromRpc(siblingReceipt).serialize();
+      if (withReceiptType && siblingReceipt.type && siblingReceipt.type != '0x0') {
+        serializedReceipt = Buffer.concat([Buffer.from([siblingReceipt.type]), serializedReceipt]);
+      }
+      return promisfy(tree.put, tree)(siblingPath, serializedReceipt);
+    }),
+  );
 
-  const [, , stack] = await promisfy(tree.findPath, tree)(encode(targetReceipt.transactionIndex))
-  const receiptsRoot = "0x" + tree.root.toString("hex")
+  const [, , stack] = await promisfy(tree.findPath, tree)(encode(targetReceipt.transactionIndex));
+  const receiptsRoot = '0x' + tree.root.toString('hex');
   if (receiptsRoot !== blockHeader.block.receiptsRoot) {
-    console.error({ receiptsRoot, blockReceiptsRoot: blockHeader.block.receiptsRoot })
-    throw new Error("receiptsRoot mismatch")
+    console.error({
+      receiptsRoot,
+      blockReceiptsRoot: blockHeader.block.receiptsRoot,
+    });
+    throw new Error('receiptsRoot mismatch');
   }
   return {
     receiptsRoot,
     headerRlp: blockHeader.rlpHeader,
-    receiptProof: Proof.fromStack(stack).raw.map(_ => "0x" + encode(_).toString("hex")),
+    receiptProof: Proof.fromStack(stack).raw.map((_) => '0x' + encode(_).toString('hex')),
     txIndex: targetReceipt.transactionIndex,
-    receiptRlp: "0x" + (withReceiptType && targetReceipt.type && targetReceipt.type != '0x0' ? ethers.utils.hexlify(Number(targetReceipt.type)).slice(2) : '') + Receipt.fromRpc(targetReceipt).serialize().toString("hex")
-  }
-}
+    receiptRlp:
+      '0x' +
+      (withReceiptType && targetReceipt.type && targetReceipt.type != '0x0'
+        ? ethers.utils.hexlify(Number(targetReceipt.type)).slice(2)
+        : '') +
+      Receipt.fromRpc(targetReceipt).serialize().toString('hex'),
+  };
+};

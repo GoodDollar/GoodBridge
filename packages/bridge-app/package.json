@@ -27,17 +27,19 @@
   },
   "scripts": {
     "start": "node build/src/main.js",
-    "clean": "rimraf coverage build tmp",
-    "prebuild": "npm run lint",
+    "clean": "rm -fr dist && rm -fr types && ctix r",
+    "prebuild": "yarn lint",
     "build": "tsc -p tsconfig.json",
     "build:watch": "tsc -w -p tsconfig.json",
-    "build:release": "npm run clean && tsc -p tsconfig.release.json",
+    "build:release": "yarn clean && ctix c && tsc -p tsconfig.release.json",
     "lint": "eslint . --ext .ts --ext .mts",
     "test": "jest --coverage",
     "prettier": "prettier --config .prettierrc --write .",
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "ctix": "^1.4.0",
+    "dotenv": "^16.0.3",
     "eth-proof": "^2.1.6",
     "ethers": "^5.7.0",
     "js-logger": "^1.6.1",
