@@ -157,6 +157,7 @@ async function fetchNewBlocks(signer: Signer) {
         blocks: blocks.length,
         latestBlock: latestBlock.number,
       });
+      let wroteCycle = false;
 
       const signedBlocksPromises = blocks.map(async (block) => {
         try {
@@ -170,9 +171,11 @@ async function fetchNewBlocks(signer: Signer) {
               consensusContract.connect(blockchain.web3).getValidators({ blockTag: block.number }),
             ]);
             //set validators only on change to save gas/storage
-            if (cycleStart !== block.number) {
+            if (cycleStart <= blockchain.lastBlock || wroteCycle) {
               cycleEnd = 0;
               validators = [];
+            } else {
+              wroteCycle = true;
             }
             signedBlock = await SignUtils.signBlock(rlpHeader, 122, signer, cycleEnd, validators);
           } else {
