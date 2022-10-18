@@ -7,7 +7,7 @@
     "test-coverage": "hardhat coverage",
     "build": "hardhat compile",
     "test": "hardhat test",
-    "updateabi": "cp artifacts/contracts/BlockHeaderRegistry.sol/BlockHeaderRegistry.json ../bridge-app/src/abi && cp artifacts/contracts/test/ConsensusMock.sol/ConsensusMock.json ../bridge-app/src/abi",
+    "updateabi": "cp artifacts/contracts/blockRegistry/BlockHeaderRegistry.sol/BlockHeaderRegistry.json ../bridge-app/src/abi && cp artifacts/contracts/test/ConsensusMock.sol/ConsensusMock.json ../bridge-app/src/abi",
     "start:dev": "hardhat node & yarn build && yarn updateabi && hardhat run scripts/deployDevEnv.ts --network localhost"
   },
   "keywords": [],

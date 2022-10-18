@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "./fuse/IConsensus.sol";
-import "./RLPReader.sol";
-import "hardhat/console.sol";
+
+import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
+import '../fuse/IConsensus.sol';
+import '../utils/RLPReader.sol';
+
+// import 'hardhat/console.sol';
 
 /**
 
@@ -92,14 +95,11 @@ contract BlockHeaderRegistry {
     }
 
     modifier onlyVoting() {
-        require(msg.sender == voting, "onlyVoting");
+        require(msg.sender == voting, 'onlyVoting');
         _;
     }
 
-    function addBlockchain(uint256 chainId, string memory rpc)
-        external
-        onlyVoting
-    {
+    function addBlockchain(uint256 chainId, string memory rpc) external onlyVoting {
         uint256 len = enabledBlockchains.length;
         for (uint256 i = 0; i < len; i++) {
             if (enabledBlockchains[i].chainId == chainId) {
@@ -125,7 +125,7 @@ contract BlockHeaderRegistry {
     }
 
     modifier onlyValidator() {
-        require(_isValidator(msg.sender), "onlyValidator");
+        require(_isValidator(msg.sender), 'onlyValidator');
         _;
     }
 
@@ -143,23 +143,18 @@ contract BlockHeaderRegistry {
         for (uint256 i = 0; i < blocks.length; i++) {
             Block calldata _block = blocks[i];
             bytes32 rlpHeaderHash = keccak256(_block.rlpHeader);
-            require(rlpHeaderHash == _block.blockHash, "rlpHeaderHash");
+            require(rlpHeaderHash == _block.blockHash, 'rlpHeaderHash');
             bool isFuse = _isFuse(_block.chainId);
             bytes32 payload = keccak256(
-                abi.encodePacked(
-                    _block.blockHash,
-                    _block.chainId,
-                    _block.validators,
-                    _block.cycleEnd
-                )
+                abi.encodePacked(_block.blockHash, _block.chainId, _block.validators, _block.cycleEnd)
             );
-            console.logBytes32(payload);
+            // console.logBytes32(payload);
             address signer = ECDSA.recover(
                 ECDSA.toEthSignedMessageHash(payload),
                 _block.signature.r,
                 _block.signature.vs
             );
-            require(msg.sender == signer, "msg.sender == signer");
+            require(msg.sender == signer, 'msg.sender == signer');
 
             if (hasValidatorSigned[payload][msg.sender]) continue;
 
@@ -176,26 +171,14 @@ contract BlockHeaderRegistry {
                 signedBlocks[payload].blockHash = rlpHeaderHash;
             }
 
-            signedBlocks[payload].signatures.push(
-                abi.encode(_block.signature.r, _block.signature.vs)
-            );
-            emit BlockAdded(
-                msg.sender,
-                _block.chainId,
-                rlpHeaderHash,
-                _block.validators,
-                _block.cycleEnd
-            );
+            signedBlocks[payload].signatures.push(abi.encode(_block.signature.r, _block.signature.vs));
+            emit BlockAdded(msg.sender, _block.chainId, rlpHeaderHash, _block.validators, _block.cycleEnd);
         }
     }
 
-    function getSignedBlock(uint256 chainId, uint256 number)
-        public
-        view
-        returns (SignedBlock memory signedBlock)
-    {
+    function getSignedBlock(uint256 chainId, uint256 number) public view returns (SignedBlock memory signedBlock) {
         bytes32[] memory _payloadHashes = blockHashes[chainId][number];
-        require(_payloadHashes.length != 0, "_blockHashes.length");
+        require(_payloadHashes.length != 0, '_blockHashes.length');
         bytes32 payloadHash = _payloadHashes[0];
         uint256 _signatures = signedBlocks[payloadHash].signatures.length;
         for (uint256 i = 1; i < _payloadHashes.length; i++) {
@@ -208,11 +191,7 @@ contract BlockHeaderRegistry {
         signedBlock = signedBlocks[payloadHash];
     }
 
-    function getBlockHashByPayloadHash(bytes32 payloadHash)
-        public
-        view
-        returns (bytes32 blockHash)
-    {
+    function getBlockHashByPayloadHash(bytes32 payloadHash) public view returns (bytes32 blockHash) {
         return signedBlocks[payloadHash].blockHash;
     }
 
@@ -260,11 +239,7 @@ contract BlockHeaderRegistry {
     //     // if (ls.length == 16) header.baseFee = ls[15].toUint();
     // }
 
-    function parseRLPBlockNumber(bytes calldata rlpHeader)
-        public
-        pure
-        returns (uint256 blockNumber)
-    {
+    function parseRLPBlockNumber(bytes calldata rlpHeader) public pure returns (uint256 blockNumber) {
         RLPReader.RLPItem[] memory ls = rlpHeader.toRlpItem().toList();
 
         blockNumber = ls[8].toUint();

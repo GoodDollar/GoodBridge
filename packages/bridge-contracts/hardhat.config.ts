@@ -1,11 +1,21 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomiclabs/hardhat-ethers"
-import "@nomiclabs/hardhat-waffle"
-import '@typechain/hardhat'
-import "solidity-coverage"
-import "hardhat-gas-reporter"
+import { HardhatUserConfig } from 'hardhat/config';
+import '@nomiclabs/hardhat-ethers';
+import '@nomiclabs/hardhat-waffle';
+import '@typechain/hardhat';
+import 'solidity-coverage';
+import 'hardhat-gas-reporter';
+import { HttpNetworkAccountsConfig } from 'hardhat/types';
 
+const pkey = process.env.PRIVATE_KEY;
+const mnemonic = process.env.MNEMONIC;
 
+let accounts: unknown = 'remote';
+if (pkey) {
+  accounts = [pkey];
+}
+if (mnemonic) {
+  accounts = { mnemonic };
+}
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
@@ -14,22 +24,22 @@ import "hardhat-gas-reporter"
  * @type import('hardhat/config').HardhatUserConfig
  */
 const config: HardhatUserConfig = {
-  solidity: "0.8.10",
+  solidity: '0.8.10',
   networks: {
     hardhat: {
       chainId: 1337,
-      allowUnlimitedContractSize: true,      
+      allowUnlimitedContractSize: true,
     },
-    "develop": {
+    develop: {
       chainId: 4447,
-      url: "http://localhost:8545",      
+      url: 'http://localhost:8545',
     },
-    "fuse": {
+    fuse: {
+      accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 122,
-      url: "https://rpc.fuse.io",      
-    }
-    
-  }
+      url: 'https://rpc.fuse.io',
+    },
+  },
 };
 
 export default config;

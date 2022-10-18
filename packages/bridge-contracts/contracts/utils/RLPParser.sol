@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
-import "./RLPReader.sol";
-import "hardhat/console.sol";
+import './RLPReader.sol';
+
+// import "hardhat/console.sol";
 
 library RLPParser {
     using RLPReader for RLPReader.RLPItem;
@@ -21,11 +22,7 @@ library RLPParser {
         Log[] logs;
     }
 
-    function toReceipt(bytes memory rlpHeader)
-        internal
-        pure
-        returns (TransactionReceipt memory receipt)
-    {
+    function toReceipt(bytes memory rlpHeader) internal pure returns (TransactionReceipt memory receipt) {
         uint256 skipBytes = 0;
         if (rlpHeader[0] <= bytes1(0x7f)) {
             skipBytes = 1;
@@ -42,11 +39,7 @@ library RLPParser {
         }
     }
 
-    function toReceiptLog(RLPReader.RLPItem memory logRlp)
-        internal
-        pure
-        returns (Log memory log)
-    {
+    function toReceiptLog(RLPReader.RLPItem memory logRlp) internal pure returns (Log memory log) {
         RLPReader.RLPItem[] memory ls = logRlp.toList();
         log.contractAddress = ls[0].toAddress();
         RLPReader.RLPItem[] memory topics = ls[1].toList();

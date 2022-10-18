@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
-import "./RLPReader.sol";
+import './RLPReader.sol';
 
 /*
     Documentation:
@@ -22,27 +22,17 @@ library MPT {
         bytes expectedValue;
     }
 
-    function verifyTrieProof(MerkleProof memory data)
-        internal
-        pure
-        returns (bool)
-    {
+    function verifyTrieProof(MerkleProof memory data) internal pure returns (bool) {
         bytes memory node = data.proof[data.proofIndex];
         RLPReader.Iterator memory dec = RLPReader.toRlpItem(node).iterator();
 
         if (data.keyIndex == 0) {
-            require(
-                keccak256(node) == data.expectedRoot,
-                "verifyTrieProof root node hash invalid"
-            );
+            require(keccak256(node) == data.expectedRoot, 'verifyTrieProof root node hash invalid');
         } else if (node.length < 32) {
             bytes32 root = bytes32(dec.next().toUint());
-            require(root == data.expectedRoot, "verifyTrieProof < 32");
+            require(root == data.expectedRoot, 'verifyTrieProof < 32');
         } else {
-            require(
-                keccak256(node) == data.expectedRoot,
-                "verifyTrieProof else"
-            );
+            require(keccak256(node) == data.expectedRoot, 'verifyTrieProof else');
         }
 
         uint256 numberItems = RLPReader.numItems(dec.item);
@@ -60,25 +50,17 @@ library MPT {
         else return false;
     }
 
-    function verifyTrieProofBranch(MerkleProof memory data)
-        internal
-        pure
-        returns (bool)
-    {
+    function verifyTrieProofBranch(MerkleProof memory data) internal pure returns (bool) {
         bytes memory node = data.proof[data.proofIndex];
 
         if (data.keyIndex >= data.key.length) {
-            bytes memory item = RLPReader
-            .toRlpItem(node)
-            .toList()[16].toBytes();
+            bytes memory item = RLPReader.toRlpItem(node).toList()[16].toBytes();
             if (keccak256(item) == keccak256(data.expectedValue)) {
                 return true;
             }
         } else {
             uint256 index = uint256(uint8(data.key[data.keyIndex]));
-            bytes memory _newExpectedRoot = RLPReader
-            .toRlpItem(node)
-            .toList()[index].toBytes();
+            bytes memory _newExpectedRoot = RLPReader.toRlpItem(node).toList()[index].toBytes();
 
             if (!(_newExpectedRoot.length == 0)) {
                 data.expectedRoot = b2b32(_newExpectedRoot);
@@ -92,10 +74,11 @@ library MPT {
         else return false;
     }
 
-    function verifyTrieProofLeafOrExtension(
-        RLPReader.Iterator memory dec,
-        MerkleProof memory data
-    ) internal pure returns (bool) {
+    function verifyTrieProofLeafOrExtension(RLPReader.Iterator memory dec, MerkleProof memory data)
+        internal
+        pure
+        returns (bool)
+    {
         bytes memory nodekey = dec.next().toBytes();
         bytes memory nodevalue = dec.next().toBytes();
         uint256 prefix;
@@ -108,51 +91,24 @@ library MPT {
             // leaf even
             uint256 length = nodekey.length - 1;
             bytes memory actualKey = sliceTransform(nodekey, 1, length, false);
-            bytes memory restKey = sliceTransform(
-                data.key,
-                data.keyIndex,
-                length,
-                false
-            );
+            bytes memory restKey = sliceTransform(data.key, data.keyIndex, length, false);
             if (keccak256(data.expectedValue) == keccak256(nodevalue)) {
                 if (keccak256(actualKey) == keccak256(restKey)) return true;
-                if (keccak256(expandKeyEven(actualKey)) == keccak256(restKey))
-                    return true;
+                if (keccak256(expandKeyEven(actualKey)) == keccak256(restKey)) return true;
             }
         } else if (prefix == 3) {
             // leaf odd
-            bytes memory actualKey = sliceTransform(
-                nodekey,
-                0,
-                nodekey.length,
-                true
-            );
-            bytes memory restKey = sliceTransform(
-                data.key,
-                data.keyIndex,
-                data.key.length - data.keyIndex,
-                false
-            );
+            bytes memory actualKey = sliceTransform(nodekey, 0, nodekey.length, true);
+            bytes memory restKey = sliceTransform(data.key, data.keyIndex, data.key.length - data.keyIndex, false);
             if (keccak256(data.expectedValue) == keccak256(nodevalue)) {
                 if (keccak256(actualKey) == keccak256(restKey)) return true;
-                if (keccak256(expandKeyOdd(actualKey)) == keccak256(restKey))
-                    return true;
+                if (keccak256(expandKeyOdd(actualKey)) == keccak256(restKey)) return true;
             }
         } else if (prefix == 0) {
             // extension even
             uint256 extensionLength = nodekey.length - 1;
-            bytes memory shared_nibbles = sliceTransform(
-                nodekey,
-                1,
-                extensionLength,
-                false
-            );
-            bytes memory restKey = sliceTransform(
-                data.key,
-                data.keyIndex,
-                extensionLength,
-                false
-            );
+            bytes memory shared_nibbles = sliceTransform(nodekey, 1, extensionLength, false);
+            bytes memory restKey = sliceTransform(data.key, data.keyIndex, extensionLength, false);
             if (
                 keccak256(shared_nibbles) == keccak256(restKey) ||
                 keccak256(expandKeyEven(shared_nibbles)) == keccak256(restKey)
@@ -165,18 +121,8 @@ library MPT {
         } else if (prefix == 1) {
             // extension odd
             uint256 extensionLength = nodekey.length;
-            bytes memory shared_nibbles = sliceTransform(
-                nodekey,
-                0,
-                extensionLength,
-                true
-            );
-            bytes memory restKey = sliceTransform(
-                data.key,
-                data.keyIndex,
-                extensionLength,
-                false
-            );
+            bytes memory shared_nibbles = sliceTransform(nodekey, 0, extensionLength, true);
+            bytes memory restKey = sliceTransform(data.key, data.keyIndex, extensionLength, false);
             if (
                 keccak256(shared_nibbles) == keccak256(restKey) ||
                 keccak256(expandKeyEven(shared_nibbles)) == keccak256(restKey)
@@ -187,7 +133,7 @@ library MPT {
                 return verifyTrieProof(data);
             }
         } else {
-            revert("Invalid proof");
+            revert('Invalid proof');
         }
         if (data.expectedValue.length == 0) return true;
         else return false;
@@ -215,10 +161,7 @@ library MPT {
             source := add(start, data)
 
             if removeFirstNibble {
-                mstore(
-                    add(newdata, pos),
-                    shr(4, shl(4, mload(add(source, pos))))
-                )
+                mstore(add(newdata, pos), shr(4, shl(4, mload(add(source, pos)))))
                 si := 1
                 pos := add(pos, 32)
             }
@@ -231,29 +174,18 @@ library MPT {
                 mstore(add(newdata, pos), mload(add(source, pos)))
                 pos := add(pos, 32)
             }
-            mstore(
-                add(newdata, pos),
-                shl(rest, shr(rest, mload(add(source, pos))))
-            )
+            mstore(add(newdata, pos), shl(rest, shr(rest, mload(add(source, pos)))))
         }
     }
 
-    function getNibbles(bytes1 b)
-        internal
-        pure
-        returns (bytes1 nibble1, bytes1 nibble2)
-    {
+    function getNibbles(bytes1 b) internal pure returns (bytes1 nibble1, bytes1 nibble2) {
         assembly {
             nibble1 := shr(4, b)
             nibble2 := shr(4, shl(4, b))
         }
     }
 
-    function expandKeyEven(bytes memory data)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function expandKeyEven(bytes memory data) internal pure returns (bytes memory) {
         uint256 length = data.length * 2;
         bytes memory expanded = new bytes(length);
 
@@ -265,11 +197,7 @@ library MPT {
         return expanded;
     }
 
-    function expandKeyOdd(bytes memory data)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function expandKeyOdd(bytes memory data) internal pure returns (bytes memory) {
         uint256 length = data.length * 2 - 1;
         bytes memory expanded = new bytes(length);
         expanded[0] = data[0];

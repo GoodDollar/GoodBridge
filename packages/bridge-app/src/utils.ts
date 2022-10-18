@@ -7,6 +7,7 @@ import { Receipt, Proof } from 'eth-object';
 import { encode } from 'eth-util-lite';
 import { promisfy } from 'promisfy';
 import * as RLP from 'rlp';
+import { logger } from './blockHeaderRegistry';
 
 export interface BlockHeader {
   number: number;
@@ -184,11 +185,15 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
     const cleanExtra = ethers.utils.RLP.encode(istanbulExtra);
     header.extraData = header.extraData.slice(0, 66) + cleanExtra.slice(2);
   }
-
+  if (header['sealFields'] && header['step'] && header['signature']) {
+    delete header['step'];
+    delete header['signature'];
+  }
   const rlpHeader = getRlpHeader(header);
   const blockHash = ethers.utils.keccak256(rlpHeader);
   // console.log({block,header,rlpHeader, blockHash})
   if (blockHash !== block.hash) {
+    logger.debug({ block, header, blockHash, rlpHeader });
     throw new Error('rlp hash doesnt match expected blockhash');
   }
   return { block, blockHeader: header, rlpHeader, computedHash: blockHash };

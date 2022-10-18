@@ -13,12 +13,12 @@
     "@types/node": "~16",
     "@typescript-eslint/eslint-plugin": "~5.26",
     "@typescript-eslint/parser": "~5.26",
+    "ctix": "^1.4.0",
     "eslint": "~8.16",
     "eslint-config-prettier": "~8.5",
     "eslint-plugin-jest": "~26.2",
     "jest": "^29.1.1",
     "prettier": "~2.6",
-    "rimraf": "~3.0",
     "ts-jest": "^29.0.2",
     "ts-node": "^10.9.1",
     "tslib": "~2.4",
@@ -26,11 +26,12 @@
     "typescript": "~4.7"
   },
   "scripts": {
-    "start": "node build/src/main.js",
+    "start": "node dist/src/main.js",
     "clean": "rm -fr dist && rm -fr types && ctix r",
-    "prebuild": "yarn lint",
+    "prebuild": "yarn clean && yarn lint && yarn build:copyabi",
     "build": "tsc -p tsconfig.json",
     "build:watch": "tsc -w -p tsconfig.json",
+    "build:copyabi": "cp ../bridge-contracts/artifacts/contracts/blockRegistry/BlockHeaderRegistry.sol/BlockHeaderRegistry.json ./src/abi && cp ../bridge-contracts/artifacts/contracts/test/ConsensusMock.sol/ConsensusMock.json ./src/abi",
     "build:release": "yarn clean && ctix c && tsc -p tsconfig.release.json",
     "lint": "eslint . --ext .ts --ext .mts",
     "test": "jest --coverage",
@@ -38,7 +39,6 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "ctix": "^1.4.0",
     "dotenv": "^16.0.3",
     "eth-proof": "^2.1.6",
     "ethers": "^5.7.0",

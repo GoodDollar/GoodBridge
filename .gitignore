@@ -5,3 +5,6 @@ packages/bridge-contracts/typechain-types/@openzeppelin
 packages/bridge-contracts/typechain-types/factories
 packages/bridge-app/.yarn/install-state.gz
 packages/bridge-contracts/.yarn/install-state.gz
+.yarn/releases/yarn-stable-temp.cjs
+.yarn/install-state.gz
+packages/bridge-app/.env

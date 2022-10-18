@@ -52,6 +52,17 @@ describe('block header registry', () => {
     expect(computedHash).toEqual(block.hash);
   });
 
+  it.only('creates fuse rlpHeader 19612780', async () => {
+    const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
+      '19612780',
+      122,
+      'https://rpc.fuse.io',
+    );
+    expect(rlpHeader).toBeDefined();
+    expect(blockHeader).toBeDefined();
+    expect(computedHash).toEqual(block.hash);
+  });
+
   it('creates gnosis rlpHeader', async () => {
     const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
       '15000000',

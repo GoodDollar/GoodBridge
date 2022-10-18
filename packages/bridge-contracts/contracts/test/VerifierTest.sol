@@ -1,13 +1,10 @@
 pragma solidity >=0.8.0;
-import "../MPT.sol";
-import "../RLPParser.sol";
+
+import '../utils/MPT.sol';
+import '../utils/RLPParser.sol';
 
 contract VerifierTest {
-    function verifyReceipt(MPT.MerkleProof calldata proof)
-        external
-        view
-        returns (bool ok)
-    {
+    function verifyReceipt(MPT.MerkleProof calldata proof) external view returns (bool ok) {
         return MPT.verifyTrieProof(proof);
     }
 
