@@ -8,6 +8,7 @@ import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers'
 import { chunk, filter, flatten, merge, range, throttle } from 'lodash';
 import { config } from 'dotenv';
 import fetch from 'node-fetch';
+import pAll from 'p-all';
 import * as SignUtils from './utils';
 import ConsensusABI from './abi/ConsensusMock.json';
 
@@ -138,10 +139,11 @@ async function fetchNewBlocks(signer: Signer) {
           lastFetchedBlock: blockchain.lastBlock,
           curBlockNumber,
         });
-        blocks = await Promise.all(
-          range(blockchain.lastBlock + stepSize, curBlockNumber, stepSize).map((i) =>
-            blockchain.web3.send('eth_getBlockByNumber', [ethers.utils.hexValue(i), false]),
+        blocks = await pAll(
+          range(blockchain.lastBlock + stepSize, curBlockNumber, stepSize).map(
+            (i) => () => blockchain.web3.send('eth_getBlockByNumber', [ethers.utils.hexValue(i), false]),
           ),
+          { concurrency: 50 },
         );
       }
       if (blockchain.lastBlock === curBlockNumber) {
@@ -157,6 +159,15 @@ async function fetchNewBlocks(signer: Signer) {
         blocks: blocks.length,
         latestBlock: latestBlock.number,
       });
+
+      if (chainId == '122') {
+        [cycleStart, cycleEnd, validators] = await Promise.all([
+          consensusContract.connect(blockchain.web3).getCurrentCycleStartBlock(),
+          consensusContract.connect(blockchain.web3).getCurrentCycleEndBlock(),
+          consensusContract.connect(blockchain.web3).getValidators(),
+        ]);
+        logger.info('fuse consensus:', { cycleStart, cycleEnd, validators });
+      }
       let wroteCycle = false;
 
       const signedBlocksPromises = blocks.map(async (block) => {
@@ -165,13 +176,8 @@ async function fetchNewBlocks(signer: Signer) {
           const { rlpHeader } = SignUtils.prepareBlock(block, Number(chainId));
           // rlpHeader,signature:{r: signature.r, vs: signature._vs },chainId:122,blockHash: block.hash,cycleEnd, validators
           if (chainId == '122') {
-            [cycleStart, cycleEnd, validators] = await Promise.all([
-              consensusContract.connect(blockchain.web3).getCurrentCycleStartBlock({ blockTag: block.number }),
-              consensusContract.connect(blockchain.web3).getCurrentCycleEndBlock({ blockTag: block.number }),
-              consensusContract.connect(blockchain.web3).getValidators({ blockTag: block.number }),
-            ]);
             //set validators only on change to save gas/storage
-            if (cycleStart <= blockchain.lastBlock || wroteCycle) {
+            if (block.number < cycleStart || wroteCycle) {
               cycleEnd = 0;
               validators = [];
             } else {

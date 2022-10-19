@@ -5,7 +5,7 @@
     "allowSyntheticDefaultImports": true,
     "target": "ES2022",
     "noImplicitAny": false,
-    "moduleResolution": "node",
+    "moduleResolution": "Node",
     "sourceMap": true,
     "resolveJsonModule": true,
     "outDir": "dist",
