@@ -52,17 +52,6 @@ describe('block header registry', () => {
     expect(computedHash).toEqual(block.hash);
   });
 
-  it.only('creates fuse rlpHeader 19612780', async () => {
-    const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
-      '19612780',
-      122,
-      'https://rpc.fuse.io',
-    );
-    expect(rlpHeader).toBeDefined();
-    expect(blockHeader).toBeDefined();
-    expect(computedHash).toEqual(block.hash);
-  });
-
   it('creates gnosis rlpHeader', async () => {
     const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
       '15000000',
@@ -131,18 +120,18 @@ describe('block header registry', () => {
     BridgeApp.initBlockRegistryContract(
       signer,
       '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-      '0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79',
+      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       'http://localhost:8545',
     );
 
     BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
     BridgeApp.initBlockchain(56, 'https://bscrpc.com');
-    const blocks = await BridgeApp.fetchNewBlocks(signer);
+    const blocks = await BridgeApp.fetchNewBlocks([signer]);
     expect(blocks.length).toEqual(2);
     const fuseBlock = blocks.find((_) => _.chainId === 122);
     const bscBlock = blocks.find((_) => _.chainId === 56);
     await delay(BridgeApp.stepSize * 6000); //wait for stepSize blocks
-    const nextBlocks = await BridgeApp.fetchNewBlocks(signer);
+    const nextBlocks = await BridgeApp.fetchNewBlocks([signer]);
     const fuseBlock2 = nextBlocks.find((_) => _.chainId === 122);
     const bscBlock2 = nextBlocks.find((_) => _.chainId === 56);
     expect(fuseBlock2.rlpHeader).not.toEqual(fuseBlock.rlpHeader);
@@ -160,11 +149,11 @@ describe('block header registry', () => {
     BridgeApp.initBlockRegistryContract(
       signer,
       '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-      '0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79',
+      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       'http://localhost:8545',
     );
 
-    await BridgeApp.refreshRPCs();
+    await BridgeApp._refreshRPCs();
     //should initialize chains from contract as defined in deployDevEnv.ts script
     expect(BridgeApp.blockchains['122'].web3).not.toBeNull();
     expect(BridgeApp.blockchains['122'].lastBlock).toBeUndefined();
@@ -186,10 +175,10 @@ describe('block header registry', () => {
     BridgeApp.initBlockRegistryContract(
       signer,
       '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-      '0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79',
+      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       'http://localhost:8545',
     );
-    await BridgeApp.refreshRPCs();
+    await BridgeApp._refreshRPCs();
 
     //should initialize chains from contract as defined in deployDevEnv.ts script
     const blocks = await BridgeApp.emitRegistry();

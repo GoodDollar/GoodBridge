@@ -26,7 +26,7 @@ abstract contract BridgeCore {
         uint256 number;
     }
 
-    struct BlockSignedTxs {
+    struct BlockReceiptProofs {
         MPT.MerkleProof[] receiptProofs;
         bytes blockHeaderRlp;
         uint256 blockNumber;
@@ -88,9 +88,9 @@ abstract contract BridgeCore {
         numValidators = validators.length;
     }
 
-    function executeReceipts(uint256 chainId, BlockSignedTxs[] calldata blocks) public virtual {
+    function executeReceipts(uint256 chainId, BlockReceiptProofs[] calldata blocks) public virtual {
         for (uint256 i = 0; i < blocks.length; i++) {
-            BlockSignedTxs memory blockReceipts = blocks[i];
+            BlockReceiptProofs memory blockReceipts = blocks[i];
             bytes32 blockHash = chainVerifiedBlocks[chainId][blockReceipts.blockNumber];
             require(keccak256(blockReceipts.blockHeaderRlp) == blockHash, 'invalid block hash');
             RLPReader.RLPItem[] memory ls = blockReceipts.blockHeaderRlp.toRlpItem().toList();
@@ -150,16 +150,15 @@ abstract contract BridgeCore {
 
     function submitChainBlockParentsAndTxs(
         SignedBlock calldata blockData,
-        uint256 chainId,
         uint256 childBlockNumber,
         bytes[] calldata parentRlpHeaders,
-        bytes calldata childRlpHeader,
-        BlockSignedTxs[] calldata txs
+        BlockReceiptProofs[] calldata txs
     ) public {
         SignedBlock[] memory arr = new SignedBlock[](1);
         arr[0] = blockData;
         submitBlocks(arr);
-        verifyParentBlocks(chainId, childBlockNumber, parentRlpHeaders, childRlpHeader);
-        executeReceipts(chainId, txs);
+        if (parentRlpHeaders.length > 0)
+            verifyParentBlocks(blockData.chainId, childBlockNumber, parentRlpHeaders, blockData.rlpHeader);
+        executeReceipts(blockData.chainId, txs);
     }
 }

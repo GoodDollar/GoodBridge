@@ -13,7 +13,7 @@ import * as SignUtils from './utils';
 import ConsensusABI from './abi/ConsensusMock.json';
 
 config();
-const { INDICATIVE_KEY, CONFIG_DIR = './', REGISTRY_RPC, STEP_SIZE = 10 } = process.env;
+const { INDICATIVE_KEY, CONFIG_DIR = './', FUSE_RPC, STEP_SIZE = 10 } = process.env;
 let configDir = CONFIG_DIR;
 let validatorId;
 
@@ -79,7 +79,7 @@ async function initBlockRegistryContract(signer: Wallet, registry: string, conse
   const rpc = new JsonRpcBatchProvider(registryRpc);
   signer = signer.connect(rpc);
   blockRegistryContract = SignUtils.getRegistryContract(registry, signer);
-  consensusContract = new ethers.Contract(consensus, ConsensusABI.abi);
+  consensusContract = new ethers.Contract(consensus, ConsensusABI.abi, rpc);
 
   try {
     if (process.env.NODE_ENV !== 'test') {
@@ -102,9 +102,9 @@ function initLastBlocks(lastBlocks: Array<[string, number]>) {
 }
 
 function initBlockchain(chainId: number, rpc: string) {
-  logger.info('initBlockchain', { chainId, rpc });
   //on fuse use the local validator node rpc
-  if (chainId === 122 && REGISTRY_RPC) rpc = REGISTRY_RPC || rpc;
+  if (chainId === 122) rpc = FUSE_RPC || rpc;
+  logger.info('initBlockchain', { chainId, rpc });
   blockchains[String(chainId)] = {
     web3: new JsonRpcBatchProvider(rpc),
     rpc,
@@ -113,24 +113,23 @@ function initBlockchain(chainId: number, rpc: string) {
 }
 
 //fetch every step block
-async function fetchNewBlocks(signer: Signer) {
+async function fetchNewBlocks(signers: Array<Signer>) {
   const ps = Object.entries(blockchains).map(async ([chainId, blockchain]): Promise<SignedBlock[]> => {
-    logger.info('starting fetchNewBlocks for', { chainId });
+    logger.info('starting fetchNewBlocks for', { chainId, lastCheckPoint: blockchain.lastBlock });
     let cycleEnd = 0;
     let cycleStart = 0;
     let validators = [];
-    let signedBlock;
 
     try {
       let curBlockNumber = await blockchain.web3.getBlockNumber();
       curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
 
       // const block = await blockchain.web3.eth.getBlock(blockchain.lastBlock ? blockchain.lastBlock + 1 : 'latest')
-      const latestBlock = await blockchain.web3.send('eth_getBlockByNumber', [
+      const latestCheckpoint = await blockchain.web3.send('eth_getBlockByNumber', [
         '0x' + curBlockNumber.toString(16),
         false,
       ]);
-      logger.info('latest checkpoint block:', { curBlockNumber });
+      logger.info('current checkpoint block:', { chainId, curBlockNumber });
 
       let blocks = [];
       if (blockchain.lastBlock && blockchain.lastBlock < curBlockNumber) {
@@ -152,25 +151,26 @@ async function fetchNewBlocks(signer: Signer) {
       }
 
       blocks = filter(blocks);
-      blocks.push(latestBlock);
+      blocks.push(latestCheckpoint);
 
       logger.info('got blocks for chain:', {
         chainId,
-        blocks: blocks.length,
-        latestBlock: latestBlock.number,
+        blocks: blocks.map((_) => Number(_.number)),
+        latestCheckpoint: Number(latestCheckpoint.number),
       });
 
       if (chainId == '122') {
         [cycleStart, cycleEnd, validators] = await Promise.all([
-          consensusContract.connect(blockchain.web3).getCurrentCycleStartBlock(),
-          consensusContract.connect(blockchain.web3).getCurrentCycleEndBlock(),
-          consensusContract.connect(blockchain.web3).getValidators(),
+          consensusContract.getCurrentCycleStartBlock(),
+          consensusContract.getCurrentCycleEndBlock(),
+          consensusContract.getValidators(),
         ]);
         logger.info('fuse consensus:', { cycleStart, cycleEnd, validators });
       }
       let wroteCycle = false;
 
       const signedBlocksPromises = blocks.map(async (block) => {
+        let signedBlocks = [];
         try {
           logger.debug('before SignUtils.prepareBlock block:', { block, chainId });
           const { rlpHeader } = SignUtils.prepareBlock(block, Number(chainId));
@@ -183,17 +183,21 @@ async function fetchNewBlocks(signer: Signer) {
             } else {
               wroteCycle = true;
             }
-            signedBlock = await SignUtils.signBlock(rlpHeader, 122, signer, cycleEnd, validators);
+            signedBlocks = await Promise.all(
+              signers.map((signer) => SignUtils.signBlock(rlpHeader, 122, signer, cycleEnd, validators)),
+            );
           } else {
-            signedBlock = await SignUtils.signBlock(rlpHeader, Number(chainId), signer, 0, []);
+            signedBlocks = await Promise.all(
+              signers.map((signer) => SignUtils.signBlock(rlpHeader, Number(chainId), signer, 0, [])),
+            );
           }
-          return signedBlock;
+          return signedBlocks;
         } catch (e) {
           logger.error('failed signing block:', { message: e.message, block, chainId });
           throw new Error('failed signing block');
         }
       });
-      const signedBlocks = filter(await Promise.all(signedBlocksPromises));
+      const signedBlocks = flatten(filter(await Promise.all(signedBlocksPromises)));
 
       logger.info('got signed blocks:', signedBlocks.length, 'out of', blocks.length);
 
@@ -216,14 +220,14 @@ async function fetchNewBlocks(signer: Signer) {
   return blocks;
 }
 
-const refreshRPCs = throttle(async () => {
+const _refreshRPCs = async () => {
   try {
     const chains = await blockRegistryContract.getRPCs();
     logger.info('got registered rpcs:', chains.length);
     const randRpc = chains.map(({ chainId, rpc }) => {
       const rpcs = rpc.split(',');
       const randomRpc = rpcs[random(0, rpcs.length - 1)];
-      return { chainId, rpc: randomRpc };
+      return { chainId: chainId.toNumber(), rpc: randomRpc };
     });
 
     randRpc
@@ -232,15 +236,17 @@ const refreshRPCs = throttle(async () => {
   } catch (e) {
     logger.error('failed fetching rpcs:', { message: e.message });
   }
-}, 1000 * 60 * 60);
+};
+
+const refreshRPCs = throttle(_refreshRPCs, 1000 * 60 * 60);
 /**
  * runs periodically
  */
-async function emitRegistry() {
+async function emitRegistry(signers?: Array<Signer>) {
   try {
     logger.info('emitRegistry');
 
-    const blocks = await fetchNewBlocks(blockRegistryContract.signer);
+    const blocks = await fetchNewBlocks(signers || [blockRegistryContract.signer]);
     // const blocks : { [hash:string]: SignedBlock} = {};
     // const chainIds : {[ hash:string ]: string} = {};
 
@@ -277,6 +283,7 @@ export {
   blockchains,
   fetchNewBlocks,
   refreshRPCs,
+  _refreshRPCs,
   setStepSize,
   logger,
 };

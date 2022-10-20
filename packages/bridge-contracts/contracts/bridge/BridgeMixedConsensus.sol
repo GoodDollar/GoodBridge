@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0;
 
 import '@openzeppelin/contracts/access/Ownable.sol';
+// import 'hardhat/console.sol';
 
 import './BridgeCore.sol';
 
@@ -58,6 +59,8 @@ abstract contract BridgeMixedConsensus is BridgeCore, Ownable {
                 return true;
             }
         }
+        // console.log('valid: %s required: %s', countValid, countRequired);
+
         return false;
     }
 }

@@ -116,7 +116,8 @@ contract TokenBridge is BridgeMixedConsensus {
             //parse targetChainId and amount from data
             (uint256 targetChainId, uint256 amount) = abi.decode(log.data, (uint256, uint256));
 
-            require(targetChainId == _chainId(), 'targetChainId');
+            if (targetChainId != _chainId()) continue;
+
             validLog = true;
 
             //get recipient
@@ -152,7 +153,7 @@ contract TokenBridge is BridgeMixedConsensus {
         }
     }
 
-    function _chainId() internal view returns (uint256 chainId) {
+    function _chainId() internal view virtual returns (uint256 chainId) {
         assembly {
             chainId := chainid()
         }

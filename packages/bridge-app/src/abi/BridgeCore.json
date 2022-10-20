@@ -1,0 +1,401 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "BridgeCore",
+  "sourceName": "contracts/bridge/BridgeCore.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "bridgeStartBlock",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "chainVerifiedBlocks",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "currentValidators",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "chainId",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "bytes32",
+                  "name": "expectedRoot",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "key",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "bytes[]",
+                  "name": "proof",
+                  "type": "bytes[]"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "keyIndex",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "proofIndex",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "expectedValue",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct MPT.MerkleProof[]",
+              "name": "receiptProofs",
+              "type": "tuple[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "blockHeaderRlp",
+              "type": "bytes"
+            },
+            {
+              "internalType": "uint256",
+              "name": "blockNumber",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct BridgeCore.BlockReceiptProofs[]",
+          "name": "blocks",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "executeReceipts",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "signers",
+          "type": "address[]"
+        }
+      ],
+      "name": "isValidConsensus",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isValid",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "numValidators",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes",
+          "name": "rlpHeader",
+          "type": "bytes"
+        }
+      ],
+      "name": "parseRLPToHeader",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "parentHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "uint256",
+              "name": "number",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct BridgeCore.BlockHeader",
+          "name": "header",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "chainId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "rlpHeader",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes[]",
+              "name": "signatures",
+              "type": "bytes[]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "cycleEnd",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address[]",
+              "name": "validators",
+              "type": "address[]"
+            }
+          ],
+          "internalType": "struct BridgeCore.SignedBlock[]",
+          "name": "signedBlocks",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "submitBlocks",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "chainId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "rlpHeader",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes[]",
+              "name": "signatures",
+              "type": "bytes[]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "cycleEnd",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address[]",
+              "name": "validators",
+              "type": "address[]"
+            }
+          ],
+          "internalType": "struct BridgeCore.SignedBlock",
+          "name": "blockData",
+          "type": "tuple"
+        },
+        {
+          "internalType": "uint256",
+          "name": "childBlockNumber",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes[]",
+          "name": "parentRlpHeaders",
+          "type": "bytes[]"
+        },
+        {
+          "components": [
+            {
+              "components": [
+                {
+                  "internalType": "bytes32",
+                  "name": "expectedRoot",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "key",
+                  "type": "bytes"
+                },
+                {
+                  "internalType": "bytes[]",
+                  "name": "proof",
+                  "type": "bytes[]"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "keyIndex",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "proofIndex",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "bytes",
+                  "name": "expectedValue",
+                  "type": "bytes"
+                }
+              ],
+              "internalType": "struct MPT.MerkleProof[]",
+              "name": "receiptProofs",
+              "type": "tuple[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "blockHeaderRlp",
+              "type": "bytes"
+            },
+            {
+              "internalType": "uint256",
+              "name": "blockNumber",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct BridgeCore.BlockReceiptProofs[]",
+          "name": "txs",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "submitChainBlockParentsAndTxs",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "usedReceipts",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "validatorsCycleEnd",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "chainId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "childBlockNumber",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes[]",
+          "name": "parentRlpHeaders",
+          "type": "bytes[]"
+        },
+        {
+          "internalType": "bytes",
+          "name": "childRlpHeader",
+          "type": "bytes"
+        }
+      ],
+      "name": "verifyParentBlocks",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

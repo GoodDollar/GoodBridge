@@ -31,7 +31,7 @@
     "prebuild": "yarn clean && yarn lint && yarn build:copyabi",
     "build": "tsc -p tsconfig.json",
     "build:watch": "tsc -w -p tsconfig.json",
-    "build:copyabi": "cp ../bridge-contracts/artifacts/contracts/blockRegistry/BlockHeaderRegistry.sol/BlockHeaderRegistry.json ./src/abi && cp ../bridge-contracts/artifacts/contracts/test/ConsensusMock.sol/ConsensusMock.json ./src/abi",
+    "build:copyabi": "find ../bridge-contracts/artifacts/contracts/ -iregex '.*/[a-z]*.json' -exec cp \"{}\" ./src/abi/ \\;",
     "build:release": "yarn clean && ctix c && tsc -p tsconfig.release.json",
     "lint": "eslint . --ext .ts --ext .mts",
     "test": "jest --coverage",

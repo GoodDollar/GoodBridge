@@ -266,6 +266,7 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
     throw new Error('receiptsRoot mismatch');
   }
   return {
+    receipt: targetReceipt,
     receiptsRoot,
     headerRlp: blockHeader.rlpHeader,
     receiptProof: Proof.fromStack(stack).raw.map((_) => '0x' + encode(_).toString('hex')),

@@ -139,7 +139,7 @@ contract BlockHeaderRegistry {
 		@notice Processes fuse blocks slightly differently.
 		@param blocks List of block headers and signatures to add.
 	*/
-    function addSignedBlocks(Block[] calldata blocks) external onlyValidator {
+    function addSignedBlocks(Block[] calldata blocks) external {
         for (uint256 i = 0; i < blocks.length; i++) {
             Block calldata _block = blocks[i];
             bytes32 rlpHeaderHash = keccak256(_block.rlpHeader);
@@ -154,9 +154,9 @@ contract BlockHeaderRegistry {
                 _block.signature.r,
                 _block.signature.vs
             );
-            require(msg.sender == signer, 'msg.sender == signer');
+            require(_isValidator(signer), 'not validator');
 
-            if (hasValidatorSigned[payload][msg.sender]) continue;
+            if (hasValidatorSigned[payload][signer]) continue;
 
             hasValidatorSigned[payload][signer] = true;
 
@@ -172,7 +172,7 @@ contract BlockHeaderRegistry {
             }
 
             signedBlocks[payload].signatures.push(abi.encode(_block.signature.r, _block.signature.vs));
-            emit BlockAdded(msg.sender, _block.chainId, rlpHeaderHash, _block.validators, _block.cycleEnd);
+            emit BlockAdded(signer, _block.chainId, rlpHeaderHash, _block.validators, _block.cycleEnd);
         }
     }
 
