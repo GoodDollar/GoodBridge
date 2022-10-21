@@ -11,9 +11,9 @@ import fetch from 'node-fetch';
 import pAll from 'p-all';
 import * as SignUtils from './utils';
 import ConsensusABI from './abi/ConsensusMock.json';
+config({ path: process.env.DOTENV_FILE || './.env' });
 
-config();
-const { INDICATIVE_KEY, CONFIG_DIR = './', FUSE_RPC, STEP_SIZE = 10 } = process.env;
+const { INDICATIVE_KEY, CONFIG_DIR = './', FUSE_RPC, STEP_SIZE = 10, TEST_MODE = 'false' } = process.env;
 let configDir = CONFIG_DIR;
 let validatorId;
 
@@ -35,6 +35,11 @@ const errorHandler = (messages: Array<any>, context) => {
       eventUniqueId: validatorId,
       properties,
     }),
+  });
+  console.log('sent error log', {
+    eventName,
+    eventUniqueId: validatorId,
+    properties,
   });
 };
 
@@ -101,12 +106,18 @@ function initLastBlocks(lastBlocks: Array<[string, number]>) {
   lastBlocks.forEach(([key, lastBlock]) => (blockchains[key] = { lastBlock }));
 }
 
-function initBlockchain(chainId: number, rpc: string) {
+async function initBlockchain(chainId: number, rpc: string) {
   //on fuse use the local validator node rpc
   if (chainId === 122) rpc = FUSE_RPC || rpc;
   logger.info('initBlockchain', { chainId, rpc });
+
+  ////// this is a hack for ankr, for some reason this seems to initialize it correctly otherwise the JsonRpcBatchProvider below doesnt work
+  const provider = new ethers.providers.JsonRpcProvider(rpc);
+  await provider.getBlockNumber();
+  /////
+
   blockchains[String(chainId)] = {
-    web3: new JsonRpcBatchProvider(rpc),
+    web3: new ethers.providers.JsonRpcBatchProvider(rpc),
     rpc,
     lastBlock: blockchains[String(chainId)]?.lastBlock,
   };
@@ -161,8 +172,8 @@ async function fetchNewBlocks(signers: Array<Signer>) {
 
       if (chainId == '122') {
         [cycleStart, cycleEnd, validators] = await Promise.all([
-          consensusContract.getCurrentCycleStartBlock(),
-          consensusContract.getCurrentCycleEndBlock(),
+          consensusContract.getCurrentCycleStartBlock().then((_) => _.toNumber()),
+          consensusContract.getCurrentCycleEndBlock().then((_) => _.toNumber()),
           consensusContract.getValidators(),
         ]);
         logger.info('fuse consensus:', { cycleStart, cycleEnd, validators });
@@ -177,7 +188,7 @@ async function fetchNewBlocks(signers: Array<Signer>) {
           // rlpHeader,signature:{r: signature.r, vs: signature._vs },chainId:122,blockHash: block.hash,cycleEnd, validators
           if (chainId == '122') {
             //set validators only on change to save gas/storage
-            if (block.number < cycleStart || wroteCycle) {
+            if (Number(block.number) < cycleStart || wroteCycle) {
               cycleEnd = 0;
               validators = [];
             } else {
@@ -223,16 +234,18 @@ async function fetchNewBlocks(signers: Array<Signer>) {
 const _refreshRPCs = async () => {
   try {
     const chains = await blockRegistryContract.getRPCs();
-    logger.info('got registered rpcs:', chains.length);
+    logger.info('got registered rpcs:', chains);
     const randRpc = chains.map(({ chainId, rpc }) => {
       const rpcs = rpc.split(',');
       const randomRpc = rpcs[random(0, rpcs.length - 1)];
       return { chainId: chainId.toNumber(), rpc: randomRpc };
     });
 
-    randRpc
-      .filter(({ chainId, rpc }) => !blockchains[chainId] || blockchains[chainId].rpc != rpc)
-      .map(({ chainId, rpc }) => initBlockchain(chainId, rpc));
+    await Promise.all(
+      randRpc
+        .filter(({ chainId, rpc }) => !blockchains[chainId] || blockchains[chainId].rpc != rpc)
+        .map(({ chainId, rpc }) => initBlockchain(chainId, rpc)),
+    );
   } catch (e) {
     logger.error('failed fetching rpcs:', { message: e.message });
   }
@@ -253,6 +266,10 @@ async function emitRegistry(signers?: Array<Signer>) {
     logger.info('got blocks:', blocks.map((_) => `${_.chainId}: ${_.blockHash}`).join(', '));
     if (blocks.length === 0) {
       return;
+    }
+    if (TEST_MODE === 'true') {
+      logger.warn('skipping adding signed blocks in test mode');
+      return [];
     }
     try {
       //write blocks in chunks of 10

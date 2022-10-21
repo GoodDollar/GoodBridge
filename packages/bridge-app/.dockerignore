@@ -6,3 +6,4 @@ __tests__
 types
 .yarn
 lastBlocks.json
+.env

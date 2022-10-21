@@ -5,8 +5,6 @@ import path from 'path';
 import fs from 'fs';
 import * as Registry from './blockHeaderRegistry';
 
-config();
-
 const {
   REGISTRY_RPC = 'https://rpc.fuse.io',
   BLOCK_REGISTRY_ADDRESS,

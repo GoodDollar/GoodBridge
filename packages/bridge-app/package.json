@@ -41,7 +41,7 @@
   "dependencies": {
     "dotenv": "^16.0.3",
     "eth-proof": "^2.1.6",
-    "ethers": "^5.7.0",
+    "ethers": "^5.*",
     "js-logger": "^1.6.1",
     "lodash": "^4.17.21",
     "p-all": "3.0.0"
