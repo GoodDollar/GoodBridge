@@ -1,5 +1,5 @@
 import { expect, use } from 'chai';
-import { ethers } from 'hardhat';
+import { ethers, upgrades } from 'hardhat';
 import { solidity } from 'ethereum-waffle';
 
 use(solidity);
@@ -24,7 +24,9 @@ describe('BlockHeaderRegistry', () => {
     consensus = await Consensus.deploy([signers[0].address, signers[2].address]);
     await consensus.deployed();
     BlockHeaderRegistry = await ethers.getContractFactory('BlockHeaderRegistry');
-    blockHeaderRegistry = await BlockHeaderRegistry.deploy(voting.address, consensus.address);
+    blockHeaderRegistry = await upgrades.deployProxy(BlockHeaderRegistry, [voting.address, consensus.address, false], {
+      kind: 'uups',
+    });
     await blockHeaderRegistry.deployed();
     blockHash = '0x5d15649e25d8f3e2c0374946078539d200710afc977cdfc6a977bd23f20fa8e8';
 
@@ -133,7 +135,7 @@ describe('BlockHeaderRegistry', () => {
         .connect(signer)
         .estimateGas.addSignedBlocks([[rlpHeader, [r, vs], 1, bhash, 0, []]]);
 
-      expect(expectedGas).lt(50000);
+      expect(expectedGas).lt(72000);
       await expect(blockHeaderRegistry.connect(signer).addSignedBlocks([[rlpHeader, [r, vs], 1, bhash, 0, []]])).not
         .reverted;
     });

@@ -4,6 +4,9 @@ import '@nomiclabs/hardhat-waffle';
 import '@typechain/hardhat';
 import 'solidity-coverage';
 import 'hardhat-gas-reporter';
+import 'hardhat-contract-sizer';
+import '@openzeppelin/hardhat-upgrades';
+
 import { HttpNetworkAccountsConfig } from 'hardhat/types';
 
 const pkey = process.env.PRIVATE_KEY;
@@ -24,7 +27,15 @@ if (mnemonic) {
  * @type import('hardhat/config').HardhatUserConfig
  */
 const config: HardhatUserConfig = {
-  solidity: '0.8.10',
+  solidity: {
+    version: '0.8.10',
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
   networks: {
     hardhat: {
       chainId: 1337,
@@ -39,6 +50,9 @@ const config: HardhatUserConfig = {
       chainId: 122,
       url: 'https://rpc.fuse.io',
     },
+  },
+  contractSizer: {
+    runOnCompile: true,
   },
 };
 

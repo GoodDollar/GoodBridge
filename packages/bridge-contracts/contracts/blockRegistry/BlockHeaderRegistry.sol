@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
+import '@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol';
+import '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
+import '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
+
 import '../fuse/IConsensus.sol';
 import '../utils/RLPReader.sol';
 
@@ -13,7 +16,7 @@ import '../utils/RLPReader.sol';
 	from different blockchains signed by the Fuse validators.
 
 **/
-contract BlockHeaderRegistry {
+contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
     using RLPReader for RLPReader.RLPItem;
     using RLPReader for RLPReader.Iterator;
     using RLPReader for bytes;
@@ -76,28 +79,39 @@ contract BlockHeaderRegistry {
 
     Blockchain[] public enabledBlockchains;
 
-    address public immutable voting;
-    address public immutable consensus;
+    address public voting;
+    address public consensus;
+
+    bool public isEventsOnly;
 
     event BlockchainAdded(uint256 chainId, string rpc);
     event BlockchainRemoved(uint256 chainId);
     event BlockAdded(
         address indexed validator,
         uint256 indexed chainId,
-        bytes32 indexed rlpHeaderHash,
+        uint256 indexed blockNumber,
+        bytes32 payload,
         address[] validators,
-        uint256 cycleEnd
+        uint256 cycleEnd,
+        bytes signature
     );
 
-    constructor(address _voting, address _consensus) {
+    function initialize(
+        address _voting,
+        address _consensus,
+        bool _isEventsOnly
+    ) public initializer {
         voting = _voting;
         consensus = _consensus;
+        isEventsOnly = _isEventsOnly;
     }
 
     modifier onlyVoting() {
         require(msg.sender == voting, 'onlyVoting');
         _;
     }
+
+    function _authorizeUpgrade(address) internal override onlyVoting {}
 
     function addBlockchain(uint256 chainId, string memory rpc) external onlyVoting {
         uint256 len = enabledBlockchains.length;
@@ -149,30 +163,41 @@ contract BlockHeaderRegistry {
                 abi.encodePacked(_block.blockHash, _block.chainId, _block.validators, _block.cycleEnd)
             );
             // console.logBytes32(payload);
-            address signer = ECDSA.recover(
-                ECDSA.toEthSignedMessageHash(payload),
+            address signer = ECDSAUpgradeable.recover(
+                ECDSAUpgradeable.toEthSignedMessageHash(payload),
                 _block.signature.r,
                 _block.signature.vs
             );
             require(_isValidator(signer), 'not validator');
+            uint256 blockNumber = parseRLPBlockNumber(_block.rlpHeader);
 
-            if (hasValidatorSigned[payload][signer]) continue;
+            if (isEventsOnly == false) {
+                if (hasValidatorSigned[payload][signer]) continue;
 
-            hasValidatorSigned[payload][signer] = true;
+                hasValidatorSigned[payload][signer] = true;
 
-            if (_isNewBlock(payload)) {
-                uint256 blockNumber = parseRLPBlockNumber(_block.rlpHeader);
-                blockHashes[_block.chainId][blockNumber].push(payload);
+                if (_isNewBlock(payload)) {
+                    blockHashes[_block.chainId][blockNumber].push(payload);
 
-                if (isFuse && _block.validators.length > 0) {
-                    signedBlocks[payload].validators = _block.validators;
-                    signedBlocks[payload].cycleEnd = _block.cycleEnd;
+                    if (isFuse && _block.validators.length > 0) {
+                        signedBlocks[payload].validators = _block.validators;
+                        signedBlocks[payload].cycleEnd = _block.cycleEnd;
+                    }
+                    signedBlocks[payload].blockHash = rlpHeaderHash;
                 }
-                signedBlocks[payload].blockHash = rlpHeaderHash;
+
+                signedBlocks[payload].signatures.push(abi.encode(_block.signature.r, _block.signature.vs));
             }
 
-            signedBlocks[payload].signatures.push(abi.encode(_block.signature.r, _block.signature.vs));
-            emit BlockAdded(signer, _block.chainId, rlpHeaderHash, _block.validators, _block.cycleEnd);
+            emit BlockAdded(
+                signer,
+                _block.chainId,
+                blockNumber,
+                payload,
+                _block.validators,
+                _block.cycleEnd,
+                abi.encode(_block.signature.r, _block.signature.vs)
+            );
         }
     }
 
