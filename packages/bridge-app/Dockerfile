@@ -1,13 +1,14 @@
 FROM node:16-alpine as build
 WORKDIR /app
 
-
 RUN apk update && \
     apk upgrade && \
     apk add git
-COPY ./ ./
 
+COPY ./package.json .
 RUN yarn install
+
+COPY ./ ./
 RUN yarn build:release
 RUN rm -fr node_modules
 RUN yarn install --production

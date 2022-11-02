@@ -11,7 +11,8 @@ import fetch from 'node-fetch';
 import pAll from 'p-all';
 import * as SignUtils from './utils';
 import ConsensusABI from './abi/ConsensusMock.json';
-config({ path: process.env.DOTENV_FILE || './.env' });
+
+config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 
 const { INDICATIVE_KEY, CONFIG_DIR = './', FUSE_RPC, STEP_SIZE = 10, TEST_MODE = 'false' } = process.env;
 let configDir = CONFIG_DIR;
