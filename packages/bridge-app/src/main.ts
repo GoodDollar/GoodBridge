@@ -8,7 +8,7 @@ import * as Registry from './blockHeaderRegistry';
 const {
   REGISTRY_RPC = 'https://rpc.fuse.io',
   BLOCK_REGISTRY_ADDRESS,
-  CONSENSUS_ADDRESS = '0x34B11c3f964F6C001237620126f0402b6e0EC207',
+  CONSENSUS_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3',
   MNEMONIC = 'test test test test test test test test test test test junk',
   PRIVATE_KEY,
   CONFIG_DIR = './',

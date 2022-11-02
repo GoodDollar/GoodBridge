@@ -22,7 +22,7 @@ describe('block header registry', () => {
     // Jest 27 now uses "modern" implementation of fake timers
     // https://jestjs.io/blog/2021/05/25/jest-27#flipping-defaults
     // https://github.com/facebook/jest/pull/5171
-    registry = await SigUtils.getRegistryContract('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', signer);
+    registry = await SigUtils.getRegistryContract('0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', signer);
     try {
       await registry.voting();
     } catch (e) {
@@ -104,9 +104,9 @@ describe('block header registry', () => {
     expect(savedBlock).toEqual(block.hash);
   });
 
-  it('initializes blockchain', () => {
-    BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
-    BridgeApp.initBlockchain(56, 'https://bscrpc.com');
+  it('initializes blockchain', async () => {
+    await BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
+    await BridgeApp.initBlockchain(56, 'https://bscrpc.com');
     expect(BridgeApp.blockchains['122'].web3).not.toBeNull();
     expect(BridgeApp.blockchains['122'].lastBlock).toBeUndefined();
     expect(BridgeApp.blockchains['122'].rpc).toBe('https://rpc.fuse.io');
@@ -119,13 +119,13 @@ describe('block header registry', () => {
     BridgeApp.setStepSize(2);
     BridgeApp.initBlockRegistryContract(
       signer,
-      '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
       '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       'http://localhost:8545',
     );
 
-    BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
-    BridgeApp.initBlockchain(56, 'https://bscrpc.com');
+    await BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
+    await BridgeApp.initBlockchain(56, 'https://bscrpc.com');
     const blocks = await BridgeApp.fetchNewBlocks([signer]);
     expect(blocks.length).toEqual(2);
     const fuseBlock = blocks.find((_) => _.chainId === 122);
@@ -148,19 +148,20 @@ describe('block header registry', () => {
 
     BridgeApp.initBlockRegistryContract(
       signer,
-      '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
       '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       'http://localhost:8545',
     );
 
+    await BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
     await BridgeApp._refreshRPCs();
     //should initialize chains from contract as defined in deployDevEnv.ts script
-    expect(BridgeApp.blockchains['122'].web3).not.toBeNull();
-    expect(BridgeApp.blockchains['122'].lastBlock).toBeUndefined();
-    expect(BridgeApp.blockchains['122'].rpc).toBe('https://rpc.fuse.io');
+    expect(BridgeApp.blockchains['9999'].web3).not.toBeNull();
+    expect(BridgeApp.blockchains['9999'].lastBlock).toBeUndefined();
+    expect(BridgeApp.blockchains['9999'].rpc).toBe('http://localhost:8545');
 
     const blocks = await BridgeApp.emitRegistry();
-    expect(blocks.length).toEqual(1);
+    expect(blocks.length).toEqual(2);
     const fuseBlock = blocks.find((_) => _.chainId === 122);
     await delay(BridgeApp.stepSize * 6000);
     const nextBlocks = await BridgeApp.emitRegistry();
@@ -170,19 +171,18 @@ describe('block header registry', () => {
 
   it('emits multiple blocks', async () => {
     BridgeApp.setStepSize(2);
-    delete BridgeApp.blockchains['122'];
-    delete BridgeApp.blockchains['56'];
+    await BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
+    await BridgeApp.initBlockchain(56, 'https://bscrpc.com');
     BridgeApp.initBlockRegistryContract(
       signer,
-      '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
       '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       'http://localhost:8545',
     );
-    await BridgeApp._refreshRPCs();
 
     //should initialize chains from contract as defined in deployDevEnv.ts script
     const blocks = await BridgeApp.emitRegistry();
-    expect(blocks.length).toEqual(1);
+    expect(blocks.length).toBeGreaterThan(1);
     await delay(30000);
     const nextBlocks = await BridgeApp.emitRegistry();
     expect(nextBlocks.length).toBeGreaterThan(1);

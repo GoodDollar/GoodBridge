@@ -188,12 +188,14 @@ async function fetchNewBlocks(signers: Array<Signer>) {
           // rlpHeader,signature:{r: signature.r, vs: signature._vs },chainId:122,blockHash: block.hash,cycleEnd, validators
           if (chainId == '122') {
             //set validators only on change to save gas/storage
-            if (Number(block.number) < cycleStart || wroteCycle) {
+            if (!wroteCycle && blockchain.lastBlock < cycleStart && Number(block.number) >= cycleStart) {
+              logger.info('writing fuse validators cycle:', { block: Number(block.number), cycleStart, cycleEnd });
+              wroteCycle = true;
+            } else {
               cycleEnd = 0;
               validators = [];
-            } else {
-              wroteCycle = true;
             }
+
             signedBlocks = await Promise.all(
               signers.map((signer) => SignUtils.signBlock(rlpHeader, 122, signer, cycleEnd, validators)),
             );
@@ -276,7 +278,7 @@ async function emitRegistry(signers?: Array<Signer>) {
       const chunks = chunk(blocks, 10);
       for (const blocksChunk of chunks) {
         const receipt = await (await blockRegistryContract.addSignedBlocks(blocksChunk)).wait();
-        logger.info(`transactionHash: ${receipt.transactionHash}`);
+        logger.info(`transactionHash: ${receipt.transactionHash} events: ${receipt.logs.length}`);
         logger.debug(`receipt: ${JSON.stringify(receipt)}`);
       }
       if (process.env.NODE_ENV !== 'test')

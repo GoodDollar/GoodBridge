@@ -19,7 +19,7 @@ describe('block header registry', () => {
   const targetBridgeAddr = '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853';
   const localNode = new ethers.providers.JsonRpcProvider('http://localhost:8545');
   const sdk = new BridgeSDK(
-    '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+    '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
     { 99: sourceBridgeAddr, 100: targetBridgeAddr },
     10,
     'http://localhost:8545',
@@ -47,12 +47,12 @@ describe('block header registry', () => {
     await signer.sendTransaction({ to: sender.address, value: ethers.constants.WeiPerEther });
 
     await sourceToken.transfer(sender.address, 100000);
-    registry = await SigUtils.getRegistryContract('0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0', signer);
+    registry = await SigUtils.getRegistryContract('0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', signer);
     await registry.addBlockchain(99, 'http://localhost:8545');
     await registry.addBlockchain(100, 'http://localhost:8545');
     await BridgeApp.initBlockRegistryContract(
       signer,
-      '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
       '0x5FbDB2315678afecb367f032d93F642f64180aa3',
       'http://localhost:8545',
     );
@@ -76,7 +76,7 @@ describe('block header registry', () => {
     for (let i = 0; i < 10; i++) {
       await localNode.send('evm_mine', []);
     }
-    await delay(5000); //wait for checkpoint to be registered
+    await delay(10000); //wait for checkpoint to be registered
     const relayResult = await sdk.relayTx(99, 100, bridgeTx.transactionHash, recipient);
     await relayResult.relayPromise;
     expect(relayResult.relayTxHash).toBeDefined();
@@ -84,7 +84,7 @@ describe('block header registry', () => {
     expect(relayResult.bridgeRequests).toMatchObject([
       { to: recipient.address, from: sender.address, amount: ethers.BigNumber.from(100000) },
     ]);
-    expect((await targetToken.balanceOf(recipient.address)).toNumber()).toEqual(100000);
+    expect((await targetToken.balanceOf(recipient.address)).toNumber()).toEqual(99900);
   });
 
   // eslint-disable-next-line jest/expect-expect
