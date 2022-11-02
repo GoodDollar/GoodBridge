@@ -55,7 +55,26 @@ describe('BlockHeaderRegistry', () => {
   const blockData = (rlpHeader, blockHash, r, vs) => {
     return [[rlpHeader, [r, vs], 1, blockHash, 0, []]];
   };
-
+  const blockData10x = (rlpHeader, blockHash, r, vs) => {
+    return [
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+    ];
+  };
+  const blockData2x = (rlpHeader, blockHash, r, vs) => {
+    return [
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+      [rlpHeader, [r, vs], 1, blockHash, 0, []],
+    ];
+  };
   const addSigBlocks = async (signerToUse, rlpHeaderp) => {
     const bhash = ethers.utils.keccak256(rlpHeaderp);
     const payload = ethers.utils.keccak256(
@@ -70,11 +89,31 @@ describe('BlockHeaderRegistry', () => {
   };
 
   describe('Blockchains', () => {
+    it('Should cost less gas with events only', async () => {
+      const eventsOnly = await upgrades.deployProxy(BlockHeaderRegistry, [voting.address, consensus.address, true], {
+        kind: 'uups',
+      });
+      const rlpHeader = ethers.utils.RLP.encode(Object.values(header).map((v) => (v === 0 ? '0x' : v)));
+
+      const bhash = ethers.utils.keccak256(rlpHeader);
+      const payload = ethers.utils.keccak256(
+        ethers.utils.solidityPack(['bytes32', 'uint256', 'address[]', 'uint256'], [bhash, 1, [], 0]),
+      );
+      const { _vs: vs, r } = ethers.utils.splitSignature(await signers[0].signMessage(ethers.utils.arrayify(payload)));
+      const tx = await (
+        await eventsOnly.connect(signers[0]).addSignedBlocks(blockData10x(rlpHeader, bhash, r, vs))
+      ).wait();
+
+      expect(tx.logs.length).eq(10);
+      expect(tx.gasUsed).lt(600000);
+    });
+
     it('Should add a new blockchain', async () => {
       const tx = await voting.addBlockchain(blockHeaderRegistry.address, 1337, 'http://localhost:8545');
       const rx = await tx.wait();
       expect(rx.status).equal(1);
     });
+
     it('Should not add a new blockchain from a random caller', async () => {
       const signer = signers[1];
       await expect(blockHeaderRegistry.connect(signer).addBlockchain(1337, 'http://localhost:8545')).to.be.revertedWith(
@@ -135,7 +174,7 @@ describe('BlockHeaderRegistry', () => {
         .connect(signer)
         .estimateGas.addSignedBlocks([[rlpHeader, [r, vs], 1, bhash, 0, []]]);
 
-      expect(expectedGas).lt(72000);
+      expect(expectedGas).lt(78500);
       await expect(blockHeaderRegistry.connect(signer).addSignedBlocks([[rlpHeader, [r, vs], 1, bhash, 0, []]])).not
         .reverted;
     });

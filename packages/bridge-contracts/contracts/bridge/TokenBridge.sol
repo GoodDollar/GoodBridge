@@ -75,10 +75,10 @@ contract TokenBridge is BridgeMixedConsensus {
         uint256 targetChainId,
         uint256 amount,
         bool withRelay,
-        uint256 id
+        uint256 indexed id
     );
 
-    bytes32 public constant BRIDGE_TOPIC = keccak256('BridgeRequest(address,address,uint256,uint256,bool,uint)');
+    bytes32 public constant BRIDGE_TOPIC = keccak256('BridgeRequest(address,address,uint256,uint256,bool,uint256)');
 
     event ExecutedTransfer(
         address indexed from,
@@ -210,9 +210,9 @@ contract TokenBridge is BridgeMixedConsensus {
             // console.log('receipt found log index %s', i);
             //parse targetChainId and amount from data
             else {
-                (uint256 targetChainId, uint256 amount, bool withRelay, uint256 id) = abi.decode(
+                (uint256 targetChainId, uint256 amount, bool withRelay) = abi.decode(
                     log.data,
-                    (uint256, uint256, bool, uint256)
+                    (uint256, uint256, bool)
                 );
 
                 // console.log('executeReceipt token: %s %s %s', targetChainId, amount, withRelay);
@@ -229,7 +229,7 @@ contract TokenBridge is BridgeMixedConsensus {
                     chainId,
                     blockNumber,
                     withRelay,
-                    id
+                    uint256(log.topics[3])
                 ); //added internal function for stack too deep
             }
         }

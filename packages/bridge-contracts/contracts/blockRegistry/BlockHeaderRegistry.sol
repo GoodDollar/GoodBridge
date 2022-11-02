@@ -84,6 +84,8 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
 
     bool public isEventsOnly;
 
+    mapping(address => uint256) public cachedValidators;
+
     event BlockchainAdded(uint256 chainId, string rpc);
     event BlockchainRemoved(uint256 chainId);
     event BlockAdded(
@@ -139,7 +141,7 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
     }
 
     modifier onlyValidator() {
-        require(_isValidator(msg.sender), 'onlyValidator');
+        require(_isValidatorCached(msg.sender), 'onlyValidator');
         _;
     }
 
@@ -168,7 +170,7 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
                 _block.signature.r,
                 _block.signature.vs
             );
-            require(_isValidator(signer), 'not validator');
+            require(_isValidatorCached(signer), 'not validator');
             uint256 blockNumber = parseRLPBlockNumber(_block.rlpHeader);
 
             if (isEventsOnly == false) {
@@ -222,6 +224,16 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
 
     function _isValidator(address person) internal virtual returns (bool) {
         return IConsensus(consensus).isValidator(person);
+    }
+
+    //isValidator is expensive, iterates over large array
+    function _isValidatorCached(address person) internal virtual returns (bool isValidator) {
+        isValidator =
+            cachedValidators[person] == IConsensus(consensus).getCurrentCycleEndBlock() ||
+            _isValidator(person);
+        if (isValidator) {
+            cachedValidators[person] = IConsensus(consensus).getCurrentCycleEndBlock();
+        }
     }
 
     function _isNewBlock(bytes32 key) private view returns (bool) {

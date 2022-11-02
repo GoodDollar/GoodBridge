@@ -97,6 +97,7 @@ describe('Bridge', () => {
       await token.approve(bridgeA.address, 1000);
       tx = await (await bridgeA.bridgeTo(signers[1].address, 1337, 1000)).wait();
       const bridgeEvent = tx.events.find((_) => _.event === 'BridgeRequest');
+      expect(bridgeEvent.topics[0]).eq(await bridgeA.BRIDGE_TOPIC());
       expect(bridgeEvent.args.from).to.eq(signers[0].address);
       expect(bridgeEvent.args.to).to.eq(signers[1].address);
       expect(bridgeEvent.args.amount).to.eq(1000);
