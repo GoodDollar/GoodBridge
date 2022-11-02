@@ -6,12 +6,20 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 import './BridgeMixedConsensus.sol';
 
-// import "hardhat/console.sol";
+// import 'hardhat/console.sol';
 
 interface IFaucet {
     function canTop(address) external returns (bool);
 
     function topWallet(address) external;
+}
+
+interface INameService {
+    function getAddress(string memory) external returns (address);
+}
+
+interface IIdentity {
+    function isWhitelisted(address) external returns (bool);
 }
 
 contract TokenBridge is BridgeMixedConsensus {
@@ -21,27 +29,67 @@ contract TokenBridge is BridgeMixedConsensus {
         uint256 fee;
     }
 
+    struct BridgeLimits {
+        uint256 dailyLimit;
+        uint256 txLimit;
+        uint256 accountDailyLimit;
+    }
+
+    struct AccountLimit {
+        uint256 lastTransferReset;
+        uint256 bridged24Hours;
+    }
+
+    struct BridgeDailyLimit {
+        uint256 lastTransferDay;
+        uint256 totalBridgedToday;
+    }
+
+    mapping(uint256 => uint256) chainIdToTotalBridged;
+    mapping(uint256 => uint256) chainIdToTotalRelayFees;
+    mapping(uint256 => uint256) chainIdToTotalBridgeFees;
+
     address public bridgedToken;
+
     mapping(address => bool) public sourceBridges;
+
     bool public isClosed;
 
     BridgeFees public bridgeFees;
 
+    BridgeLimits public bridgeLimits;
+
+    BridgeDailyLimit public bridgeDailyLimit;
+
+    mapping(address => AccountLimit) public accountsDailyLimit;
+
     IFaucet public faucet;
 
-    event BridgeRequest(address indexed from, address indexed to, uint256 targetChainId, uint256 amount);
+    INameService public nameService;
+
+    uint256 public currentId;
+
+    event BridgeRequest(
+        address indexed from,
+        address indexed to,
+        uint256 targetChainId,
+        uint256 amount,
+        bool withRelay,
+        uint256 id
+    );
+
+    bytes32 public constant BRIDGE_TOPIC = keccak256('BridgeRequest(address,address,uint256,uint256,bool,uint)');
 
     event ExecutedTransfer(
         address indexed from,
         address indexed to,
-        address indexed relayer,
+        address relayer,
         uint256 amount,
         uint256 fee,
         uint256 sourceChainId,
-        uint256 sourceBlockNumber
+        uint256 sourceBlockNumber,
+        uint256 indexed id
     );
-
-    bytes32 public constant BRIDGE_TOPIC = keccak256('BridgeRequest(address,address,uint256,uint256)');
 
     constructor(
         address[] memory _validators,
@@ -50,11 +98,15 @@ contract TokenBridge is BridgeMixedConsensus {
         uint32 _consensusRatio,
         address _bridgedToken,
         BridgeFees memory _fees,
-        IFaucet _faucet
+        BridgeLimits memory _limits,
+        IFaucet _faucet,
+        INameService _nameService
     ) BridgeMixedConsensus(_validators, _cycleEnd, _requiredValidators, _consensusRatio) {
         bridgedToken = _bridgedToken;
         bridgeFees = _fees;
+        bridgeLimits = _limits;
         faucet = _faucet;
+        nameService = _nameService;
     }
 
     function setBridgeFees(BridgeFees memory _fees) external onlyOwner {
@@ -69,14 +121,50 @@ contract TokenBridge is BridgeMixedConsensus {
         for (uint256 i = 0; i < bridges.length; i++) sourceBridges[bridges[i]] = true;
     }
 
+    function _enforceLimits(
+        address from,
+        address target,
+        uint256 amount,
+        uint256 targetChainId
+    ) internal virtual {
+        require(target != address(0), 'invalid target');
+        require(targetChainId > 0, 'invalid targetChainId');
+        require(!isClosed, 'closed');
+
+        if (address(nameService) != address(0)) {
+            IIdentity id = IIdentity(nameService.getAddress('IDENTITY'));
+            if (address(id) != address(0)) require(id.isWhitelisted(from), 'not whitelisted');
+        }
+
+        require(amount <= bridgeLimits.txLimit, 'txLimit');
+
+        uint256 curDay = block.timestamp / 1 days;
+        if (curDay > bridgeDailyLimit.lastTransferDay) {
+            bridgeDailyLimit.lastTransferDay = curDay;
+            bridgeDailyLimit.totalBridgedToday = 0;
+        }
+        bridgeDailyLimit.totalBridgedToday += amount;
+
+        require(bridgeDailyLimit.totalBridgedToday <= bridgeLimits.dailyLimit, 'dailyLimit');
+
+        if (accountsDailyLimit[from].lastTransferReset < block.timestamp - 1 days) {
+            accountsDailyLimit[from].lastTransferReset = block.timestamp;
+            accountsDailyLimit[from].bridged24Hours = amount;
+        } else {
+            accountsDailyLimit[from].bridged24Hours += amount;
+        }
+        require(accountsDailyLimit[from].bridged24Hours <= bridgeLimits.accountDailyLimit, 'accountDailyLimit');
+    }
+
     function bridgeTo(
         address target,
         uint256 targetChainId,
         uint256 amount
     ) external {
-        require(isClosed == false, 'closed');
+        _enforceLimits(msg.sender, target, amount, targetChainId);
+
         require(IERC20(bridgedToken).transferFrom(msg.sender, address(this), amount), 'transferFrom');
-        emit BridgeRequest(msg.sender, target, targetChainId, amount);
+        emit BridgeRequest(msg.sender, target, targetChainId, amount, true, currentId++);
     }
 
     function onTokenTransfer(
@@ -85,15 +173,19 @@ contract TokenBridge is BridgeMixedConsensus {
         bytes calldata data
     ) external {
         require(msg.sender == bridgedToken, 'not token');
-        require(isClosed == false, 'closed');
         (uint256 targetChainId, address target) = abi.decode(data, (uint256, address));
-        emit BridgeRequest(from, target, targetChainId, amount);
+        _enforceLimits(from, target, amount, targetChainId);
+
+        emit BridgeRequest(from, target, targetChainId, amount, true, currentId++);
     }
 
-    function _takeFee(uint256 amount) internal view returns (uint256 baseFee) {
-        baseFee = (amount * bridgeFees.fee) / 10000;
+    function _takeFee(uint256 amount, bool isRelay) internal view returns (uint256 bridgeFee, uint256 relayFee) {
+        uint256 baseFee = (amount * bridgeFees.fee) / 10000;
         baseFee = baseFee >= bridgeFees.minFee ? baseFee : bridgeFees.minFee;
         baseFee = baseFee <= bridgeFees.maxFee ? baseFee : bridgeFees.maxFee;
+        baseFee /= 2;
+
+        return (baseFee, isRelay ? baseFee : 0);
     }
 
     function _executeReceipt(
@@ -103,6 +195,7 @@ contract TokenBridge is BridgeMixedConsensus {
     ) internal virtual override returns (bool ok) {
         require(receipt.status == 1, 'invalid status');
         bool validLog = false;
+        // console.log('receipt logs %s', receipt.logs.length);
         for (uint256 i = 0; i < receipt.logs.length; i++) {
             RLPParser.Log memory log = receipt.logs[i];
             // verify receipt is for bridgedToken transfer event where:
@@ -110,20 +203,35 @@ contract TokenBridge is BridgeMixedConsensus {
             // where topic is BridgeTransfer
             // console.log('log address %s', log.contractAddress);
             // console.logBytes32(log.topics[0]);
+
             if (sourceBridges[log.contractAddress] == false || log.topics[0] != BRIDGE_TOPIC) {
                 continue;
             }
+            // console.log('receipt found log index %s', i);
             //parse targetChainId and amount from data
-            (uint256 targetChainId, uint256 amount) = abi.decode(log.data, (uint256, uint256));
+            else {
+                (uint256 targetChainId, uint256 amount, bool withRelay, uint256 id) = abi.decode(
+                    log.data,
+                    (uint256, uint256, bool, uint256)
+                );
 
-            if (targetChainId != _chainId()) continue;
+                // console.log('executeReceipt token: %s %s %s', targetChainId, amount, withRelay);
 
-            validLog = true;
+                if (targetChainId != _chainId()) continue;
 
-            //get recipient
-            address target = address(uint160(uint256(log.topics[2])));
-            address from = address(uint160(uint256(log.topics[1])));
-            _bridgeTransfer(from, target, amount, chainId, blockNumber); //added internal function for stack too deep
+                validLog = true;
+
+                //get recipient
+                _bridgeTransfer(
+                    address(uint160(uint256(log.topics[1]))), // from - stack to deep
+                    address(uint160(uint256(log.topics[2]))), // to - stack to deep
+                    amount,
+                    chainId,
+                    blockNumber,
+                    withRelay,
+                    id
+                ); //added internal function for stack too deep
+            }
         }
 
         return validLog;
@@ -134,17 +242,26 @@ contract TokenBridge is BridgeMixedConsensus {
         address target,
         uint256 amount,
         uint256 sourceChainId,
-        uint256 sourceBlockNumber
+        uint256 sourceBlockNumber,
+        bool withRelay,
+        uint256 id
     ) internal {
-        uint256 fee;
-        if (msg.sender != target && msg.sender != from) {
-            fee = _takeFee(amount);
-        }
+        (uint256 bridgeFee, uint256 relayFee) = _takeFee(
+            amount,
+            withRelay && msg.sender != target && msg.sender != from
+        );
+        uint256 fee = bridgeFee + relayFee;
 
-        require(IERC20(bridgedToken).transfer(target, amount - fee), 'transfer');
+        chainIdToTotalRelayFees[sourceChainId] += relayFee;
+        chainIdToTotalBridgeFees[sourceChainId] += bridgeFee;
+        chainIdToTotalBridged[sourceChainId] += amount;
+
         _topGas(target);
 
-        emit ExecutedTransfer(from, target, msg.sender, amount - fee, fee, sourceChainId, sourceBlockNumber);
+        require(IERC20(bridgedToken).transfer(target, amount - fee), 'transfer');
+        if (relayFee > 0) require(IERC20(bridgedToken).transfer(msg.sender, relayFee), 'relayFee');
+
+        emit ExecutedTransfer(from, target, msg.sender, amount, fee, sourceChainId, sourceBlockNumber, id);
     }
 
     function _topGas(address target) internal {

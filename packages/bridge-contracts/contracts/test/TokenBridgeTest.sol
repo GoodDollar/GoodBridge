@@ -10,9 +10,23 @@ contract TokenBridgeTest is TokenBridge {
         uint32 _consensusRatio,
         address _bridgedToken,
         BridgeFees memory _fees,
+        BridgeLimits memory _limits,
         IFaucet _faucet,
+        INameService _nameService,
         uint256 _chainIdOverride
-    ) TokenBridge(_validators, _cycleEnd, _requiredValidators, _consensusRatio, _bridgedToken, _fees, _faucet) {
+    )
+        TokenBridge(
+            _validators,
+            _cycleEnd,
+            _requiredValidators,
+            _consensusRatio,
+            _bridgedToken,
+            _fees,
+            _limits,
+            _faucet,
+            _nameService
+        )
+    {
         chainId = _chainIdOverride;
     }
 

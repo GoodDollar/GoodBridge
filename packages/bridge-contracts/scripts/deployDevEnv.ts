@@ -3,7 +3,7 @@
 //
 // When running the script with `npx hardhat run <script>` you'll find the Hardhat
 // Runtime Environment's members available in the global scopecode.
-import { ethers } from 'hardhat';
+import { ethers, upgrades } from 'hardhat';
 
 async function main() {
   // Hardhat always runs the compile task when running scripts with its command
@@ -21,11 +21,13 @@ async function main() {
   const voting = await vf.deploy();
 
   const rf = await ethers.getContractFactory('BlockHeaderRegistry');
-  const registery = await rf.deploy(mockValidators[0], consensus.address);
-  await registery.addBlockchain(122, 'https://rpc.fuse.io');
+  const registery = await upgrades.deployProxy(rf, [mockValidators[0], consensus.address, false]);
 
   await deployBridge();
-  console.log('deployed to:', consensus.address, voting.address);
+
+  await registery.addBlockchain(9999, 'http://localhost:8545');
+
+  console.log('deployed to (consensus, voting):', consensus.address, voting.address);
   console.log('deployed registery to:', registery.address);
   console.log('validators:', mockValidators.length);
 }
@@ -43,6 +45,8 @@ async function deployBridge() {
     25,
     sourceToken.address,
     { maxFee: 10000, minFee: 200, fee: 10 },
+    { dailyLimit: 1e10, txLimit: 1e8, accountDailyLimit: 1e9 },
+    ethers.constants.AddressZero,
     ethers.constants.AddressZero,
     99,
   );
@@ -54,6 +58,8 @@ async function deployBridge() {
     25,
     targetToken.address,
     { maxFee: 10000, minFee: 200, fee: 10 },
+    { dailyLimit: 1e10, txLimit: 1e8, accountDailyLimit: 1e9 },
+    ethers.constants.AddressZero,
     ethers.constants.AddressZero,
     100,
   );

@@ -24,6 +24,12 @@ describe('Bridge', () => {
         maxFee: 2,
         fee: 10,
       },
+      {
+        dailyLimit: 1e10,
+        txLimit: 1e8,
+        accountDailyLimit: 1e9,
+      },
+      ethers.constants.AddressZero,
       ethers.constants.AddressZero,
     )) as TokenBridge;
     bridgeB = (await (
@@ -39,6 +45,12 @@ describe('Bridge', () => {
         maxFee: 2,
         fee: 10,
       },
+      {
+        dailyLimit: 1e10,
+        txLimit: 1e8,
+        accountDailyLimit: 1e9,
+      },
+      ethers.constants.AddressZero,
       ethers.constants.AddressZero,
     )) as TokenBridge;
     await token.transfer(bridgeB.address, ethers.constants.WeiPerEther);
@@ -127,6 +139,7 @@ describe('Bridge', () => {
       const res = bridgeB.executeReceipts(1337, [
         { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
       ]);
+      await (await res).wait();
       await expect(res).not.reverted;
       const txData = await (await res).wait();
       const txLog = txData.events?.find((_) => _.event === 'ExecutedTransfer');
