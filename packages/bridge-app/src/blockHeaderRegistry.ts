@@ -14,34 +14,45 @@ import ConsensusABI from './abi/ConsensusMock.json';
 
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 
-const { INDICATIVE_KEY, CONFIG_DIR = './', FUSE_RPC, STEP_SIZE = 10, TEST_MODE = 'false' } = process.env;
+const {
+  INDICATIVE_KEY,
+  CONFIG_DIR = './',
+  FUSE_RPC,
+  STEP_SIZE = 10,
+  TEST_MODE = 'false',
+  BLOCKS_CHUNK = '100',
+} = process.env;
 let configDir = CONFIG_DIR;
 let validatorId;
 
 const consoleHandler = logger.createDefaultHandler();
-const errorHandler = (messages: Array<any>, context) => {
+const errorHandler = async (messages: Array<any>, context) => {
   if (!INDICATIVE_KEY || context.level.value !== logger.ERROR.value) return;
 
   const [eventName, ...rest] = messages;
   const objs: Array<object> = rest.filter((_) => isObject(_));
   const properties = merge({ validatorId }, ...objs);
 
-  fetch(`https://api.indicative.com/service/event/${INDICATIVE_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  try {
+    await fetch(`https://api.indicative.com/service/event/${INDICATIVE_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        eventName,
+        eventUniqueId: validatorId,
+        properties,
+      }),
+    });
+    console.log('sent error log', {
       eventName,
       eventUniqueId: validatorId,
       properties,
-    }),
-  });
-  console.log('sent error log', {
-    eventName,
-    eventUniqueId: validatorId,
-    properties,
-  });
+    });
+  } catch (e) {
+    console.error('failed sending error log', e.message, e);
+  }
 };
 
 const logLevel = logger['info'.toUpperCase()];
@@ -276,7 +287,7 @@ async function emitRegistry(signers?: Array<Signer>) {
     }
     try {
       //write blocks in chunks of 10
-      const chunks = chunk(blocks, 10);
+      const chunks = chunk(blocks, Number(BLOCKS_CHUNK));
       for (const blocksChunk of chunks) {
         const receipt = await (await blockRegistryContract.addSignedBlocks(blocksChunk)).wait();
         logger.info(`transactionHash: ${receipt.transactionHash} events: ${receipt.logs.length}`);

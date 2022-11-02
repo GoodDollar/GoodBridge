@@ -1,6 +1,5 @@
 import * as ethers from 'ethers';
 import { logger } from './blockHeaderRegistry';
-import { config } from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import * as Registry from './blockHeaderRegistry';
@@ -16,6 +15,11 @@ const {
 
 const configDir = CONFIG_DIR;
 
+const intervalWait = (interval) => {
+  return new Promise((res) => {
+    setTimeout(res, interval);
+  });
+};
 const run = async () => {
   await Registry.refreshRPCs().catch((e) => {
     logger.warn('failed to fetch rpcs', e.message, e);
@@ -27,6 +31,7 @@ const run = async () => {
 };
 
 export const app = async () => {
+  let shouldRun = true;
   let signer = await initWalletFromJson().catch((e) => logger.warn('failed initWalletFromJson', e.message));
   if (!signer) {
     logger.info('not found signer from json store, trying mnemonic/privatekey');
@@ -36,8 +41,9 @@ export const app = async () => {
   const signerAddress = await signer.getAddress();
   logger.info('starting:', { signerAddress, BLOCK_REGISTRY_ADDRESS, CONSENSUS_ADDRESS, REGISTRY_RPC });
   await Registry.initBlockRegistryContract(signer, BLOCK_REGISTRY_ADDRESS, CONSENSUS_ADDRESS, REGISTRY_RPC);
-  await run();
-  setInterval(run, (Registry.stepSize + 1) * 5000);
+  while (shouldRun) {
+    await Promise.all([run(), intervalWait((Registry.stepSize + 1) * 5000)]);
+  }
 };
 
 const initWalletFromJson = async () => {
