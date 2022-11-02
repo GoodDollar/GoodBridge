@@ -1,6 +1,6 @@
 import { JsonRpcBatchProvider, JsonRpcProvider, TransactionReceipt } from '@ethersproject/providers';
 import { Contract, ethers, Signer } from 'ethers';
-import { flatten, minBy, pick, random, range } from 'lodash';
+import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy } from 'lodash';
 import pAll from 'p-all';
 import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
 import { abi as TokenBridgeABI } from './abi/TokenBridge.json';
@@ -44,22 +44,56 @@ export class BridgeSDK {
     return new ethers.Contract(bridgeAddress, TokenBridgeABI, rpc);
   };
 
-  getBlocksToSubmit = async (sourceChainId: number, txBlockNumber: number, targetBridgeContract: Contract) => {
+  getCheckpointBlockFromEvents = async (sourceChainId: number, checkpointBlockNumber: number) => {
+    const f = this.registryContract.filters['BlockAdded'](null, sourceChainId, checkpointBlockNumber);
+    const events = await this.registryContract.queryFilter(f, -1e6);
+    // console.log('found events:', events.length, { sourceChainId, checkpointBlockNumber });
+    const bestCheckpoint = maxBy(
+      Object.values(
+        groupBy(
+          uniqBy(events, (_) => _.args.validator),
+          (_) => _.args.payload,
+        ),
+      ),
+      (_) => _.length,
+    );
+    // console.log({ bestCheckpoint });
+    return {
+      signatures: bestCheckpoint.map((_) => _.args.signature),
+      cycleEnd: bestCheckpoint[0].args.cycleEnd,
+      validators: bestCheckpoint[0].args.validators,
+    };
+  };
+
+  getBlocksToSubmit = async (
+    sourceChainId: number,
+    txBlockNumber: number,
+    targetBridgeContract: Contract,
+    getBlocksFromEvents = true,
+  ) => {
     //check if target bridge has required block
     const sourceTxBlockHash = await targetBridgeContract.chainVerifiedBlocks(sourceChainId, txBlockNumber);
-    // console.log({ sourceTxBlockHash }, txBlockNumber, this.registryBlockFrequency);
+    // // console.log({ sourceTxBlockHash }, txBlockNumber, this.registryBlockFrequency);
     if (!sourceTxBlockHash || sourceTxBlockHash === ethers.constants.HashZero) {
       const checkPointBlockNumber =
         txBlockNumber + (this.registryBlockFrequency - (txBlockNumber % this.registryBlockFrequency));
 
       //try to get the nearest checkpoint block from the header registry
-      // console.log('getSignedBlock checkpoint:', this.registryContract.address, {
+      // // console.log('getSignedBlock checkpoint:', this.registryContract.address, {
       //   sourceChainId,
       //   checkPointBlockNumber,
       // });
-      const signedCheckPoint = await this.registryContract
-        .getSignedBlock(sourceChainId, checkPointBlockNumber)
-        .catch((_) => false);
+
+      let signedCheckPoint;
+      if (getBlocksFromEvents) {
+        signedCheckPoint = await this.getCheckpointBlockFromEvents(sourceChainId, checkPointBlockNumber).catch(
+          (_) => undefined,
+        );
+      } else {
+        signedCheckPoint = await this.registryContract
+          .getSignedBlock(sourceChainId, checkPointBlockNumber)
+          .catch((_) => false);
+      }
       if (!signedCheckPoint) throw new Error(`checkpoint block ${checkPointBlockNumber} does not exists yet`);
 
       //fetch missing parent blocks
@@ -132,8 +166,8 @@ export class BridgeSDK {
       //     checkpointBlock.block.parentHash,
       //     parentBlocks.map((_) => [_.block.hash, _.block.parentHash]),
       //   ];
-      //   console.log('parents chain:', parentsChain);
-      //   console.log({
+      // console.log('parents chain:', parentsChain);
+      // console.log({
       //     parentsChain,
       //     signedBlock,
       //     sourceChainId,
