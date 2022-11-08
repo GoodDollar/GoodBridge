@@ -50,6 +50,16 @@ const config: HardhatUserConfig = {
       chainId: 122,
       url: 'https://rpc.fuse.io',
     },
+    staging: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 122,
+      url: 'https://rpc.fuse.io',
+    },
+    production: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 122,
+      url: 'https://rpc.fuse.io',
+    },
   },
   contractSizer: {
     runOnCompile: true,

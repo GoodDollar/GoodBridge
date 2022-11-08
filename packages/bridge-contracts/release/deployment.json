@@ -1,0 +1,12 @@
+{
+    "fuse": {
+        "fuseBridge": "0x47bf9825dfe57784C37Ce76C608da4b91E7216c6",
+        "celoBridge": "0xf32aE8a935ccE6c7eA8C4b353522fA0dD7657383",
+        "registry": "0x44a1E0A83821E239F9Cef248CECc3AC5b910aeD2"
+    },
+    "staging": {
+        "fuseBridge": "0x74d4daC06b59bFaE194d3564C161A086C2CAA7d6",
+        "celoBridge": "0xd6cB7ee352f2748f7796041Ee65E1c54493DD592",
+        "registry": "0x44a1E0A83821E239F9Cef248CECc3AC5b910aeD2"
+    }
+}

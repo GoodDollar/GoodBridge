@@ -33,6 +33,7 @@ contract TokenBridge is BridgeMixedConsensus {
         uint256 dailyLimit;
         uint256 txLimit;
         uint256 accountDailyLimit;
+        uint256 minAmount;
     }
 
     struct AccountLimit {
@@ -41,13 +42,13 @@ contract TokenBridge is BridgeMixedConsensus {
     }
 
     struct BridgeDailyLimit {
-        uint256 lastTransferDay;
-        uint256 totalBridgedToday;
+        uint256 lastTransferReset;
+        uint256 bridged24Hours;
     }
 
-    mapping(uint256 => uint256) chainIdToTotalBridged;
-    mapping(uint256 => uint256) chainIdToTotalRelayFees;
-    mapping(uint256 => uint256) chainIdToTotalBridgeFees;
+    mapping(uint256 => uint256) public chainIdToTotalBridged;
+    mapping(uint256 => uint256) public chainIdToTotalRelayFees;
+    mapping(uint256 => uint256) public chainIdToTotalBridgeFees;
 
     address public bridgedToken;
 
@@ -131,29 +132,46 @@ contract TokenBridge is BridgeMixedConsensus {
         require(targetChainId > 0, 'invalid targetChainId');
         require(!isClosed, 'closed');
 
-        if (address(nameService) != address(0)) {
-            IIdentity id = IIdentity(nameService.getAddress('IDENTITY'));
-            if (address(id) != address(0)) require(id.isWhitelisted(from), 'not whitelisted');
+        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
+            bridgeDailyLimit.lastTransferReset = block.timestamp;
+            bridgeDailyLimit.bridged24Hours = 0;
         }
-
-        require(amount <= bridgeLimits.txLimit, 'txLimit');
-
-        uint256 curDay = block.timestamp / 1 days;
-        if (curDay > bridgeDailyLimit.lastTransferDay) {
-            bridgeDailyLimit.lastTransferDay = curDay;
-            bridgeDailyLimit.totalBridgedToday = 0;
-        }
-        bridgeDailyLimit.totalBridgedToday += amount;
-
-        require(bridgeDailyLimit.totalBridgedToday <= bridgeLimits.dailyLimit, 'dailyLimit');
 
         if (accountsDailyLimit[from].lastTransferReset < block.timestamp - 1 days) {
             accountsDailyLimit[from].lastTransferReset = block.timestamp;
-            accountsDailyLimit[from].bridged24Hours = amount;
-        } else {
-            accountsDailyLimit[from].bridged24Hours += amount;
+            accountsDailyLimit[from].bridged24Hours = 0;
         }
-        require(accountsDailyLimit[from].bridged24Hours <= bridgeLimits.accountDailyLimit, 'accountDailyLimit');
+        (bool isValid, string memory reason) = canBridge(from, amount);
+        require(isValid, reason);
+
+        bridgeDailyLimit.bridged24Hours += amount;
+        accountsDailyLimit[from].bridged24Hours += amount;
+    }
+
+    function canBridge(address from, uint256 amount) public returns (bool isWithinLimit, string memory error) {
+        if (amount < bridgeLimits.minAmount) return (false, 'minAmount');
+
+        if (address(nameService) != address(0)) {
+            IIdentity id = IIdentity(nameService.getAddress('IDENTITY'));
+            if (address(id) != address(0))
+                if (id.isWhitelisted(from) == false) return (false, 'not whitelisted');
+        }
+
+        if (amount > bridgeLimits.txLimit) return (false, 'txLimit');
+
+        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {} else {
+            if (bridgeDailyLimit.bridged24Hours + amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
+        }
+
+        uint256 account24hours = accountsDailyLimit[from].bridged24Hours;
+        if (accountsDailyLimit[from].lastTransferReset < block.timestamp - 1 days) {
+            account24hours = amount;
+        } else {
+            account24hours += amount;
+        }
+        if (account24hours > bridgeLimits.accountDailyLimit) return (false, 'accountDailyLimit');
+
+        return (true, '');
     }
 
     function bridgeTo(
@@ -171,12 +189,13 @@ contract TokenBridge is BridgeMixedConsensus {
         address from,
         uint256 amount,
         bytes calldata data
-    ) external {
+    ) external returns (bool) {
         require(msg.sender == bridgedToken, 'not token');
         (uint256 targetChainId, address target) = abi.decode(data, (uint256, address));
         _enforceLimits(from, target, amount, targetChainId);
 
         emit BridgeRequest(from, target, targetChainId, amount, true, currentId++);
+        return true;
     }
 
     function _takeFee(uint256 amount, bool isRelay) internal view returns (uint256 bridgeFee, uint256 relayFee) {
