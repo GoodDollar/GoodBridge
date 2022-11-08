@@ -7,7 +7,6 @@ import { Receipt, Proof } from 'eth-object';
 import { encode } from 'eth-util-lite';
 import { promisfy } from 'promisfy';
 import * as RLP from 'rlp';
-import { logger } from './blockHeaderRegistry';
 
 export interface BlockHeader {
   number: number;
@@ -31,21 +30,6 @@ export interface BlockHeader {
   uncles: string[];
   transactions: string[];
 }
-
-// import logger from 'js-logger'
-
-// logger.setLevel(logger.DEBUG)
-
-//sign should return a Block struct
-//
-// struct Block {
-//   bytes rlpHeader;
-//   Signature signature;
-//   uint256 chainId;
-//   bytes32 blockHash;
-//   uint256 cycleEnd;
-//   address[] validators;
-// }
 
 const rpcs: { [chainId: string]: JsonRpcBatchProvider } = {};
 
@@ -194,8 +178,7 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
   const blockHash = ethers.utils.keccak256(rlpHeader);
   // console.log({block,header,rlpHeader, blockHash})
   if (blockHash !== block.hash) {
-    logger.debug({ block, header, blockHash, rlpHeader });
-    throw new Error('rlp hash doesnt match expected blockhash');
+    throw new Error(`rlp hash doesnt match expected blockhash ${block.number}`);
   }
   return { block, blockHeader: header, rlpHeader, computedHash: blockHash };
 };

@@ -1,6 +1,6 @@
 import { JsonRpcBatchProvider, JsonRpcProvider, TransactionReceipt } from '@ethersproject/providers';
 import { Contract, ethers, Signer } from 'ethers';
-import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy } from 'lodash';
+import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last } from 'lodash';
 import pAll from 'p-all';
 import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
 import { abi as TokenBridgeABI } from './abi/TokenBridge.json';
@@ -69,23 +69,22 @@ export class BridgeSDK {
     sourceChainId: number,
     txBlockNumber: number,
     targetBridgeContract: Contract,
-    getBlocksFromEvents = true,
+    getCheckpointFromEvents = true,
   ) => {
     //check if target bridge has required block
     const sourceTxBlockHash = await targetBridgeContract.chainVerifiedBlocks(sourceChainId, txBlockNumber);
     // // console.log({ sourceTxBlockHash }, txBlockNumber, this.registryBlockFrequency);
+    let signedCheckPoint;
+    const checkPointBlockNumber =
+      txBlockNumber + (this.registryBlockFrequency - (txBlockNumber % this.registryBlockFrequency));
     if (!sourceTxBlockHash || sourceTxBlockHash === ethers.constants.HashZero) {
-      const checkPointBlockNumber =
-        txBlockNumber + (this.registryBlockFrequency - (txBlockNumber % this.registryBlockFrequency));
-
       //try to get the nearest checkpoint block from the header registry
       // // console.log('getSignedBlock checkpoint:', this.registryContract.address, {
       //   sourceChainId,
       //   checkPointBlockNumber,
       // });
 
-      let signedCheckPoint;
-      if (getBlocksFromEvents) {
+      if (getCheckpointFromEvents) {
         signedCheckPoint = await this.getCheckpointBlockFromEvents(sourceChainId, checkPointBlockNumber).catch(
           (_) => undefined,
         );
@@ -95,22 +94,26 @@ export class BridgeSDK {
           .catch((_) => false);
       }
       if (!signedCheckPoint) throw new Error(`checkpoint block ${checkPointBlockNumber} does not exists yet`);
-
-      //fetch missing parent blocks
-      const parentBlocks = await this.getChainBlockHeaders(sourceChainId, txBlockNumber, checkPointBlockNumber);
-      const checkpointBlock = parentBlocks.pop();
-
-      const signedBlock = {
-        chainId: sourceChainId,
-        rlpHeader: checkpointBlock.rlpHeader,
-        signatures: signedCheckPoint.signatures,
-        cycleEnd: signedCheckPoint.cycleEnd,
-        validators: signedCheckPoint.validators,
-      };
-
-      return { checkPointBlockNumber, signedBlock, parentBlocks };
     }
-    return {};
+    //in anycase fetch checkpoint + parent blocks, since we require to submit the block rlp header with proof
+    const parentAndCheckpointBlocks = await this.getChainBlockHeaders(
+      sourceChainId,
+      txBlockNumber,
+      checkPointBlockNumber,
+    );
+    const checkpointBlock = last(parentAndCheckpointBlocks);
+
+    const signedBlock = signedCheckPoint
+      ? {
+          chainId: sourceChainId,
+          rlpHeader: checkpointBlock.rlpHeader,
+          signatures: signedCheckPoint.signatures,
+          cycleEnd: signedCheckPoint.cycleEnd,
+          validators: signedCheckPoint.validators,
+        }
+      : undefined;
+
+    return { checkPointBlockNumber, signedBlock, parentAndCheckpointBlocks };
   };
 
   getChainBlockHeaders = async (sourceChainId: number, startBlock: number, endBlock: number) => {
@@ -134,14 +137,16 @@ export class BridgeSDK {
     const targetBridgeContract = await this.getBridgeContract(targetChainId);
 
     const minBlockReceipt = minBy(receiptProofs, (_) => Number(_.receipt.blockNumber));
-    const { checkPointBlockNumber, signedBlock, parentBlocks } = await this.getBlocksToSubmit(
+    const { checkPointBlockNumber, signedBlock, parentAndCheckpointBlocks } = await this.getBlocksToSubmit(
       sourceChainId,
       Number(minBlockReceipt.receipt.blockNumber),
       targetBridgeContract,
     );
 
     const mptProofs = receiptProofs.map((receiptProof) => {
-      const txBlock = parentBlocks.find((_) => Number(_.block.number) === Number(receiptProof.receipt.blockNumber));
+      const txBlock = parentAndCheckpointBlocks.find(
+        (_) => Number(_.block.number) === Number(receiptProof.receipt.blockNumber),
+      );
 
       return {
         blockNumber: Number(receiptProof.receipt.blockNumber),
@@ -160,7 +165,8 @@ export class BridgeSDK {
     });
 
     if (signedBlock) {
-      const parentRlps = parentBlocks.map((_) => _.rlpHeader).reverse();
+      parentAndCheckpointBlocks.pop(); //remove the checkpoint block from parents we are submiting
+      const parentRlps = parentAndCheckpointBlocks.map((_) => _.rlpHeader).reverse();
 
       //   const parentsChain = [
       //     checkpointBlock.block.parentHash,

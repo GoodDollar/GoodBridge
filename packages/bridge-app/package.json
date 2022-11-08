@@ -1,11 +1,17 @@
 {
   "name": "@gooddollar/bridge-app",
-  "version": "0.0.1",
+  "version": "1.0.5",
   "description": "Minimalistic bridge",
   "engines": {
     "node": ">= 16"
   },
   "license": "MIT",
+  "files": [
+    "dist",
+    "src",
+    "Dockerfile",
+    "types"
+  ],
   "devDependencies": {
     "@babel/preset-typescript": "^7.18.6",
     "@types/jest": "^29.0.3",
