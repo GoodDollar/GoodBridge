@@ -5,4 +5,5 @@ import type * as votingMockSol from "./VotingMock.sol";
 export type { votingMockSol };
 export type { ConsensusMock } from "./ConsensusMock";
 export type { TestToken } from "./TestToken";
+export type { TokenBridgeTest } from "./TokenBridgeTest";
 export type { VerifierTest } from "./VerifierTest";

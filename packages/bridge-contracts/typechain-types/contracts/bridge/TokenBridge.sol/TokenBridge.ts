@@ -25,7 +25,43 @@ import type {
   TypedListener,
   OnEvent,
   PromiseOrValue,
-} from "../../common";
+} from "../../../common";
+
+export declare namespace TokenBridge {
+  export type BridgeFeesStruct = {
+    minFee: PromiseOrValue<BigNumberish>;
+    maxFee: PromiseOrValue<BigNumberish>;
+    fee: PromiseOrValue<BigNumberish>;
+  };
+
+  export type BridgeFeesStructOutput = [BigNumber, BigNumber, BigNumber] & {
+    minFee: BigNumber;
+    maxFee: BigNumber;
+    fee: BigNumber;
+  };
+
+  export type BridgeLimitsStruct = {
+    dailyLimit: PromiseOrValue<BigNumberish>;
+    txLimit: PromiseOrValue<BigNumberish>;
+    accountDailyLimit: PromiseOrValue<BigNumberish>;
+    minAmount: PromiseOrValue<BigNumberish>;
+    onlyWhitelisted: PromiseOrValue<boolean>;
+  };
+
+  export type BridgeLimitsStructOutput = [
+    BigNumber,
+    BigNumber,
+    BigNumber,
+    BigNumber,
+    boolean
+  ] & {
+    dailyLimit: BigNumber;
+    txLimit: BigNumber;
+    accountDailyLimit: BigNumber;
+    minAmount: BigNumber;
+    onlyWhitelisted: boolean;
+  };
+}
 
 export declare namespace MPT {
   export type MerkleProofStruct = {
@@ -104,23 +140,45 @@ export declare namespace BridgeCore {
   };
 }
 
-export interface BridgeMixedConsensusInterface extends utils.Interface {
+export interface TokenBridgeInterface extends utils.Interface {
   functions: {
+    "BRIDGE_TOPIC()": FunctionFragment;
+    "accountsDailyLimit(address)": FunctionFragment;
+    "bridgeDailyLimit()": FunctionFragment;
+    "bridgeFees()": FunctionFragment;
+    "bridgeLimits()": FunctionFragment;
+    "bridgeTo(address,uint256,uint256)": FunctionFragment;
+    "bridgedToken()": FunctionFragment;
+    "canBridge(address,uint256)": FunctionFragment;
+    "chainIdToTotalBridgeFees(uint256)": FunctionFragment;
+    "chainIdToTotalBridged(uint256)": FunctionFragment;
+    "chainIdToTotalRelayFees(uint256)": FunctionFragment;
     "chainStartBlock(uint256)": FunctionFragment;
     "chainVerifiedBlocks(uint256,uint256)": FunctionFragment;
+    "closeBridge(address)": FunctionFragment;
     "consensusRatio()": FunctionFragment;
+    "currentId()": FunctionFragment;
     "currentValidators(address)": FunctionFragment;
     "executeReceipts(uint256,((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
+    "faucet()": FunctionFragment;
+    "isClosed()": FunctionFragment;
     "isValidConsensus(address[])": FunctionFragment;
+    "nameService()": FunctionFragment;
     "numRequiredValidators()": FunctionFragment;
     "numValidators()": FunctionFragment;
+    "onTokenTransfer(address,uint256,bytes)": FunctionFragment;
     "owner()": FunctionFragment;
     "parseRLPToHeader(bytes)": FunctionFragment;
     "renounceOwnership()": FunctionFragment;
     "requiredValidators(address)": FunctionFragment;
     "requiredValidatorsSet()": FunctionFragment;
+    "setBridgeFees((uint256,uint256,uint256))": FunctionFragment;
+    "setBridgeLimits((uint256,uint256,uint256,uint256,bool))": FunctionFragment;
     "setConsensusRatio(uint32)": FunctionFragment;
+    "setFaucet(address)": FunctionFragment;
     "setRequiredValidators(address[])": FunctionFragment;
+    "setSourceBridges(address[],uint256[])": FunctionFragment;
+    "sourceBridgeToBlockstart(address)": FunctionFragment;
     "submitBlocks((uint256,bytes,bytes[],uint256,address[])[])": FunctionFragment;
     "submitChainBlockParentsAndTxs((uint256,bytes,bytes[],uint256,address[]),uint256,bytes[],((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
     "transferOwnership(address)": FunctionFragment;
@@ -131,21 +189,43 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
 
   getFunction(
     nameOrSignatureOrTopic:
+      | "BRIDGE_TOPIC"
+      | "accountsDailyLimit"
+      | "bridgeDailyLimit"
+      | "bridgeFees"
+      | "bridgeLimits"
+      | "bridgeTo"
+      | "bridgedToken"
+      | "canBridge"
+      | "chainIdToTotalBridgeFees"
+      | "chainIdToTotalBridged"
+      | "chainIdToTotalRelayFees"
       | "chainStartBlock"
       | "chainVerifiedBlocks"
+      | "closeBridge"
       | "consensusRatio"
+      | "currentId"
       | "currentValidators"
       | "executeReceipts"
+      | "faucet"
+      | "isClosed"
       | "isValidConsensus"
+      | "nameService"
       | "numRequiredValidators"
       | "numValidators"
+      | "onTokenTransfer"
       | "owner"
       | "parseRLPToHeader"
       | "renounceOwnership"
       | "requiredValidators"
       | "requiredValidatorsSet"
+      | "setBridgeFees"
+      | "setBridgeLimits"
       | "setConsensusRatio"
+      | "setFaucet"
       | "setRequiredValidators"
+      | "setSourceBridges"
+      | "sourceBridgeToBlockstart"
       | "submitBlocks"
       | "submitChainBlockParentsAndTxs"
       | "transferOwnership"
@@ -155,6 +235,54 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
   ): FunctionFragment;
 
   encodeFunctionData(
+    functionFragment: "BRIDGE_TOPIC",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "accountsDailyLimit",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "bridgeDailyLimit",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "bridgeFees",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "bridgeLimits",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "bridgeTo",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "bridgedToken",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "canBridge",
+    values: [PromiseOrValue<string>, PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "chainIdToTotalBridgeFees",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "chainIdToTotalBridged",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "chainIdToTotalRelayFees",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "chainStartBlock",
     values: [PromiseOrValue<BigNumberish>]
   ): string;
@@ -163,9 +291,14 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     values: [PromiseOrValue<BigNumberish>, PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
+    functionFragment: "closeBridge",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "consensusRatio",
     values?: undefined
   ): string;
+  encodeFunctionData(functionFragment: "currentId", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "currentValidators",
     values: [PromiseOrValue<string>]
@@ -177,9 +310,15 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
       BridgeCore.BlockReceiptProofsStruct[]
     ]
   ): string;
+  encodeFunctionData(functionFragment: "faucet", values?: undefined): string;
+  encodeFunctionData(functionFragment: "isClosed", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "isValidConsensus",
     values: [PromiseOrValue<string>[]]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "nameService",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "numRequiredValidators",
@@ -188,6 +327,14 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "numValidators",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "onTokenTransfer",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BytesLike>
+    ]
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
@@ -207,12 +354,32 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "setBridgeFees",
+    values: [TokenBridge.BridgeFeesStruct]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setBridgeLimits",
+    values: [TokenBridge.BridgeLimitsStruct]
+  ): string;
+  encodeFunctionData(
     functionFragment: "setConsensusRatio",
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
+    functionFragment: "setFaucet",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "setRequiredValidators",
     values: [PromiseOrValue<string>[]]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setSourceBridges",
+    values: [PromiseOrValue<string>[], PromiseOrValue<BigNumberish>[]]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "sourceBridgeToBlockstart",
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "submitBlocks",
@@ -250,6 +417,41 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
   ): string;
 
   decodeFunctionResult(
+    functionFragment: "BRIDGE_TOPIC",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "accountsDailyLimit",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "bridgeDailyLimit",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "bridgeFees", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "bridgeLimits",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "bridgeTo", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "bridgedToken",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "canBridge", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "chainIdToTotalBridgeFees",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "chainIdToTotalBridged",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "chainIdToTotalRelayFees",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "chainStartBlock",
     data: BytesLike
   ): Result;
@@ -258,9 +460,14 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "closeBridge",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "consensusRatio",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "currentId", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "currentValidators",
     data: BytesLike
@@ -269,8 +476,14 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     functionFragment: "executeReceipts",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "faucet", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "isClosed", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "isValidConsensus",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "nameService",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -279,6 +492,10 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "numValidators",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "onTokenTransfer",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
@@ -299,11 +516,28 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "setConsensusRatio",
+    functionFragment: "setBridgeFees",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "setBridgeLimits",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setConsensusRatio",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "setFaucet", data: BytesLike): Result;
+  decodeFunctionResult(
     functionFragment: "setRequiredValidators",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setSourceBridges",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "sourceBridgeToBlockstart",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -332,11 +566,57 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
   ): Result;
 
   events: {
+    "BridgeRequest(address,address,uint256,uint256,bool,uint256)": EventFragment;
+    "ExecutedTransfer(address,address,address,uint256,uint256,uint256,uint256,uint256)": EventFragment;
     "OwnershipTransferred(address,address)": EventFragment;
   };
 
+  getEvent(nameOrSignatureOrTopic: "BridgeRequest"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ExecutedTransfer"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnershipTransferred"): EventFragment;
 }
+
+export interface BridgeRequestEventObject {
+  from: string;
+  to: string;
+  targetChainId: BigNumber;
+  amount: BigNumber;
+  withRelay: boolean;
+  id: BigNumber;
+}
+export type BridgeRequestEvent = TypedEvent<
+  [string, string, BigNumber, BigNumber, boolean, BigNumber],
+  BridgeRequestEventObject
+>;
+
+export type BridgeRequestEventFilter = TypedEventFilter<BridgeRequestEvent>;
+
+export interface ExecutedTransferEventObject {
+  from: string;
+  to: string;
+  relayer: string;
+  amount: BigNumber;
+  fee: BigNumber;
+  sourceChainId: BigNumber;
+  sourceBlockNumber: BigNumber;
+  id: BigNumber;
+}
+export type ExecutedTransferEvent = TypedEvent<
+  [
+    string,
+    string,
+    string,
+    BigNumber,
+    BigNumber,
+    BigNumber,
+    BigNumber,
+    BigNumber
+  ],
+  ExecutedTransferEventObject
+>;
+
+export type ExecutedTransferEventFilter =
+  TypedEventFilter<ExecutedTransferEvent>;
 
 export interface OwnershipTransferredEventObject {
   previousOwner: string;
@@ -350,12 +630,12 @@ export type OwnershipTransferredEvent = TypedEvent<
 export type OwnershipTransferredEventFilter =
   TypedEventFilter<OwnershipTransferredEvent>;
 
-export interface BridgeMixedConsensus extends BaseContract {
+export interface TokenBridge extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
 
-  interface: BridgeMixedConsensusInterface;
+  interface: TokenBridgeInterface;
 
   queryFilter<TEvent extends TypedEvent>(
     event: TypedEventFilter<TEvent>,
@@ -377,8 +657,81 @@ export interface BridgeMixedConsensus extends BaseContract {
   removeListener: OnEvent<this>;
 
   functions: {
+    BRIDGE_TOPIC(overrides?: CallOverrides): Promise<[string]>;
+
+    accountsDailyLimit(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber] & {
+        lastTransferReset: BigNumber;
+        bridged24Hours: BigNumber;
+      }
+    >;
+
+    bridgeDailyLimit(
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber] & {
+        lastTransferReset: BigNumber;
+        bridged24Hours: BigNumber;
+      }
+    >;
+
+    bridgeFees(
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber, BigNumber] & {
+        minFee: BigNumber;
+        maxFee: BigNumber;
+        fee: BigNumber;
+      }
+    >;
+
+    bridgeLimits(
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber, BigNumber, BigNumber, boolean] & {
+        dailyLimit: BigNumber;
+        txLimit: BigNumber;
+        accountDailyLimit: BigNumber;
+        minAmount: BigNumber;
+        onlyWhitelisted: boolean;
+      }
+    >;
+
+    bridgeTo(
+      target: PromiseOrValue<string>,
+      targetChainId: PromiseOrValue<BigNumberish>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    bridgedToken(overrides?: CallOverrides): Promise<[string]>;
+
+    canBridge(
+      from: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    chainIdToTotalBridgeFees(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
+
+    chainIdToTotalBridged(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
+
+    chainIdToTotalRelayFees(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
+
     chainStartBlock(
-      chainId: PromiseOrValue<BigNumberish>,
+      arg0: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -388,7 +741,14 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[string]>;
 
+    closeBridge(
+      token: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     consensusRatio(overrides?: CallOverrides): Promise<[number]>;
+
+    currentId(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     currentValidators(
       arg0: PromiseOrValue<string>,
@@ -401,14 +761,27 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    faucet(overrides?: CallOverrides): Promise<[string]>;
+
+    isClosed(overrides?: CallOverrides): Promise<[boolean]>;
+
     isValidConsensus(
       signers: PromiseOrValue<string>[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    nameService(overrides?: CallOverrides): Promise<[string]>;
+
     numRequiredValidators(overrides?: CallOverrides): Promise<[number]>;
 
     numValidators(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    onTokenTransfer(
+      from: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
     owner(overrides?: CallOverrides): Promise<[string]>;
 
@@ -432,8 +805,23 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<[BigNumber]>;
 
+    setBridgeFees(
+      _fees: TokenBridge.BridgeFeesStruct,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setBridgeLimits(
+      _limits: TokenBridge.BridgeLimitsStruct,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     setConsensusRatio(
       _consensusRatio: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setFaucet(
+      _faucet: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -441,6 +829,17 @@ export interface BridgeMixedConsensus extends BaseContract {
       validators: PromiseOrValue<string>[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    setSourceBridges(
+      bridges: PromiseOrValue<string>[],
+      blockstart: PromiseOrValue<BigNumberish>[],
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    sourceBridgeToBlockstart(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
 
     submitBlocks(
       signedBlocks: BridgeCore.SignedBlockStruct[],
@@ -476,8 +875,81 @@ export interface BridgeMixedConsensus extends BaseContract {
     ): Promise<ContractTransaction>;
   };
 
+  BRIDGE_TOPIC(overrides?: CallOverrides): Promise<string>;
+
+  accountsDailyLimit(
+    arg0: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<
+    [BigNumber, BigNumber] & {
+      lastTransferReset: BigNumber;
+      bridged24Hours: BigNumber;
+    }
+  >;
+
+  bridgeDailyLimit(
+    overrides?: CallOverrides
+  ): Promise<
+    [BigNumber, BigNumber] & {
+      lastTransferReset: BigNumber;
+      bridged24Hours: BigNumber;
+    }
+  >;
+
+  bridgeFees(
+    overrides?: CallOverrides
+  ): Promise<
+    [BigNumber, BigNumber, BigNumber] & {
+      minFee: BigNumber;
+      maxFee: BigNumber;
+      fee: BigNumber;
+    }
+  >;
+
+  bridgeLimits(
+    overrides?: CallOverrides
+  ): Promise<
+    [BigNumber, BigNumber, BigNumber, BigNumber, boolean] & {
+      dailyLimit: BigNumber;
+      txLimit: BigNumber;
+      accountDailyLimit: BigNumber;
+      minAmount: BigNumber;
+      onlyWhitelisted: boolean;
+    }
+  >;
+
+  bridgeTo(
+    target: PromiseOrValue<string>,
+    targetChainId: PromiseOrValue<BigNumberish>,
+    amount: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  bridgedToken(overrides?: CallOverrides): Promise<string>;
+
+  canBridge(
+    from: PromiseOrValue<string>,
+    amount: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  chainIdToTotalBridgeFees(
+    arg0: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  chainIdToTotalBridged(
+    arg0: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  chainIdToTotalRelayFees(
+    arg0: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
   chainStartBlock(
-    chainId: PromiseOrValue<BigNumberish>,
+    arg0: PromiseOrValue<BigNumberish>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -487,7 +959,14 @@ export interface BridgeMixedConsensus extends BaseContract {
     overrides?: CallOverrides
   ): Promise<string>;
 
+  closeBridge(
+    token: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   consensusRatio(overrides?: CallOverrides): Promise<number>;
+
+  currentId(overrides?: CallOverrides): Promise<BigNumber>;
 
   currentValidators(
     arg0: PromiseOrValue<string>,
@@ -500,14 +979,27 @@ export interface BridgeMixedConsensus extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  faucet(overrides?: CallOverrides): Promise<string>;
+
+  isClosed(overrides?: CallOverrides): Promise<boolean>;
+
   isValidConsensus(
     signers: PromiseOrValue<string>[],
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  nameService(overrides?: CallOverrides): Promise<string>;
+
   numRequiredValidators(overrides?: CallOverrides): Promise<number>;
 
   numValidators(overrides?: CallOverrides): Promise<BigNumber>;
+
+  onTokenTransfer(
+    from: PromiseOrValue<string>,
+    amount: PromiseOrValue<BigNumberish>,
+    data: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
   owner(overrides?: CallOverrides): Promise<string>;
 
@@ -527,8 +1019,23 @@ export interface BridgeMixedConsensus extends BaseContract {
 
   requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
 
+  setBridgeFees(
+    _fees: TokenBridge.BridgeFeesStruct,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  setBridgeLimits(
+    _limits: TokenBridge.BridgeLimitsStruct,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   setConsensusRatio(
     _consensusRatio: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  setFaucet(
+    _faucet: PromiseOrValue<string>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -536,6 +1043,17 @@ export interface BridgeMixedConsensus extends BaseContract {
     validators: PromiseOrValue<string>[],
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
+
+  setSourceBridges(
+    bridges: PromiseOrValue<string>[],
+    blockstart: PromiseOrValue<BigNumberish>[],
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  sourceBridgeToBlockstart(
+    arg0: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   submitBlocks(
     signedBlocks: BridgeCore.SignedBlockStruct[],
@@ -571,8 +1089,81 @@ export interface BridgeMixedConsensus extends BaseContract {
   ): Promise<ContractTransaction>;
 
   callStatic: {
+    BRIDGE_TOPIC(overrides?: CallOverrides): Promise<string>;
+
+    accountsDailyLimit(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber] & {
+        lastTransferReset: BigNumber;
+        bridged24Hours: BigNumber;
+      }
+    >;
+
+    bridgeDailyLimit(
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber] & {
+        lastTransferReset: BigNumber;
+        bridged24Hours: BigNumber;
+      }
+    >;
+
+    bridgeFees(
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber, BigNumber] & {
+        minFee: BigNumber;
+        maxFee: BigNumber;
+        fee: BigNumber;
+      }
+    >;
+
+    bridgeLimits(
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber, BigNumber, BigNumber, boolean] & {
+        dailyLimit: BigNumber;
+        txLimit: BigNumber;
+        accountDailyLimit: BigNumber;
+        minAmount: BigNumber;
+        onlyWhitelisted: boolean;
+      }
+    >;
+
+    bridgeTo(
+      target: PromiseOrValue<string>,
+      targetChainId: PromiseOrValue<BigNumberish>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    bridgedToken(overrides?: CallOverrides): Promise<string>;
+
+    canBridge(
+      from: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[boolean, string] & { isWithinLimit: boolean; error: string }>;
+
+    chainIdToTotalBridgeFees(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    chainIdToTotalBridged(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    chainIdToTotalRelayFees(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     chainStartBlock(
-      chainId: PromiseOrValue<BigNumberish>,
+      arg0: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -582,7 +1173,14 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: CallOverrides
     ): Promise<string>;
 
+    closeBridge(
+      token: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     consensusRatio(overrides?: CallOverrides): Promise<number>;
+
+    currentId(overrides?: CallOverrides): Promise<BigNumber>;
 
     currentValidators(
       arg0: PromiseOrValue<string>,
@@ -595,14 +1193,27 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    faucet(overrides?: CallOverrides): Promise<string>;
+
+    isClosed(overrides?: CallOverrides): Promise<boolean>;
+
     isValidConsensus(
       signers: PromiseOrValue<string>[],
       overrides?: CallOverrides
     ): Promise<boolean>;
 
+    nameService(overrides?: CallOverrides): Promise<string>;
+
     numRequiredValidators(overrides?: CallOverrides): Promise<number>;
 
     numValidators(overrides?: CallOverrides): Promise<BigNumber>;
+
+    onTokenTransfer(
+      from: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
 
     owner(overrides?: CallOverrides): Promise<string>;
 
@@ -620,8 +1231,23 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
 
+    setBridgeFees(
+      _fees: TokenBridge.BridgeFeesStruct,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setBridgeLimits(
+      _limits: TokenBridge.BridgeLimitsStruct,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     setConsensusRatio(
       _consensusRatio: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setFaucet(
+      _faucet: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -629,6 +1255,17 @@ export interface BridgeMixedConsensus extends BaseContract {
       validators: PromiseOrValue<string>[],
       overrides?: CallOverrides
     ): Promise<void>;
+
+    setSourceBridges(
+      bridges: PromiseOrValue<string>[],
+      blockstart: PromiseOrValue<BigNumberish>[],
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    sourceBridgeToBlockstart(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     submitBlocks(
       signedBlocks: BridgeCore.SignedBlockStruct[],
@@ -665,6 +1302,44 @@ export interface BridgeMixedConsensus extends BaseContract {
   };
 
   filters: {
+    "BridgeRequest(address,address,uint256,uint256,bool,uint256)"(
+      from?: PromiseOrValue<string> | null,
+      to?: PromiseOrValue<string> | null,
+      targetChainId?: null,
+      amount?: null,
+      withRelay?: null,
+      id?: PromiseOrValue<BigNumberish> | null
+    ): BridgeRequestEventFilter;
+    BridgeRequest(
+      from?: PromiseOrValue<string> | null,
+      to?: PromiseOrValue<string> | null,
+      targetChainId?: null,
+      amount?: null,
+      withRelay?: null,
+      id?: PromiseOrValue<BigNumberish> | null
+    ): BridgeRequestEventFilter;
+
+    "ExecutedTransfer(address,address,address,uint256,uint256,uint256,uint256,uint256)"(
+      from?: PromiseOrValue<string> | null,
+      to?: PromiseOrValue<string> | null,
+      relayer?: null,
+      amount?: null,
+      fee?: null,
+      sourceChainId?: null,
+      sourceBlockNumber?: null,
+      id?: PromiseOrValue<BigNumberish> | null
+    ): ExecutedTransferEventFilter;
+    ExecutedTransfer(
+      from?: PromiseOrValue<string> | null,
+      to?: PromiseOrValue<string> | null,
+      relayer?: null,
+      amount?: null,
+      fee?: null,
+      sourceChainId?: null,
+      sourceBlockNumber?: null,
+      id?: PromiseOrValue<BigNumberish> | null
+    ): ExecutedTransferEventFilter;
+
     "OwnershipTransferred(address,address)"(
       previousOwner?: PromiseOrValue<string> | null,
       newOwner?: PromiseOrValue<string> | null
@@ -676,8 +1351,51 @@ export interface BridgeMixedConsensus extends BaseContract {
   };
 
   estimateGas: {
+    BRIDGE_TOPIC(overrides?: CallOverrides): Promise<BigNumber>;
+
+    accountsDailyLimit(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    bridgeDailyLimit(overrides?: CallOverrides): Promise<BigNumber>;
+
+    bridgeFees(overrides?: CallOverrides): Promise<BigNumber>;
+
+    bridgeLimits(overrides?: CallOverrides): Promise<BigNumber>;
+
+    bridgeTo(
+      target: PromiseOrValue<string>,
+      targetChainId: PromiseOrValue<BigNumberish>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    bridgedToken(overrides?: CallOverrides): Promise<BigNumber>;
+
+    canBridge(
+      from: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    chainIdToTotalBridgeFees(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    chainIdToTotalBridged(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    chainIdToTotalRelayFees(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     chainStartBlock(
-      chainId: PromiseOrValue<BigNumberish>,
+      arg0: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -687,7 +1405,14 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    closeBridge(
+      token: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     consensusRatio(overrides?: CallOverrides): Promise<BigNumber>;
+
+    currentId(overrides?: CallOverrides): Promise<BigNumber>;
 
     currentValidators(
       arg0: PromiseOrValue<string>,
@@ -700,14 +1425,27 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    faucet(overrides?: CallOverrides): Promise<BigNumber>;
+
+    isClosed(overrides?: CallOverrides): Promise<BigNumber>;
+
     isValidConsensus(
       signers: PromiseOrValue<string>[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    nameService(overrides?: CallOverrides): Promise<BigNumber>;
+
     numRequiredValidators(overrides?: CallOverrides): Promise<BigNumber>;
 
     numValidators(overrides?: CallOverrides): Promise<BigNumber>;
+
+    onTokenTransfer(
+      from: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
 
     owner(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -727,14 +1465,40 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
 
+    setBridgeFees(
+      _fees: TokenBridge.BridgeFeesStruct,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setBridgeLimits(
+      _limits: TokenBridge.BridgeLimitsStruct,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     setConsensusRatio(
       _consensusRatio: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setFaucet(
+      _faucet: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
     setRequiredValidators(
       validators: PromiseOrValue<string>[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setSourceBridges(
+      bridges: PromiseOrValue<string>[],
+      blockstart: PromiseOrValue<BigNumberish>[],
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    sourceBridgeToBlockstart(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     submitBlocks(
@@ -772,8 +1536,51 @@ export interface BridgeMixedConsensus extends BaseContract {
   };
 
   populateTransaction: {
+    BRIDGE_TOPIC(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    accountsDailyLimit(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    bridgeDailyLimit(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    bridgeFees(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    bridgeLimits(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    bridgeTo(
+      target: PromiseOrValue<string>,
+      targetChainId: PromiseOrValue<BigNumberish>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    bridgedToken(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    canBridge(
+      from: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    chainIdToTotalBridgeFees(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    chainIdToTotalBridged(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    chainIdToTotalRelayFees(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     chainStartBlock(
-      chainId: PromiseOrValue<BigNumberish>,
+      arg0: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -783,7 +1590,14 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    closeBridge(
+      token: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     consensusRatio(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    currentId(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     currentValidators(
       arg0: PromiseOrValue<string>,
@@ -796,16 +1610,29 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    faucet(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    isClosed(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     isValidConsensus(
       signers: PromiseOrValue<string>[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
+
+    nameService(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     numRequiredValidators(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     numValidators(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    onTokenTransfer(
+      from: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
 
     owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
@@ -827,14 +1654,40 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    setBridgeFees(
+      _fees: TokenBridge.BridgeFeesStruct,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setBridgeLimits(
+      _limits: TokenBridge.BridgeLimitsStruct,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     setConsensusRatio(
       _consensusRatio: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setFaucet(
+      _faucet: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
     setRequiredValidators(
       validators: PromiseOrValue<string>[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setSourceBridges(
+      bridges: PromiseOrValue<string>[],
+      blockstart: PromiseOrValue<BigNumberish>[],
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    sourceBridgeToBlockstart(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     submitBlocks(

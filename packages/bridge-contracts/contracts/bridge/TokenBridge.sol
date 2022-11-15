@@ -34,6 +34,7 @@ contract TokenBridge is BridgeMixedConsensus {
         uint256 txLimit;
         uint256 accountDailyLimit;
         uint256 minAmount;
+        bool onlyWhitelisted;
     }
 
     struct AccountLimit {
@@ -52,7 +53,8 @@ contract TokenBridge is BridgeMixedConsensus {
 
     address public bridgedToken;
 
-    mapping(address => bool) public sourceBridges;
+    // 0 means soureBridge no longer valid. other wise accept only receipts with block number of source chain > blockstart
+    mapping(address => uint256) public sourceBridgeToBlockstart;
 
     bool public isClosed;
 
@@ -76,10 +78,12 @@ contract TokenBridge is BridgeMixedConsensus {
         uint256 targetChainId,
         uint256 amount,
         bool withRelay,
+        uint256 timestamp,
         uint256 indexed id
     );
 
-    bytes32 public constant BRIDGE_TOPIC = keccak256('BridgeRequest(address,address,uint256,uint256,bool,uint256)');
+    bytes32 public constant BRIDGE_TOPIC =
+        keccak256('BridgeRequest(address,address,uint256,uint256,bool,uint256,uint256)');
 
     event ExecutedTransfer(
         address indexed from,
@@ -110,6 +114,15 @@ contract TokenBridge is BridgeMixedConsensus {
         nameService = _nameService;
     }
 
+    // start block is enforced per source contract
+    function chainStartBlock(uint256) public virtual override returns (uint256 bridgeStartBlock) {
+        return 1;
+    }
+
+    function setBridgeLimits(BridgeLimits memory _limits) external onlyOwner {
+        bridgeLimits = _limits;
+    }
+
     function setBridgeFees(BridgeFees memory _fees) external onlyOwner {
         bridgeFees = _fees;
     }
@@ -118,8 +131,8 @@ contract TokenBridge is BridgeMixedConsensus {
         faucet = _faucet;
     }
 
-    function setSourceBridges(address[] calldata bridges) external onlyOwner {
-        for (uint256 i = 0; i < bridges.length; i++) sourceBridges[bridges[i]] = true;
+    function setSourceBridges(address[] calldata bridges, uint256[] calldata blockstart) external onlyOwner {
+        for (uint256 i = 0; i < bridges.length; i++) sourceBridgeToBlockstart[bridges[i]] = blockstart[i];
     }
 
     function _enforceLimits(
@@ -151,7 +164,7 @@ contract TokenBridge is BridgeMixedConsensus {
     function canBridge(address from, uint256 amount) public returns (bool isWithinLimit, string memory error) {
         if (amount < bridgeLimits.minAmount) return (false, 'minAmount');
 
-        if (address(nameService) != address(0)) {
+        if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
             IIdentity id = IIdentity(nameService.getAddress('IDENTITY'));
             if (address(id) != address(0))
                 if (id.isWhitelisted(from) == false) return (false, 'not whitelisted');
@@ -182,7 +195,28 @@ contract TokenBridge is BridgeMixedConsensus {
         _enforceLimits(msg.sender, target, amount, targetChainId);
 
         require(IERC20(bridgedToken).transferFrom(msg.sender, address(this), amount), 'transferFrom');
-        emit BridgeRequest(msg.sender, target, targetChainId, amount, true, currentId++);
+        emit BridgeRequest(
+            msg.sender,
+            target,
+            targetChainId,
+            amount,
+            true,
+            block.timestamp,
+            uint256(
+                keccak256(
+                    abi.encode(
+                        msg.sender,
+                        target,
+                        _chainId(),
+                        targetChainId,
+                        amount,
+                        address(this),
+                        block.timestamp,
+                        currentId++
+                    )
+                )
+            )
+        );
     }
 
     function onTokenTransfer(
@@ -194,7 +228,27 @@ contract TokenBridge is BridgeMixedConsensus {
         (uint256 targetChainId, address target) = abi.decode(data, (uint256, address));
         _enforceLimits(from, target, amount, targetChainId);
 
-        emit BridgeRequest(from, target, targetChainId, amount, true, currentId++);
+        emit BridgeRequest(
+            from,
+            target,
+            targetChainId,
+            amount,
+            true,
+            uint256(
+                keccak256(
+                    abi.encode(
+                        msg.sender,
+                        target,
+                        _chainId(),
+                        targetChainId,
+                        amount,
+                        address(this),
+                        block.timestamp,
+                        currentId++
+                    )
+                )
+            )
+        );
         return true;
     }
 
@@ -222,8 +276,9 @@ contract TokenBridge is BridgeMixedConsensus {
             // where topic is BridgeTransfer
             // console.log('log address %s', log.contractAddress);
             // console.logBytes32(log.topics[0]);
+            require(sourceBridgeToBlockstart[log.contractAddress] <= blockNumber, 'receipt too old');
 
-            if (sourceBridges[log.contractAddress] == false || log.topics[0] != BRIDGE_TOPIC) {
+            if (sourceBridgeToBlockstart[log.contractAddress] == 0 || log.topics[0] != BRIDGE_TOPIC) {
                 continue;
             }
             // console.log('receipt found log index %s', i);
@@ -295,8 +350,8 @@ contract TokenBridge is BridgeMixedConsensus {
         }
     }
 
-    function closeBridge() external onlyOwner {
-        require(IERC20(bridgedToken).transfer(owner(), IERC20(bridgedToken).balanceOf(address(this))), 'transfer');
+    function closeBridge(address token) external onlyOwner {
+        require(IERC20(token).transfer(owner(), IERC20(token).balanceOf(address(this))), 'transfer');
 
         isClosed = true;
     }

@@ -48,6 +48,7 @@ export declare const prepareBlock: (block: BlockHeader, chainId?: number) => {
 };
 export declare const index2key: (index: any, proofLength: any) => string;
 export declare const receiptProof: (txHash: string, provider: ethers.providers.JsonRpcProvider, chainId?: number) => Promise<{
+    receipt: any;
     receiptsRoot: string;
     headerRlp: string;
     receiptProof: any;

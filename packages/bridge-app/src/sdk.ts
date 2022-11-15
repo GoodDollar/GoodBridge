@@ -67,16 +67,19 @@ export class BridgeSDK {
 
   getBlocksToSubmit = async (
     sourceChainId: number,
-    txBlockNumber: number,
+    minTxBlockNumber: number,
+    maxTxBlockNumber: number,
     targetBridgeContract: Contract,
     getCheckpointFromEvents = true,
   ) => {
-    //check if target bridge has required block
-    const sourceTxBlockHash = await targetBridgeContract.chainVerifiedBlocks(sourceChainId, txBlockNumber);
+    //check if target bridge has latest required block
+    const sourceTxBlockHash = await targetBridgeContract.chainVerifiedBlocks(sourceChainId, maxTxBlockNumber);
     // // console.log({ sourceTxBlockHash }, txBlockNumber, this.registryBlockFrequency);
     let signedCheckPoint;
     const checkPointBlockNumber =
-      txBlockNumber + (this.registryBlockFrequency - (txBlockNumber % this.registryBlockFrequency));
+      maxTxBlockNumber + (this.registryBlockFrequency - (maxTxBlockNumber % this.registryBlockFrequency));
+
+    //if doesnt have latest block, then fetch nearest signed checkpoint block from registry
     if (!sourceTxBlockHash || sourceTxBlockHash === ethers.constants.HashZero) {
       //try to get the nearest checkpoint block from the header registry
       // // console.log('getSignedBlock checkpoint:', this.registryContract.address, {
@@ -98,20 +101,18 @@ export class BridgeSDK {
     //in anycase fetch checkpoint + parent blocks, since we require to submit the block rlp header with proof
     const parentAndCheckpointBlocks = await this.getChainBlockHeaders(
       sourceChainId,
-      txBlockNumber,
+      minTxBlockNumber,
       checkPointBlockNumber,
     );
     const checkpointBlock = last(parentAndCheckpointBlocks);
 
-    const signedBlock = signedCheckPoint
-      ? {
-          chainId: sourceChainId,
-          rlpHeader: checkpointBlock.rlpHeader,
-          signatures: signedCheckPoint.signatures,
-          cycleEnd: signedCheckPoint.cycleEnd,
-          validators: signedCheckPoint.validators,
-        }
-      : undefined;
+    const signedBlock = {
+      chainId: sourceChainId,
+      rlpHeader: checkpointBlock.rlpHeader,
+      signatures: signedCheckPoint ? signedCheckPoint.signatures : [],
+      cycleEnd: signedCheckPoint ? signedCheckPoint.cycleEnd : 0,
+      validators: signedCheckPoint ? signedCheckPoint.validators : [],
+    };
 
     return { checkPointBlockNumber, signedBlock, parentAndCheckpointBlocks };
   };
@@ -137,9 +138,12 @@ export class BridgeSDK {
     const targetBridgeContract = await this.getBridgeContract(targetChainId);
 
     const minBlockReceipt = minBy(receiptProofs, (_) => Number(_.receipt.blockNumber));
+    const maxBlockReceipt = maxBy(receiptProofs, (_) => Number(_.receipt.blockNumber));
+
     const { checkPointBlockNumber, signedBlock, parentAndCheckpointBlocks } = await this.getBlocksToSubmit(
       sourceChainId,
       Number(minBlockReceipt.receipt.blockNumber),
+      Number(maxBlockReceipt.receipt.blockNumber),
       targetBridgeContract,
     );
 
@@ -164,40 +168,36 @@ export class BridgeSDK {
       };
     });
 
-    if (signedBlock) {
-      parentAndCheckpointBlocks.pop(); //remove the checkpoint block from parents we are submiting
-      const parentRlps = parentAndCheckpointBlocks.map((_) => _.rlpHeader).reverse();
+    parentAndCheckpointBlocks.pop(); //remove the checkpoint block from parents we are submiting
+    const parentRlps = parentAndCheckpointBlocks.map((_) => _.rlpHeader).reverse();
 
-      //   const parentsChain = [
-      //     checkpointBlock.block.parentHash,
-      //     parentBlocks.map((_) => [_.block.hash, _.block.parentHash]),
-      //   ];
-      // console.log('parents chain:', parentsChain);
-      // console.log({
-      //     parentsChain,
-      //     signedBlock,
-      //     sourceChainId,
-      //     checkPointBlockNumber,
-      //     parentRlps,
-      //     childHeader: checkpointBlock.rlpHeader,
-      //     proofs: [
-      //       {
-      //         blockNumber: Number(receiptProof.receipt.blockNumber),
-      //         blockHeaderRlp: receiptBlockHeaderRlp,
-      //         receiptProofs: [mptProof],
-      //       },
-      //     ],
-      //   });
-      return targetBridgeContract
-        .connect(signer)
-        .submitChainBlockParentsAndTxs(signedBlock, checkPointBlockNumber, parentRlps, mptProofs);
-    }
-    // console.log({ sourceChainId, mptProof });
-    return targetBridgeContract.connect(signer).executeReceipts(sourceChainId, mptProofs);
+    //   const parentsChain = [
+    //     checkpointBlock.block.parentHash,
+    //     parentBlocks.map((_) => [_.block.hash, _.block.parentHash]),
+    //   ];
+    // console.log('parents chain:', parentsChain);
+    // console.log({
+    //     parentsChain,
+    //     signedBlock,
+    //     sourceChainId,
+    //     checkPointBlockNumber,
+    //     parentRlps,
+    //     childHeader: checkpointBlock.rlpHeader,
+    //     proofs: [
+    //       {
+    //         blockNumber: Number(receiptProof.receipt.blockNumber),
+    //         blockHeaderRlp: receiptBlockHeaderRlp,
+    //         receiptProofs: [mptProof],
+    //       },
+    //     ],
+    //   });
+    return targetBridgeContract
+      .connect(signer)
+      .submitChainBlockParentsAndTxs(signedBlock, checkPointBlockNumber, parentRlps, mptProofs);
   };
 
   relayTx = async (sourceChainId: number, targetChainId: number, txHash: string, signer: Signer) => {
-    return this.relayTxs(sourceChainId, targetChainId, [txHash], signer);
+    return await this.relayTxs(sourceChainId, targetChainId, [txHash], signer);
   };
   relayTxs = async (sourceChainId: number, targetChainId: number, txHashes: Array<string>, signer: Signer) => {
     const rpc = await this.getChainRpc(sourceChainId);

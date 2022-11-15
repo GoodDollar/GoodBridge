@@ -133,7 +133,7 @@ const deployBridge = async () => {
       consensusRatio,
       contracts[network.name].GoodDollar,
       { maxFee: 10000, minFee: 200, fee: 10 },
-      { dailyLimit: 1e10, txLimit: 1e8, accountDailyLimit: 1e9, minAmount: 100000 },
+      { dailyLimit: 1e10, txLimit: 1e8, accountDailyLimit: 1e9, minAmount: 100000, onlyWhitelisted: false },
       contracts[network.name].FuseFaucet,
       contracts[network.name].NameService,
     );
@@ -147,14 +147,18 @@ const deployBridge = async () => {
       consensusRatio,
       allContracts[celoNetwork].GoodDollar,
       { maxFee: 10000, minFee: 200, fee: 10 },
-      { dailyLimit: 1e10, txLimit: 1e8, accountDailyLimit: 1e9, minAmount: 100000 },
+      { dailyLimit: 1e10, txLimit: 1e8, accountDailyLimit: 1e9, minAmount: 100000, onlyWhitelisted: false },
       allContracts[celoNetwork].Faucet,
       allContracts[celoNetwork].NameService,
     );
 
   console.log('deployed bridges...');
-  await (await sourceBridge.setSourceBridges([targetBridge.address])).wait();
-  await (await targetBridge.setSourceBridges([sourceBridge.address])).wait();
+  await (
+    await sourceBridge.setSourceBridges([targetBridge.address], [await celosigner.provider.getBlockNumber()])
+  ).wait();
+  await (
+    await targetBridge.setSourceBridges([sourceBridge.address], [await fusesigner.provider.getBlockNumber()])
+  ).wait();
   console.log('done set source bridges...');
   if (network.name != 'production') {
     try {
@@ -181,6 +185,7 @@ const deployBridge = async () => {
     targetBridge: targetBridge.address,
   });
   release[network.name] = {
+    ...release[network.name],
     fuseBridge: sourceBridge.address,
     celoBridge: targetBridge.address,
   };

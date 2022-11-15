@@ -51,13 +51,13 @@ export declare namespace MPT {
 }
 
 export declare namespace BridgeCore {
-  export type BlockSignedTxsStruct = {
+  export type BlockReceiptProofsStruct = {
     receiptProofs: MPT.MerkleProofStruct[];
     blockHeaderRlp: PromiseOrValue<BytesLike>;
     blockNumber: PromiseOrValue<BigNumberish>;
   };
 
-  export type BlockSignedTxsStructOutput = [
+  export type BlockReceiptProofsStructOutput = [
     MPT.MerkleProofStructOutput[],
     string,
     BigNumber
@@ -102,7 +102,7 @@ export declare namespace BridgeCore {
 
 export interface BridgeCoreInterface extends utils.Interface {
   functions: {
-    "bridgeStartBlock()": FunctionFragment;
+    "chainStartBlock(uint256)": FunctionFragment;
     "chainVerifiedBlocks(uint256,uint256)": FunctionFragment;
     "currentValidators(address)": FunctionFragment;
     "executeReceipts(uint256,((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
@@ -110,7 +110,7 @@ export interface BridgeCoreInterface extends utils.Interface {
     "numValidators()": FunctionFragment;
     "parseRLPToHeader(bytes)": FunctionFragment;
     "submitBlocks((uint256,bytes,bytes[],uint256,address[])[])": FunctionFragment;
-    "submitChainBlockParentsAndTxs((uint256,bytes,bytes[],uint256,address[]),uint256,uint256,bytes[],bytes,((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
+    "submitChainBlockParentsAndTxs((uint256,bytes,bytes[],uint256,address[]),uint256,bytes[],((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
     "usedReceipts(bytes32)": FunctionFragment;
     "validatorsCycleEnd()": FunctionFragment;
     "verifyParentBlocks(uint256,uint256,bytes[],bytes)": FunctionFragment;
@@ -118,7 +118,7 @@ export interface BridgeCoreInterface extends utils.Interface {
 
   getFunction(
     nameOrSignatureOrTopic:
-      | "bridgeStartBlock"
+      | "chainStartBlock"
       | "chainVerifiedBlocks"
       | "currentValidators"
       | "executeReceipts"
@@ -133,8 +133,8 @@ export interface BridgeCoreInterface extends utils.Interface {
   ): FunctionFragment;
 
   encodeFunctionData(
-    functionFragment: "bridgeStartBlock",
-    values?: undefined
+    functionFragment: "chainStartBlock",
+    values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
     functionFragment: "chainVerifiedBlocks",
@@ -146,7 +146,10 @@ export interface BridgeCoreInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "executeReceipts",
-    values: [PromiseOrValue<BigNumberish>, BridgeCore.BlockSignedTxsStruct[]]
+    values: [
+      PromiseOrValue<BigNumberish>,
+      BridgeCore.BlockReceiptProofsStruct[]
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "isValidConsensus",
@@ -169,10 +172,8 @@ export interface BridgeCoreInterface extends utils.Interface {
     values: [
       BridgeCore.SignedBlockStruct,
       PromiseOrValue<BigNumberish>,
-      PromiseOrValue<BigNumberish>,
       PromiseOrValue<BytesLike>[],
-      PromiseOrValue<BytesLike>,
-      BridgeCore.BlockSignedTxsStruct[]
+      BridgeCore.BlockReceiptProofsStruct[]
     ]
   ): string;
   encodeFunctionData(
@@ -194,7 +195,7 @@ export interface BridgeCoreInterface extends utils.Interface {
   ): string;
 
   decodeFunctionResult(
-    functionFragment: "bridgeStartBlock",
+    functionFragment: "chainStartBlock",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -272,7 +273,10 @@ export interface BridgeCore extends BaseContract {
   removeListener: OnEvent<this>;
 
   functions: {
-    bridgeStartBlock(overrides?: CallOverrides): Promise<[BigNumber]>;
+    chainStartBlock(
+      chainId: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
     chainVerifiedBlocks(
       arg0: PromiseOrValue<BigNumberish>,
@@ -287,7 +291,7 @@ export interface BridgeCore extends BaseContract {
 
     executeReceipts(
       chainId: PromiseOrValue<BigNumberish>,
-      blocks: BridgeCore.BlockSignedTxsStruct[],
+      blocks: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -314,11 +318,9 @@ export interface BridgeCore extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      chainId: PromiseOrValue<BigNumberish>,
       childBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
-      childRlpHeader: PromiseOrValue<BytesLike>,
-      txs: BridgeCore.BlockSignedTxsStruct[],
+      txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -338,7 +340,10 @@ export interface BridgeCore extends BaseContract {
     ): Promise<ContractTransaction>;
   };
 
-  bridgeStartBlock(overrides?: CallOverrides): Promise<BigNumber>;
+  chainStartBlock(
+    chainId: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
   chainVerifiedBlocks(
     arg0: PromiseOrValue<BigNumberish>,
@@ -353,7 +358,7 @@ export interface BridgeCore extends BaseContract {
 
   executeReceipts(
     chainId: PromiseOrValue<BigNumberish>,
-    blocks: BridgeCore.BlockSignedTxsStruct[],
+    blocks: BridgeCore.BlockReceiptProofsStruct[],
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -376,11 +381,9 @@ export interface BridgeCore extends BaseContract {
 
   submitChainBlockParentsAndTxs(
     blockData: BridgeCore.SignedBlockStruct,
-    chainId: PromiseOrValue<BigNumberish>,
     childBlockNumber: PromiseOrValue<BigNumberish>,
     parentRlpHeaders: PromiseOrValue<BytesLike>[],
-    childRlpHeader: PromiseOrValue<BytesLike>,
-    txs: BridgeCore.BlockSignedTxsStruct[],
+    txs: BridgeCore.BlockReceiptProofsStruct[],
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -400,7 +403,10 @@ export interface BridgeCore extends BaseContract {
   ): Promise<ContractTransaction>;
 
   callStatic: {
-    bridgeStartBlock(overrides?: CallOverrides): Promise<BigNumber>;
+    chainStartBlock(
+      chainId: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     chainVerifiedBlocks(
       arg0: PromiseOrValue<BigNumberish>,
@@ -415,7 +421,7 @@ export interface BridgeCore extends BaseContract {
 
     executeReceipts(
       chainId: PromiseOrValue<BigNumberish>,
-      blocks: BridgeCore.BlockSignedTxsStruct[],
+      blocks: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -438,11 +444,9 @@ export interface BridgeCore extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      chainId: PromiseOrValue<BigNumberish>,
       childBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
-      childRlpHeader: PromiseOrValue<BytesLike>,
-      txs: BridgeCore.BlockSignedTxsStruct[],
+      txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -465,7 +469,10 @@ export interface BridgeCore extends BaseContract {
   filters: {};
 
   estimateGas: {
-    bridgeStartBlock(overrides?: CallOverrides): Promise<BigNumber>;
+    chainStartBlock(
+      chainId: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
 
     chainVerifiedBlocks(
       arg0: PromiseOrValue<BigNumberish>,
@@ -480,7 +487,7 @@ export interface BridgeCore extends BaseContract {
 
     executeReceipts(
       chainId: PromiseOrValue<BigNumberish>,
-      blocks: BridgeCore.BlockSignedTxsStruct[],
+      blocks: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -503,11 +510,9 @@ export interface BridgeCore extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      chainId: PromiseOrValue<BigNumberish>,
       childBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
-      childRlpHeader: PromiseOrValue<BytesLike>,
-      txs: BridgeCore.BlockSignedTxsStruct[],
+      txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -528,7 +533,10 @@ export interface BridgeCore extends BaseContract {
   };
 
   populateTransaction: {
-    bridgeStartBlock(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+    chainStartBlock(
+      chainId: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
 
     chainVerifiedBlocks(
       arg0: PromiseOrValue<BigNumberish>,
@@ -543,7 +551,7 @@ export interface BridgeCore extends BaseContract {
 
     executeReceipts(
       chainId: PromiseOrValue<BigNumberish>,
-      blocks: BridgeCore.BlockSignedTxsStruct[],
+      blocks: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
@@ -566,11 +574,9 @@ export interface BridgeCore extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      chainId: PromiseOrValue<BigNumberish>,
       childBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
-      childRlpHeader: PromiseOrValue<BytesLike>,
-      txs: BridgeCore.BlockSignedTxsStruct[],
+      txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 

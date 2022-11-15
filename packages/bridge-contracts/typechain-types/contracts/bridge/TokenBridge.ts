@@ -124,7 +124,9 @@ export interface TokenBridgeInterface extends utils.Interface {
     "parseRLPToHeader(bytes)": FunctionFragment;
     "renounceOwnership()": FunctionFragment;
     "requiredValidators(address)": FunctionFragment;
-    "setRequiredValidators(address[],uint256)": FunctionFragment;
+    "requiredValidatorsSet()": FunctionFragment;
+    "setConsensusRatio(uint32)": FunctionFragment;
+    "setRequiredValidators(address[])": FunctionFragment;
     "setSourceBridges(address[])": FunctionFragment;
     "sourceBridges(address)": FunctionFragment;
     "submitBlocks((uint256,bytes,bytes[],uint256,address[])[])": FunctionFragment;
@@ -155,6 +157,8 @@ export interface TokenBridgeInterface extends utils.Interface {
       | "parseRLPToHeader"
       | "renounceOwnership"
       | "requiredValidators"
+      | "requiredValidatorsSet"
+      | "setConsensusRatio"
       | "setRequiredValidators"
       | "setSourceBridges"
       | "sourceBridges"
@@ -241,8 +245,16 @@ export interface TokenBridgeInterface extends utils.Interface {
     values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
+    functionFragment: "requiredValidatorsSet",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "setConsensusRatio",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "setRequiredValidators",
-    values: [PromiseOrValue<string>[], PromiseOrValue<BigNumberish>]
+    values: [PromiseOrValue<string>[]]
   ): string;
   encodeFunctionData(
     functionFragment: "setSourceBridges",
@@ -350,6 +362,14 @@ export interface TokenBridgeInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "requiredValidators",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "requiredValidatorsSet",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setConsensusRatio",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -541,9 +561,15 @@ export interface TokenBridge extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[BigNumber]>;
 
+    requiredValidatorsSet(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    setConsensusRatio(
+      _consensusRatio: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     setRequiredValidators(
       validators: PromiseOrValue<string>[],
-      expirationBlock: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
@@ -663,9 +689,15 @@ export interface TokenBridge extends BaseContract {
     overrides?: CallOverrides
   ): Promise<BigNumber>;
 
+  requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
+
+  setConsensusRatio(
+    _consensusRatio: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   setRequiredValidators(
     validators: PromiseOrValue<string>[],
-    expirationBlock: PromiseOrValue<BigNumberish>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -781,9 +813,15 @@ export interface TokenBridge extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
+
+    setConsensusRatio(
+      _consensusRatio: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     setRequiredValidators(
       validators: PromiseOrValue<string>[],
-      expirationBlock: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<void>;
 
@@ -943,9 +981,15 @@ export interface TokenBridge extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
+
+    setConsensusRatio(
+      _consensusRatio: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     setRequiredValidators(
       validators: PromiseOrValue<string>[],
-      expirationBlock: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
@@ -1068,9 +1112,17 @@ export interface TokenBridge extends BaseContract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    requiredValidatorsSet(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    setConsensusRatio(
+      _consensusRatio: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     setRequiredValidators(
       validators: PromiseOrValue<string>[],
-      expirationBlock: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 

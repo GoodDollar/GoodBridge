@@ -1,10 +1,6 @@
 FROM node:16-alpine as build
 WORKDIR /app
 
-RUN apk update && \
-    apk upgrade && \
-    apk add git
-
 COPY ./package.json .
 RUN yarn install
 

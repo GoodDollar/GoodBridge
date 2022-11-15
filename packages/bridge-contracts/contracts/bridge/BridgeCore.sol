@@ -42,9 +42,9 @@ abstract contract BridgeCore {
 
     uint256 public validatorsCycleEnd;
 
-    uint256 public bridgeStartBlock;
-
     function isValidConsensus(address[] memory signers) public virtual returns (bool isValid);
+
+    function chainStartBlock(uint256 chainId) public virtual returns (uint256 bridgeStartBlock);
 
     function _executeReceipt(
         uint256 chainId,
@@ -69,7 +69,7 @@ abstract contract BridgeCore {
 
             //save the verified block
             BlockHeader memory blockHeader = parseRLPToHeader(_block.rlpHeader);
-            require(blockHeader.number >= bridgeStartBlock, 'block too old');
+            require(blockHeader.number >= chainStartBlock(_block.chainId), 'block too old');
 
             chainVerifiedBlocks[_block.chainId][blockHeader.number] = rlpHeaderHash;
 
@@ -107,6 +107,7 @@ abstract contract BridgeCore {
                 );
                 require(blockReceipts.receiptProofs[j].expectedRoot == receiptRoot, 'receiptRoot mismatch');
                 require(blockReceipts.receiptProofs[j].verifyTrieProof(), 'receipt not in block');
+                require(chainStartBlock(chainId) <= blockReceipts.blockNumber, 'receipt too old');
                 require(
                     _executeReceipt(
                         chainId,
@@ -142,7 +143,12 @@ abstract contract BridgeCore {
             bytes32 parentHash = keccak256(parentRlpHeaders[i]);
             require(child.parentHash == parentHash, 'not parent');
             BlockHeader memory parent = parseRLPToHeader(parentRlpHeaders[i]);
-            require(parent.number >= bridgeStartBlock, 'block too old');
+            require(parent.number >= chainStartBlock(chainId), 'block too old');
+            require(
+                chainVerifiedBlocks[chainId][parent.number] == bytes32(0) ||
+                    chainVerifiedBlocks[chainId][parent.number] == parentHash,
+                'already verified'
+            );
             chainVerifiedBlocks[chainId][parent.number] = parentHash;
             child = parent;
         }
@@ -150,15 +156,17 @@ abstract contract BridgeCore {
 
     function submitChainBlockParentsAndTxs(
         SignedBlock calldata blockData,
-        uint256 childBlockNumber,
+        uint256 signedBlockNumber,
         bytes[] calldata parentRlpHeaders,
         BlockReceiptProofs[] calldata txs
     ) public {
-        SignedBlock[] memory arr = new SignedBlock[](1);
-        arr[0] = blockData;
-        submitBlocks(arr);
+        if (blockData.signatures.length > 0) {
+            SignedBlock[] memory arr = new SignedBlock[](1);
+            arr[0] = blockData;
+            submitBlocks(arr);
+        }
         if (parentRlpHeaders.length > 0)
-            verifyParentBlocks(blockData.chainId, childBlockNumber, parentRlpHeaders, blockData.rlpHeader);
+            verifyParentBlocks(blockData.chainId, signedBlockNumber, parentRlpHeaders, blockData.rlpHeader);
         executeReceipts(blockData.chainId, txs);
     }
 }
