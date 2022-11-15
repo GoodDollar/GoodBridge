@@ -566,7 +566,7 @@ export interface TokenBridgeInterface extends utils.Interface {
   ): Result;
 
   events: {
-    "BridgeRequest(address,address,uint256,uint256,bool,uint256)": EventFragment;
+    "BridgeRequest(address,address,uint256,uint256,bool,uint256,uint256)": EventFragment;
     "ExecutedTransfer(address,address,address,uint256,uint256,uint256,uint256,uint256)": EventFragment;
     "OwnershipTransferred(address,address)": EventFragment;
   };
@@ -582,10 +582,11 @@ export interface BridgeRequestEventObject {
   targetChainId: BigNumber;
   amount: BigNumber;
   withRelay: boolean;
+  timestamp: BigNumber;
   id: BigNumber;
 }
 export type BridgeRequestEvent = TypedEvent<
-  [string, string, BigNumber, BigNumber, boolean, BigNumber],
+  [string, string, BigNumber, BigNumber, boolean, BigNumber, BigNumber],
   BridgeRequestEventObject
 >;
 
@@ -848,7 +849,7 @@ export interface TokenBridge extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1062,7 +1063,7 @@ export interface TokenBridge extends BaseContract {
 
   submitChainBlockParentsAndTxs(
     blockData: BridgeCore.SignedBlockStruct,
-    childBlockNumber: PromiseOrValue<BigNumberish>,
+    signedBlockNumber: PromiseOrValue<BigNumberish>,
     parentRlpHeaders: PromiseOrValue<BytesLike>[],
     txs: BridgeCore.BlockReceiptProofsStruct[],
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1274,7 +1275,7 @@ export interface TokenBridge extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: CallOverrides
@@ -1302,12 +1303,13 @@ export interface TokenBridge extends BaseContract {
   };
 
   filters: {
-    "BridgeRequest(address,address,uint256,uint256,bool,uint256)"(
+    "BridgeRequest(address,address,uint256,uint256,bool,uint256,uint256)"(
       from?: PromiseOrValue<string> | null,
       to?: PromiseOrValue<string> | null,
       targetChainId?: null,
       amount?: null,
       withRelay?: null,
+      timestamp?: null,
       id?: PromiseOrValue<BigNumberish> | null
     ): BridgeRequestEventFilter;
     BridgeRequest(
@@ -1316,6 +1318,7 @@ export interface TokenBridge extends BaseContract {
       targetChainId?: null,
       amount?: null,
       withRelay?: null,
+      timestamp?: null,
       id?: PromiseOrValue<BigNumberish> | null
     ): BridgeRequestEventFilter;
 
@@ -1508,7 +1511,7 @@ export interface TokenBridge extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1697,7 +1700,7 @@ export interface TokenBridge extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }

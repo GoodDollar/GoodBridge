@@ -449,7 +449,7 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -544,7 +544,7 @@ export interface BridgeMixedConsensus extends BaseContract {
 
   submitChainBlockParentsAndTxs(
     blockData: BridgeCore.SignedBlockStruct,
-    childBlockNumber: PromiseOrValue<BigNumberish>,
+    signedBlockNumber: PromiseOrValue<BigNumberish>,
     parentRlpHeaders: PromiseOrValue<BytesLike>[],
     txs: BridgeCore.BlockReceiptProofsStruct[],
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -637,7 +637,7 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: CallOverrides
@@ -744,7 +744,7 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -844,7 +844,7 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }

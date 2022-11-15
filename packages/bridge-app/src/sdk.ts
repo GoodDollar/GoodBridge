@@ -1,4 +1,4 @@
-import { JsonRpcBatchProvider, JsonRpcProvider, TransactionReceipt } from '@ethersproject/providers';
+import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
 import { Contract, ethers, Signer } from 'ethers';
 import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last } from 'lodash';
 import pAll from 'p-all';
@@ -88,13 +88,17 @@ export class BridgeSDK {
       // });
 
       if (getCheckpointFromEvents) {
-        signedCheckPoint = await this.getCheckpointBlockFromEvents(sourceChainId, checkPointBlockNumber).catch(
-          (_) => undefined,
-        );
+        signedCheckPoint = await this.getCheckpointBlockFromEvents(sourceChainId, checkPointBlockNumber).catch((e) => {
+          console.warn('getCheckpointBlockFromEvents', e);
+          return undefined;
+        });
       } else {
         signedCheckPoint = await this.registryContract
           .getSignedBlock(sourceChainId, checkPointBlockNumber)
-          .catch((_) => false);
+          .catch((e) => {
+            console.warn('getSignedBlock', e);
+            return false;
+          });
       }
       if (!signedCheckPoint) throw new Error(`checkpoint block ${checkPointBlockNumber} does not exists yet`);
     }

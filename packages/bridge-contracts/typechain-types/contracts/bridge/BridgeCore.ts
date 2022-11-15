@@ -318,7 +318,7 @@ export interface BridgeCore extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -381,7 +381,7 @@ export interface BridgeCore extends BaseContract {
 
   submitChainBlockParentsAndTxs(
     blockData: BridgeCore.SignedBlockStruct,
-    childBlockNumber: PromiseOrValue<BigNumberish>,
+    signedBlockNumber: PromiseOrValue<BigNumberish>,
     parentRlpHeaders: PromiseOrValue<BytesLike>[],
     txs: BridgeCore.BlockReceiptProofsStruct[],
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -444,7 +444,7 @@ export interface BridgeCore extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: CallOverrides
@@ -510,7 +510,7 @@ export interface BridgeCore extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -574,7 +574,7 @@ export interface BridgeCore extends BaseContract {
 
     submitChainBlockParentsAndTxs(
       blockData: BridgeCore.SignedBlockStruct,
-      childBlockNumber: PromiseOrValue<BigNumberish>,
+      signedBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       txs: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }

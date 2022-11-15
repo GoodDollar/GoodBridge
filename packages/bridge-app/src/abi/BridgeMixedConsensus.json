@@ -23,16 +23,22 @@
       "type": "event"
     },
     {
-      "inputs": [],
-      "name": "bridgeStartBlock",
-      "outputs": [
+      "inputs": [
         {
           "internalType": "uint256",
-          "name": "",
+          "name": "chainId",
           "type": "uint256"
         }
       ],
-      "stateMutability": "view",
+      "name": "chainStartBlock",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "bridgeStartBlock",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -388,7 +394,7 @@
         },
         {
           "internalType": "uint256",
-          "name": "childBlockNumber",
+          "name": "signedBlockNumber",
           "type": "uint256"
         },
         {

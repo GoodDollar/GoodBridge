@@ -31,7 +31,7 @@ const run = async () => {
 };
 
 export const app = async () => {
-  let shouldRun = true;
+  const shouldRun = true;
   let signer = await initWalletFromJson().catch((e) => logger.warn('failed initWalletFromJson', e.message));
   if (!signer) {
     logger.info('not found signer from json store, trying mnemonic/privatekey');

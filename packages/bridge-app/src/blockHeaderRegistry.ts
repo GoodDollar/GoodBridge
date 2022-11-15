@@ -22,10 +22,12 @@ const {
   TEST_MODE = 'false',
   BLOCKS_CHUNK = '100',
 } = process.env;
-let configDir = CONFIG_DIR;
+const configDir = CONFIG_DIR;
+
 let validatorId;
 
 const consoleHandler = logger.createDefaultHandler();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const errorHandler = async (messages: Array<any>, context) => {
   if (!INDICATIVE_KEY || context.level.value !== logger.ERROR.value) return;
 

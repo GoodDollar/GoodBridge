@@ -234,6 +234,7 @@ contract TokenBridge is BridgeMixedConsensus {
             targetChainId,
             amount,
             true,
+            block.timestamp,
             uint256(
                 keccak256(
                     abi.encode(
