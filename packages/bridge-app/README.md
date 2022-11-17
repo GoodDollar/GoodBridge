@@ -57,3 +57,8 @@ const = { relayTxHash, relayPromise } = await sdk.relayTx(sourceChain, targetCha
 - STEP_SIZE (default 10) - Submit signed blockchain block every STEP_SIZE blocks
 - CONFIG_DIR (default /config/) - Docker folder where private key json can be found
 - DOTENV_FILE (default /config/.env) - Docker folder for .env to override defaults
+
+## Running app/sdk tests
+
+- first deploy dev env by running in the `bridge-contracts` package the command `yarn start:dev`
+- run `yarn test`

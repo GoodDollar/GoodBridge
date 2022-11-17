@@ -126,6 +126,7 @@ describe('block header registry', () => {
 
     await BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
     await BridgeApp.initBlockchain(56, 'https://bscrpc.com');
+    await delay(5000);
     const blocks = await BridgeApp.fetchNewBlocks([signer]);
     expect(blocks.length).toEqual(2);
     const fuseBlock = blocks.find((_) => _.chainId === 122);

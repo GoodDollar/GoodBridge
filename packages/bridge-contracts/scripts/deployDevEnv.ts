@@ -64,8 +64,8 @@ async function deployBridge() {
     100,
   );
 
-  sourceBridge.setSourceBridges([targetBridge.address]);
-  targetBridge.setSourceBridges([sourceBridge.address]);
+  await sourceBridge.setSourceBridges([targetBridge.address], [1]);
+  await targetBridge.setSourceBridges([sourceBridge.address], [1]);
   await sourceToken.transfer(sourceBridge.address, 100000000);
   await targetToken.transfer(targetBridge.address, 100000000);
 
