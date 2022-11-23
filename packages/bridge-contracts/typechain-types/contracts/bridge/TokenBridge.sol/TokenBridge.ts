@@ -160,6 +160,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     "currentId()": FunctionFragment;
     "currentValidators(address)": FunctionFragment;
     "executeReceipts(uint256,((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
+    "executedRequests(uint256)": FunctionFragment;
     "faucet()": FunctionFragment;
     "isClosed()": FunctionFragment;
     "isValidConsensus(address[])": FunctionFragment;
@@ -207,6 +208,7 @@ export interface TokenBridgeInterface extends utils.Interface {
       | "currentId"
       | "currentValidators"
       | "executeReceipts"
+      | "executedRequests"
       | "faucet"
       | "isClosed"
       | "isValidConsensus"
@@ -309,6 +311,10 @@ export interface TokenBridgeInterface extends utils.Interface {
       PromiseOrValue<BigNumberish>,
       BridgeCore.BlockReceiptProofsStruct[]
     ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "executedRequests",
+    values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(functionFragment: "faucet", values?: undefined): string;
   encodeFunctionData(functionFragment: "isClosed", values?: undefined): string;
@@ -474,6 +480,10 @@ export interface TokenBridgeInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "executeReceipts",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "executedRequests",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "faucet", data: BytesLike): Result;
@@ -762,6 +772,11 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    executedRequests(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
+
     faucet(overrides?: CallOverrides): Promise<[string]>;
 
     isClosed(overrides?: CallOverrides): Promise<[boolean]>;
@@ -980,6 +995,11 @@ export interface TokenBridge extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  executedRequests(
+    arg0: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
+
   faucet(overrides?: CallOverrides): Promise<string>;
 
   isClosed(overrides?: CallOverrides): Promise<boolean>;
@@ -1192,7 +1212,12 @@ export interface TokenBridge extends BaseContract {
       chainId: PromiseOrValue<BigNumberish>,
       blocks: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: CallOverrides
-    ): Promise<void>;
+    ): Promise<string[][]>;
+
+    executedRequests(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
 
     faucet(overrides?: CallOverrides): Promise<string>;
 
@@ -1428,6 +1453,11 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    executedRequests(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
     faucet(overrides?: CallOverrides): Promise<BigNumber>;
 
     isClosed(overrides?: CallOverrides): Promise<BigNumber>;
@@ -1611,6 +1641,11 @@ export interface TokenBridge extends BaseContract {
       chainId: PromiseOrValue<BigNumberish>,
       blocks: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    executedRequests(
+      arg0: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     faucet(overrides?: CallOverrides): Promise<PopulatedTransaction>;

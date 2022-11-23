@@ -108,7 +108,7 @@ export interface BlockHeaderRegistryInterface extends utils.Interface {
     "hasValidatorSigned(bytes32,address)": FunctionFragment;
     "initialize(address,address,bool)": FunctionFragment;
     "isEventsOnly()": FunctionFragment;
-    "parseRLPBlockNumber(bytes)": FunctionFragment;
+    "parseRLPBlockNumber(bytes,uint256)": FunctionFragment;
     "proxiableUUID()": FunctionFragment;
     "signedBlocks(bytes32)": FunctionFragment;
     "upgradeTo(address)": FunctionFragment;
@@ -190,7 +190,7 @@ export interface BlockHeaderRegistryInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "parseRLPBlockNumber",
-    values: [PromiseOrValue<BytesLike>]
+    values: [PromiseOrValue<BytesLike>, PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
     functionFragment: "proxiableUUID",
@@ -453,6 +453,7 @@ export interface BlockHeaderRegistry extends BaseContract {
 
     parseRLPBlockNumber(
       rlpHeader: PromiseOrValue<BytesLike>,
+      chainId: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<[BigNumber] & { blockNumber: BigNumber }>;
 
@@ -541,6 +542,7 @@ export interface BlockHeaderRegistry extends BaseContract {
 
   parseRLPBlockNumber(
     rlpHeader: PromiseOrValue<BytesLike>,
+    chainId: PromiseOrValue<BigNumberish>,
     overrides?: CallOverrides
   ): Promise<BigNumber>;
 
@@ -627,6 +629,7 @@ export interface BlockHeaderRegistry extends BaseContract {
 
     parseRLPBlockNumber(
       rlpHeader: PromiseOrValue<BytesLike>,
+      chainId: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -770,6 +773,7 @@ export interface BlockHeaderRegistry extends BaseContract {
 
     parseRLPBlockNumber(
       rlpHeader: PromiseOrValue<BytesLike>,
+      chainId: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
@@ -855,6 +859,7 @@ export interface BlockHeaderRegistry extends BaseContract {
 
     parseRLPBlockNumber(
       rlpHeader: PromiseOrValue<BytesLike>,
+      chainId: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 

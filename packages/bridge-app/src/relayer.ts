@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as ethers from 'ethers';
-import logger, { ILogLevel } from 'js-logger';
+import logger from 'js-logger';
 import path from 'path';
 import fs from 'fs';
 import { merge, isObject } from 'lodash';

@@ -42,6 +42,8 @@ export type { IConsensus } from "./contracts/fuse/IConsensus";
 export { IConsensus__factory } from "./factories/contracts/fuse/IConsensus__factory";
 export type { ConsensusMock } from "./contracts/test/ConsensusMock";
 export { ConsensusMock__factory } from "./factories/contracts/test/ConsensusMock__factory";
+export type { Multicall } from "./contracts/test/MultiCall.sol/Multicall";
+export { Multicall__factory } from "./factories/contracts/test/MultiCall.sol/Multicall__factory";
 export type { TestToken } from "./contracts/test/TestToken";
 export { TestToken__factory } from "./factories/contracts/test/TestToken__factory";
 export type { TokenBridgeTest } from "./contracts/test/TokenBridgeTest";

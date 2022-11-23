@@ -1,5 +1,6 @@
 import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
-import { Contract, Signer } from 'ethers';
+import { Contract, ethers, Signer } from 'ethers';
+import Logger from 'js-logger';
 import * as SignUtils from './utils';
 export declare class BridgeSDK {
     registryContract: Contract;
@@ -11,9 +12,12 @@ export declare class BridgeSDK {
         chainId: number;
         rpc: string;
     }>;
+    logger: typeof Logger;
     constructor(registryAddress: string, bridges?: {
         [key: string]: string;
-    }, registryBlockFrequency?: number, registryRpc?: string);
+    }, registryBlockFrequency?: number, registryRpc?: string, multicalls?: {
+        [key: string]: string;
+    }, logger?: typeof Logger);
     getChainRpc: (chainId: number) => Promise<JsonRpcBatchProvider>;
     getBridgeContract: (chainId: number, provider?: JsonRpcProvider) => Promise<Contract>;
     getCheckpointBlockFromEvents: (sourceChainId: number, checkpointBlockNumber: number) => Promise<{
@@ -53,5 +57,12 @@ export declare class BridgeSDK {
         relayTxHash: any;
         relayPromise: any;
         bridgeRequests: Pick<any, string>[];
+    }>;
+    fetchLatestCheckpointBlock: (sourceChainId: number) => Promise<number>;
+    fetchPendingBridgeRequests: (sourceChainId: number, targetChainId: number, fromBlock?: number, maxBlocks?: number, maxRequests?: number) => Promise<{
+        validEvents: ethers.Event[];
+        checkpointBlock: number;
+        lastProcessedBlock: number;
+        fetchEventsFromBlock: number;
     }>;
 }

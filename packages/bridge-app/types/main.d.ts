@@ -1,1 +1,1 @@
-export declare const app: () => Promise<void>;
+export declare const bridgeApp: () => Promise<void>;

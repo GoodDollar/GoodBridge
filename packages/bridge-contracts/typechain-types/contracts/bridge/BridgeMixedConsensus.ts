@@ -593,7 +593,7 @@ export interface BridgeMixedConsensus extends BaseContract {
       chainId: PromiseOrValue<BigNumberish>,
       blocks: BridgeCore.BlockReceiptProofsStruct[],
       overrides?: CallOverrides
-    ): Promise<void>;
+    ): Promise<string[][]>;
 
     isValidConsensus(
       signers: PromiseOrValue<string>[],
