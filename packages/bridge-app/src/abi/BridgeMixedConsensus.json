@@ -160,7 +160,13 @@
         }
       ],
       "name": "executeReceipts",
-      "outputs": [],
+      "outputs": [
+        {
+          "internalType": "string[][]",
+          "name": "results",
+          "type": "string[][]"
+        }
+      ],
       "stateMutability": "nonpayable",
       "type": "function"
     },

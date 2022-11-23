@@ -30,59 +30,74 @@ describe('block header registry', () => {
     }
   });
 
-  it('creates ethereum rlpHeader', async () => {
-    const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
-      'latest',
-      1,
-      'https://cloudflare-eth.com/',
-    );
-    expect(rlpHeader).toBeDefined();
-    expect(blockHeader).toBeDefined();
-    expect(computedHash).toEqual(block.hash);
-  });
+  describe('parses rlpheaders', () => {
+    it('creates ethereum rlpHeader', async () => {
+      const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
+        'latest',
+        1,
+        'https://cloudflare-eth.com/',
+      );
+      //blocknumber should be at slot 9
+      expect(Number(ethers.utils.RLP.decode(rlpHeader)[8])).toEqual(Number(block.number));
+      expect(rlpHeader).toBeDefined();
+      expect(blockHeader).toBeDefined();
+      expect(computedHash).toEqual(block.hash);
+    });
 
-  it('creates fuse rlpHeader', async () => {
-    const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
-      'latest',
-      122,
-      'https://rpc.fuse.io',
-    );
-    expect(rlpHeader).toBeDefined();
-    expect(blockHeader).toBeDefined();
-    expect(computedHash).toEqual(block.hash);
-  });
+    it('creates fuse rlpHeader', async () => {
+      const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
+        'latest',
+        122,
+        'https://rpc.fuse.io',
+      );
 
-  it('creates gnosis rlpHeader', async () => {
-    const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
-      '15000000',
-      100,
-      'https://rpc.gnosischain.com	',
-    );
-    expect(rlpHeader).toBeDefined();
-    expect(blockHeader).toBeDefined();
-    expect(computedHash).toEqual(block.hash);
-  });
+      //blocknumber should be at slot 9
+      expect(Number(ethers.utils.RLP.decode(rlpHeader)[8])).toEqual(Number(block.number));
+      expect(rlpHeader).toBeDefined();
+      expect(blockHeader).toBeDefined();
+      expect(computedHash).toEqual(block.hash);
+    });
 
-  it('creates binance rlpHeader', async () => {
-    const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
-      'latest',
-      56,
-      'https://bscrpc.com',
-    );
-    expect(rlpHeader).toBeDefined();
-    expect(blockHeader).toBeDefined();
-    expect(computedHash).toEqual(block.hash);
-  });
+    it('creates gnosis rlpHeader', async () => {
+      const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
+        '15000000',
+        100,
+        'https://rpc.gnosischain.com	',
+      );
 
-  it('creates celo rlpHeader', async () => {
-    const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
-      'latest',
-      42220,
-      'https://forno.celo.org',
-    );
-    expect(rlpHeader).toBeDefined();
-    expect(blockHeader).toBeDefined();
-    expect(computedHash).toEqual(block.hash);
+      //blocknumber should be at slot 9
+      expect(Number(ethers.utils.RLP.decode(rlpHeader)[8])).toEqual(Number(block.number));
+      expect(rlpHeader).toBeDefined();
+      expect(blockHeader).toBeDefined();
+      expect(computedHash).toEqual(block.hash);
+    });
+
+    it('creates binance rlpHeader', async () => {
+      const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
+        'latest',
+        56,
+        'https://bscrpc.com',
+      );
+
+      //blocknumber should be at slot 9
+      expect(Number(ethers.utils.RLP.decode(rlpHeader)[8])).toEqual(Number(block.number));
+      expect(rlpHeader).toBeDefined();
+      expect(blockHeader).toBeDefined();
+      expect(computedHash).toEqual(block.hash);
+    });
+
+    it('creates celo rlpHeader', async () => {
+      const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
+        'latest',
+        42220,
+        'https://forno.celo.org',
+      );
+      //blocknumber should be at slot 9
+      expect(Number(ethers.utils.RLP.decode(rlpHeader)[6])).toEqual(Number(block.number));
+      expect(rlpHeader).toBeDefined();
+      expect(blockHeader).toBeDefined();
+      expect(computedHash).toEqual(block.hash);
+    });
   });
 
   // Assert if setTimeout was called properly

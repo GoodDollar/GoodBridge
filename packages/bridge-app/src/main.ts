@@ -30,7 +30,7 @@ const run = async () => {
   });
 };
 
-export const app = async () => {
+export const bridgeApp = async () => {
   const shouldRun = true;
   let signer = await initWalletFromJson().catch((e) => logger.warn('failed initWalletFromJson', e.message));
   if (!signer) {
@@ -60,5 +60,5 @@ const initWalletFromJson = async () => {
 };
 
 // if (process.argv[1].includes('main')) {
-app();
+bridgeApp();
 // }

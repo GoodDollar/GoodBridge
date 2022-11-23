@@ -1,11 +1,15 @@
 import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
 import { Contract, ethers, Signer } from 'ethers';
-import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last } from 'lodash';
+import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last, chunk } from 'lodash';
 import pAll from 'p-all';
+import Logger from 'js-logger';
 import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
 import { abi as TokenBridgeABI } from './abi/TokenBridge.json';
-
 import * as SignUtils from './utils';
+import { Contract as MultiCallContract, Provider, setMulticallAddress } from 'ethers-multicall';
+
+setMulticallAddress(122, '0x3CE6158b7278Bf6792e014FA7B4f3c6c46fe9410');
+setMulticallAddress(42220, '0xa27A0C40A0a17485c11d1f342a95c946E9523551');
 
 const DEFAULT_BRIDGES = {
   1: ethers.constants.AddressZero,
@@ -16,22 +20,27 @@ export class BridgeSDK {
   registryBlockFrequency: number;
   bridges: { [key: string]: string };
   rpcs: Array<{ chainId: number; rpc: string }> = undefined;
+  logger: typeof Logger;
 
   constructor(
     registryAddress: string,
     bridges: { [key: string]: string } = {},
     registryBlockFrequency = 10,
     registryRpc = 'https://rpc.fuse.io',
+    multicalls: { [key: string]: string } = {},
+    logger?: typeof Logger,
   ) {
     this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcBatchProvider(registryRpc));
     this.registryBlockFrequency = registryBlockFrequency;
     this.bridges = { ...DEFAULT_BRIDGES, ...bridges };
+    Object.entries(multicalls).map((pair) => setMulticallAddress(Number(pair[0]), pair[1]));
+    this.logger = logger;
   }
 
   getChainRpc = async (chainId: number) => {
     const blockchains = this.rpcs || (await this.registryContract.getRPCs());
     this.rpcs = blockchains;
-    // console.log(blockchains, { chainId });
+
     const blockchain = blockchains.find((_) => _.chainId.toNumber() === chainId);
     const rpcs = blockchain.rpc.split(',');
     const randomRpc = rpcs[random(0, rpcs.length - 1)];
@@ -58,11 +67,13 @@ export class BridgeSDK {
       (_) => _.length,
     );
     // console.log({ bestCheckpoint });
-    return {
-      signatures: bestCheckpoint.map((_) => _.args.signature),
-      cycleEnd: bestCheckpoint[0].args.cycleEnd,
-      validators: bestCheckpoint[0].args.validators,
-    };
+    return (
+      bestCheckpoint && {
+        signatures: bestCheckpoint.map((_) => _.args.signature),
+        cycleEnd: bestCheckpoint[0].args.cycleEnd,
+        validators: bestCheckpoint[0].args.validators,
+      }
+    );
   };
 
   getBlocksToSubmit = async (
@@ -151,24 +162,21 @@ export class BridgeSDK {
       targetBridgeContract,
     );
 
-    const mptProofs = receiptProofs.map((receiptProof) => {
-      const txBlock = parentAndCheckpointBlocks.find(
-        (_) => Number(_.block.number) === Number(receiptProof.receipt.blockNumber),
-      );
+    const blockToReceipts = groupBy(receiptProofs, (_) => Number(_.receipt.blockNumber));
+    const mptProofs = Object.entries(blockToReceipts).map(([k, receiptProofs]) => {
+      const txBlock = parentAndCheckpointBlocks.find((_) => Number(_.block.number) === Number(k));
 
       return {
-        blockNumber: Number(receiptProof.receipt.blockNumber),
+        blockNumber: Number(k),
         blockHeaderRlp: txBlock.rlpHeader,
-        receiptProofs: [
-          {
-            expectedRoot: receiptProof.receiptsRoot,
-            expectedValue: receiptProof.receiptRlp,
-            proof: receiptProof.receiptProof,
-            key: SignUtils.index2key(receiptProof.txIndex, receiptProof.receiptProof.length),
-            keyIndex: 0,
-            proofIndex: 0,
-          },
-        ],
+        receiptProofs: receiptProofs.map((receiptProof) => ({
+          expectedRoot: receiptProof.receiptsRoot,
+          expectedValue: receiptProof.receiptRlp,
+          proof: receiptProof.receiptProof,
+          key: SignUtils.index2key(receiptProof.txIndex, receiptProof.receiptProof.length),
+          keyIndex: 0,
+          proofIndex: 0,
+        })),
       };
     });
 
@@ -195,14 +203,16 @@ export class BridgeSDK {
     //       },
     //     ],
     //   });
+    const targetRpc = await this.getChainRpc(targetChainId);
     return targetBridgeContract
-      .connect(signer)
+      .connect(signer.connect(targetRpc))
       .submitChainBlockParentsAndTxs(signedBlock, checkPointBlockNumber, parentRlps, mptProofs);
   };
 
   relayTx = async (sourceChainId: number, targetChainId: number, txHash: string, signer: Signer) => {
     return await this.relayTxs(sourceChainId, targetChainId, [txHash], signer);
   };
+
   relayTxs = async (sourceChainId: number, targetChainId: number, txHashes: Array<string>, signer: Signer) => {
     const rpc = await this.getChainRpc(sourceChainId);
     const sourceBridgeContract = await this.getBridgeContract(sourceChainId, rpc);
@@ -232,5 +242,84 @@ export class BridgeSDK {
       relayPromise: tx.wait(),
       bridgeRequests,
     };
+  };
+
+  fetchLatestCheckpointBlock = async (sourceChainId: number) => {
+    const latestCheckpointFilter = this.registryContract.filters.BlockAdded(null, sourceChainId);
+    const events = await this.registryContract.queryFilter(latestCheckpointFilter, -(this.registryBlockFrequency * 10));
+    const bestBlock = maxBy(Object.values(groupBy(events, (_) => _.args.blockNumber)), (_) => _[0].blockNumber);
+    if (bestBlock?.length > 0) return bestBlock[0].args.blockNumber.toNumber() as number;
+    throw new Error(`no recent checkpoint block for chain ${sourceChainId}`);
+  };
+
+  fetchPendingBridgeRequests = async (
+    sourceChainId: number,
+    targetChainId: number,
+    fromBlock?: number,
+    maxBlocks = 10000,
+    maxRequests = 100,
+  ) => {
+    const bridge = await this.getBridgeContract(sourceChainId);
+    const targetBridge = await this.getBridgeContract(targetChainId);
+
+    const targetMulti = new MultiCallContract(targetBridge.address, [
+      'function executedRequests(uint256) view returns(bool)',
+    ]);
+    const multicallProvider = new Provider(targetBridge.provider, targetChainId);
+
+    const checkpointBlock = await this.fetchLatestCheckpointBlock(sourceChainId).catch((e) => {
+      throw new Error(`fetchLatestCheckpointBlock failed ${sourceChainId} ${e.message}`);
+    });
+    console.log({ checkpointBlock, sourceChainId });
+    const fetchEventsFromBlock = fromBlock || checkpointBlock - this.registryBlockFrequency;
+    const STEP = 5000; //currently unless maxBlocks > 5000 this doesnt have any effect
+    let lastProcessedBlock = Math.min(fetchEventsFromBlock + maxBlocks, checkpointBlock);
+
+    let events = flatten(
+      await pAll(
+        range(fetchEventsFromBlock, lastProcessedBlock + 1, STEP).map(
+          (startBlock) => () =>
+            bridge
+              .queryFilter('BridgeRequest', startBlock, Math.min(startBlock + STEP, lastProcessedBlock))
+              .catch(() => {
+                throw new Error(
+                  `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${Math.min(
+                    startBlock + STEP,
+                    lastProcessedBlock,
+                  )}`,
+                );
+              }),
+        ),
+        { concurrency: 5 },
+      ),
+    );
+
+    events = events.filter((_) => _.args.targetChainId.toNumber() === targetChainId).slice(0, maxRequests);
+    lastProcessedBlock = last(events)?.blockNumber || lastProcessedBlock;
+
+    const ids = events.map((_) => _.args.id);
+
+    const idsResult = flatten(
+      await pAll(
+        chunk(ids, 500).map((idsChunk) => () => {
+          const calls = idsChunk.map((id) => targetMulti.executedRequests(id));
+          return multicallProvider.all(calls).catch(() => {
+            throw new Error(`multicallProvider failed ${calls.length} multicall=${targetMulti.address}`);
+          });
+        }),
+        { concurrency: 5 },
+      ),
+    );
+
+    // console.log('fetchPendingBridgeRequests', {
+    //   checkpointBlock,
+    //   lastProcessedBlock,
+    //   fetchEventsFromBlock,
+    //   events: events.length,
+    // });
+
+    const unexecutedIds = ids.filter((v, i) => idsResult[i] === false);
+    const validEvents = events.filter((e) => unexecutedIds.includes(e.args.id));
+    return { validEvents, checkpointBlock, lastProcessedBlock, fetchEventsFromBlock };
   };
 }
