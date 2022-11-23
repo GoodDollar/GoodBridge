@@ -171,7 +171,7 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
                 _block.signature.vs
             );
             require(_isValidatorCached(signer), 'not validator');
-            uint256 blockNumber = parseRLPBlockNumber(_block.rlpHeader);
+            uint256 blockNumber = parseRLPBlockNumber(_block.rlpHeader, _block.chainId);
 
             if (isEventsOnly == false) {
                 if (hasValidatorSigned[payload][signer]) continue;
@@ -276,9 +276,10 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
     //     // if (ls.length == 16) header.baseFee = ls[15].toUint();
     // }
 
-    function parseRLPBlockNumber(bytes calldata rlpHeader) public pure returns (uint256 blockNumber) {
+    function parseRLPBlockNumber(bytes calldata rlpHeader, uint256 chainId) public pure returns (uint256 blockNumber) {
         RLPReader.RLPItem[] memory ls = rlpHeader.toRlpItem().toList();
 
-        blockNumber = ls[8].toUint();
+        uint256 blocknumberSlot = chainId == 42220 ? 6 : 8;
+        blockNumber = ls[blocknumberSlot].toUint();
     }
 }

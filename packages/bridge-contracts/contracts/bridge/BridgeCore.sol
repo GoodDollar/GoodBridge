@@ -88,19 +88,32 @@ abstract contract BridgeCore {
         numValidators = validators.length;
     }
 
-    function executeReceipts(uint256 chainId, BlockReceiptProofs[] calldata blocks) public virtual {
+    function executeReceipts(uint256 chainId, BlockReceiptProofs[] calldata blocks)
+        public
+        virtual
+        returns (string[][] memory results)
+    {
+        results = new string[][](blocks.length);
         for (uint256 i = 0; i < blocks.length; i++) {
             BlockReceiptProofs memory blockReceipts = blocks[i];
             bytes32 blockHash = chainVerifiedBlocks[chainId][blockReceipts.blockNumber];
             require(keccak256(blockReceipts.blockHeaderRlp) == blockHash, 'invalid block hash');
             RLPReader.RLPItem[] memory ls = blockReceipts.blockHeaderRlp.toRlpItem().toList();
             bytes32 receiptRoot = bytes32(ls[5].toUint());
+            results[i] = new string[](blockReceipts.receiptProofs.length);
             for (uint256 j = 0; j < blockReceipts.receiptProofs.length; j++) {
                 bytes32 receiptKey = keccak256(
                     abi.encode(chainId, blockHash, blockReceipts.receiptProofs[j].expectedValue)
                 );
-                require(usedReceipts[receiptKey] == false, 'receipt already used');
+
+                //skip receipt if already redeemed (to not revert in case of front running)
+                if (usedReceipts[receiptKey] == true) {
+                    results[i][j] = 'receipt already used';
+                    continue;
+                }
+
                 usedReceipts[receiptKey] = true;
+
                 require(
                     blockReceipts.receiptProofs[j].keyIndex == 0 && blockReceipts.receiptProofs[j].proofIndex == 0,
                     'not start index'
@@ -108,14 +121,13 @@ abstract contract BridgeCore {
                 require(blockReceipts.receiptProofs[j].expectedRoot == receiptRoot, 'receiptRoot mismatch');
                 require(blockReceipts.receiptProofs[j].verifyTrieProof(), 'receipt not in block');
                 require(chainStartBlock(chainId) <= blockReceipts.blockNumber, 'receipt too old');
-                require(
-                    _executeReceipt(
-                        chainId,
-                        blockReceipts.blockNumber,
-                        RLPParser.toReceipt(blockReceipts.receiptProofs[j].expectedValue)
-                    ),
-                    'execute failed'
+
+                bool executed = _executeReceipt(
+                    chainId,
+                    blockReceipts.blockNumber,
+                    RLPParser.toReceipt(blockReceipts.receiptProofs[j].expectedValue)
                 );
+                results[i][j] = executed ? 'executed' : 'execute failed';
             }
         }
     }

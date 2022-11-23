@@ -25,11 +25,13 @@ async function main() {
 
   await deployBridge();
 
+  const multicall = await (await ethers.getContractFactory('Multicall')).deploy();
   await registery.addBlockchain(9999, 'http://localhost:8545');
 
   console.log('deployed to (consensus, voting):', consensus.address, voting.address);
   console.log('deployed registery to:', registery.address);
   console.log('validators:', mockValidators.length);
+  console.log('multicall:', multicall.address);
 }
 
 async function deployBridge() {

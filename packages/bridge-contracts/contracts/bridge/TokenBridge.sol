@@ -50,6 +50,7 @@ contract TokenBridge is BridgeMixedConsensus {
     mapping(uint256 => uint256) public chainIdToTotalBridged;
     mapping(uint256 => uint256) public chainIdToTotalRelayFees;
     mapping(uint256 => uint256) public chainIdToTotalBridgeFees;
+    mapping(uint256 => bool) public executedRequests;
 
     address public bridgedToken;
 
@@ -267,7 +268,7 @@ contract TokenBridge is BridgeMixedConsensus {
         uint256 blockNumber,
         RLPParser.TransactionReceipt memory receipt
     ) internal virtual override returns (bool ok) {
-        require(receipt.status == 1, 'invalid status');
+        if (receipt.status != 1) return false;
         bool validLog = false;
         // console.log('receipt logs %s', receipt.logs.length);
         for (uint256 i = 0; i < receipt.logs.length; i++) {
@@ -277,7 +278,7 @@ contract TokenBridge is BridgeMixedConsensus {
             // where topic is BridgeTransfer
             // console.log('log address %s', log.contractAddress);
             // console.logBytes32(log.topics[0]);
-            require(sourceBridgeToBlockstart[log.contractAddress] <= blockNumber, 'receipt too old');
+            if (sourceBridgeToBlockstart[log.contractAddress] > blockNumber) continue;
 
             if (sourceBridgeToBlockstart[log.contractAddress] == 0 || log.topics[0] != BRIDGE_TOPIC) {
                 continue;
@@ -327,10 +328,12 @@ contract TokenBridge is BridgeMixedConsensus {
         );
         uint256 fee = bridgeFee + relayFee;
 
-        chainIdToTotalRelayFees[sourceChainId] += relayFee;
-        chainIdToTotalBridgeFees[sourceChainId] += bridgeFee;
-        chainIdToTotalBridged[sourceChainId] += amount;
+        // chainIdToTotalRelayFees[sourceChainId] += relayFee;
+        // chainIdToTotalBridgeFees[sourceChainId] += bridgeFee;
+        // chainIdToTotalBridged[sourceChainId] += amount;
 
+        //make it easier to find out for relayers about the status
+        executedRequests[id] = true;
         _topGas(target);
 
         require(IERC20(bridgedToken).transfer(target, amount - fee), 'transfer');

@@ -28,7 +28,7 @@ describe('Bridge', () => {
         dailyLimit: 1e10,
         txLimit: 1e8,
         accountDailyLimit: 1e9,
-        minAmount: 10000,
+        minAmount: 100,
         onlyWhitelisted: true,
       },
       ethers.constants.AddressZero,
@@ -51,15 +51,15 @@ describe('Bridge', () => {
         dailyLimit: 1e10,
         txLimit: 1e8,
         accountDailyLimit: 1e9,
-        minAmount: 10000,
+        minAmount: 100,
         onlyWhitelisted: true,
       },
       ethers.constants.AddressZero,
       ethers.constants.AddressZero,
     )) as TokenBridge;
     await token.transfer(bridgeB.address, ethers.constants.WeiPerEther);
-    await bridgeA.setSourceBridges([bridgeB.address]);
-    await bridgeB.setSourceBridges([bridgeA.address]);
+    await bridgeA.setSourceBridges([bridgeB.address], [1]);
+    await bridgeB.setSourceBridges([bridgeA.address], [1]);
   });
 
   describe('block proofs', () => {
@@ -171,10 +171,18 @@ describe('Bridge', () => {
         proofIndex: 0,
       };
 
+      const staticResult = await bridgeB.callStatic.executeReceipts(1337, [
+        { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+      ]);
+
+      expect(staticResult[0][0]).eq('receipt already used');
+
       const res = bridgeB.executeReceipts(1337, [
         { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
       ]);
-      await expect(res).revertedWith('receipt already used');
+      const txData = await (await res).wait();
+      const txLog = txData.events?.find((_) => _.event === 'ExecutedTransfer');
+      expect(txLog).to.be.undefined();
     });
   });
 });

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8;
 import '../bridge/TokenBridge.sol';
 
 contract TokenBridgeTest is TokenBridge {
