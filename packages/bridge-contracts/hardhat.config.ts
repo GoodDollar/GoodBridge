@@ -60,6 +60,11 @@ const config: HardhatUserConfig = {
       chainId: 122,
       url: 'https://rpc.fuse.io',
     },
+    celo: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 42220,
+      url: 'https://forno.celo.org',
+    },
   },
   contractSizer: {
     runOnCompile: true,

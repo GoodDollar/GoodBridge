@@ -148,11 +148,10 @@ export interface TokenBridgeInterface extends utils.Interface {
     "bridgeFees()": FunctionFragment;
     "bridgeLimits()": FunctionFragment;
     "bridgeTo(address,uint256,uint256)": FunctionFragment;
+    "bridgeToWithoutRelay(address,uint256,uint256)": FunctionFragment;
     "bridgedToken()": FunctionFragment;
     "canBridge(address,uint256)": FunctionFragment;
-    "chainIdToTotalBridgeFees(uint256)": FunctionFragment;
-    "chainIdToTotalBridged(uint256)": FunctionFragment;
-    "chainIdToTotalRelayFees(uint256)": FunctionFragment;
+    "chainIdToStats(uint256)": FunctionFragment;
     "chainStartBlock(uint256)": FunctionFragment;
     "chainVerifiedBlocks(uint256,uint256)": FunctionFragment;
     "closeBridge(address)": FunctionFragment;
@@ -196,11 +195,10 @@ export interface TokenBridgeInterface extends utils.Interface {
       | "bridgeFees"
       | "bridgeLimits"
       | "bridgeTo"
+      | "bridgeToWithoutRelay"
       | "bridgedToken"
       | "canBridge"
-      | "chainIdToTotalBridgeFees"
-      | "chainIdToTotalBridged"
-      | "chainIdToTotalRelayFees"
+      | "chainIdToStats"
       | "chainStartBlock"
       | "chainVerifiedBlocks"
       | "closeBridge"
@@ -265,6 +263,14 @@ export interface TokenBridgeInterface extends utils.Interface {
     ]
   ): string;
   encodeFunctionData(
+    functionFragment: "bridgeToWithoutRelay",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
+  encodeFunctionData(
     functionFragment: "bridgedToken",
     values?: undefined
   ): string;
@@ -273,15 +279,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     values: [PromiseOrValue<string>, PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
-    functionFragment: "chainIdToTotalBridgeFees",
-    values: [PromiseOrValue<BigNumberish>]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "chainIdToTotalBridged",
-    values: [PromiseOrValue<BigNumberish>]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "chainIdToTotalRelayFees",
+    functionFragment: "chainIdToStats",
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
@@ -441,20 +439,16 @@ export interface TokenBridgeInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "bridgeTo", data: BytesLike): Result;
   decodeFunctionResult(
+    functionFragment: "bridgeToWithoutRelay",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "bridgedToken",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "canBridge", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "chainIdToTotalBridgeFees",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "chainIdToTotalBridged",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "chainIdToTotalRelayFees",
+    functionFragment: "chainIdToStats",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -718,6 +712,13 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    bridgeToWithoutRelay(
+      target: PromiseOrValue<string>,
+      targetChainId: PromiseOrValue<BigNumberish>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     bridgedToken(overrides?: CallOverrides): Promise<[string]>;
 
     canBridge(
@@ -726,20 +727,16 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
-    chainIdToTotalBridgeFees(
+    chainIdToStats(
       arg0: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
-    ): Promise<[BigNumber]>;
-
-    chainIdToTotalBridged(
-      arg0: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<[BigNumber]>;
-
-    chainIdToTotalRelayFees(
-      arg0: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<[BigNumber]>;
+    ): Promise<
+      [BigNumber, BigNumber, BigNumber] & {
+        totalBridged: BigNumber;
+        totalRelayFees: BigNumber;
+        totalBridgeFees: BigNumber;
+      }
+    >;
 
     chainStartBlock(
       arg0: PromiseOrValue<BigNumberish>,
@@ -941,6 +938,13 @@ export interface TokenBridge extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  bridgeToWithoutRelay(
+    target: PromiseOrValue<string>,
+    targetChainId: PromiseOrValue<BigNumberish>,
+    amount: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   bridgedToken(overrides?: CallOverrides): Promise<string>;
 
   canBridge(
@@ -949,20 +953,16 @@ export interface TokenBridge extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
-  chainIdToTotalBridgeFees(
+  chainIdToStats(
     arg0: PromiseOrValue<BigNumberish>,
     overrides?: CallOverrides
-  ): Promise<BigNumber>;
-
-  chainIdToTotalBridged(
-    arg0: PromiseOrValue<BigNumberish>,
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
-
-  chainIdToTotalRelayFees(
-    arg0: PromiseOrValue<BigNumberish>,
-    overrides?: CallOverrides
-  ): Promise<BigNumber>;
+  ): Promise<
+    [BigNumber, BigNumber, BigNumber] & {
+      totalBridged: BigNumber;
+      totalRelayFees: BigNumber;
+      totalBridgeFees: BigNumber;
+    }
+  >;
 
   chainStartBlock(
     arg0: PromiseOrValue<BigNumberish>,
@@ -1160,6 +1160,13 @@ export interface TokenBridge extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    bridgeToWithoutRelay(
+      target: PromiseOrValue<string>,
+      targetChainId: PromiseOrValue<BigNumberish>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     bridgedToken(overrides?: CallOverrides): Promise<string>;
 
     canBridge(
@@ -1168,20 +1175,16 @@ export interface TokenBridge extends BaseContract {
       overrides?: CallOverrides
     ): Promise<[boolean, string] & { isWithinLimit: boolean; error: string }>;
 
-    chainIdToTotalBridgeFees(
+    chainIdToStats(
       arg0: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    chainIdToTotalBridged(
-      arg0: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    chainIdToTotalRelayFees(
-      arg0: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
+    ): Promise<
+      [BigNumber, BigNumber, BigNumber] & {
+        totalBridged: BigNumber;
+        totalRelayFees: BigNumber;
+        totalBridgeFees: BigNumber;
+      }
+    >;
 
     chainStartBlock(
       arg0: PromiseOrValue<BigNumberish>,
@@ -1399,6 +1402,13 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    bridgeToWithoutRelay(
+      target: PromiseOrValue<string>,
+      targetChainId: PromiseOrValue<BigNumberish>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     bridgedToken(overrides?: CallOverrides): Promise<BigNumber>;
 
     canBridge(
@@ -1407,17 +1417,7 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
-    chainIdToTotalBridgeFees(
-      arg0: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    chainIdToTotalBridged(
-      arg0: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
-
-    chainIdToTotalRelayFees(
+    chainIdToStats(
       arg0: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
@@ -1589,6 +1589,13 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    bridgeToWithoutRelay(
+      target: PromiseOrValue<string>,
+      targetChainId: PromiseOrValue<BigNumberish>,
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     bridgedToken(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     canBridge(
@@ -1597,17 +1604,7 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
-    chainIdToTotalBridgeFees(
-      arg0: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    chainIdToTotalBridged(
-      arg0: PromiseOrValue<BigNumberish>,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
-
-    chainIdToTotalRelayFees(
+    chainIdToStats(
       arg0: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;

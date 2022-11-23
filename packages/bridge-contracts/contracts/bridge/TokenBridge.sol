@@ -47,9 +47,14 @@ contract TokenBridge is BridgeMixedConsensus {
         uint256 bridged24Hours;
     }
 
-    mapping(uint256 => uint256) public chainIdToTotalBridged;
-    mapping(uint256 => uint256) public chainIdToTotalRelayFees;
-    mapping(uint256 => uint256) public chainIdToTotalBridgeFees;
+    struct Stats {
+        uint128 totalBridged;
+        uint128 totalRelayFees;
+        uint128 totalBridgeFees;
+    }
+
+    mapping(uint256 => Stats) public chainIdToStats;
+
     mapping(uint256 => bool) public executedRequests;
 
     address public bridgedToken;
@@ -188,11 +193,28 @@ contract TokenBridge is BridgeMixedConsensus {
         return (true, '');
     }
 
+    function bridgeToWithoutRelay(
+        address target,
+        uint256 targetChainId,
+        uint256 amount
+    ) external {
+        _bridgeTo(target, targetChainId, amount, false);
+    }
+
     function bridgeTo(
         address target,
         uint256 targetChainId,
         uint256 amount
     ) external {
+        _bridgeTo(target, targetChainId, amount, true);
+    }
+
+    function _bridgeTo(
+        address target,
+        uint256 targetChainId,
+        uint256 amount,
+        bool relay
+    ) internal {
         _enforceLimits(msg.sender, target, amount, targetChainId);
 
         require(IERC20(bridgedToken).transferFrom(msg.sender, address(this), amount), 'transferFrom');
@@ -201,7 +223,7 @@ contract TokenBridge is BridgeMixedConsensus {
             target,
             targetChainId,
             amount,
-            true,
+            relay,
             block.timestamp,
             uint256(
                 keccak256(
