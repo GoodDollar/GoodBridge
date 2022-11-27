@@ -121,16 +121,20 @@ const runBridge = async (
       const relays = await Promise.all([
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         txsA.length > 0 &&
-          sdk.relayTxs(Number(chainA), Number(chainB), txsA, signer).catch((e) => {
-            logger.error('relayTxs', { bridgeA, txsA }, e.message);
-            return undefined;
-          }),
+          sdk
+            .relayTxs(Number(chainA), Number(chainB), txsA, signer.connect(await sdk.getChainRpc(Number(chainB))))
+            .catch((e) => {
+              logger.error('relayTxs', { bridgeA, txsA }, e.message);
+              return undefined;
+            }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         txsB.length > 0 &&
-          sdk.relayTxs(Number(chainB), Number(chainA), txsB, signer).catch((e) => {
-            logger.error('relayTxs', { bridgeB, txsB }, e.message);
-            return undefined;
-          }),
+          sdk
+            .relayTxs(Number(chainB), Number(chainA), txsB, signer.connect(await sdk.getChainRpc(Number(chainA))))
+            .catch((e) => {
+              logger.error('relayTxs', { bridgeB, txsB }, e.message);
+              return undefined;
+            }),
       ]);
       logger.info('relaying:', { bridgeA, relayHash: relays?.[0]?.relayTxHash, txs: txsA.length });
       logger.info('relaying:', { bridgeB, relayHash: relays?.[1]?.relayTxHash, txs: txsB.length });

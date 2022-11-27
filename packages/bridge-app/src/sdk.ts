@@ -203,9 +203,8 @@ export class BridgeSDK {
     //       },
     //     ],
     //   });
-    const targetRpc = await this.getChainRpc(targetChainId);
     return targetBridgeContract
-      .connect(signer.connect(targetRpc))
+      .connect(signer)
       .submitChainBlockParentsAndTxs(signedBlock, checkPointBlockNumber, parentRlps, mptProofs);
   };
 
@@ -270,12 +269,11 @@ export class BridgeSDK {
     const checkpointBlock = await this.fetchLatestCheckpointBlock(sourceChainId).catch((e) => {
       throw new Error(`fetchLatestCheckpointBlock failed ${sourceChainId} ${e.message}`);
     });
-    console.log({ checkpointBlock, sourceChainId });
     const fetchEventsFromBlock = fromBlock || checkpointBlock - this.registryBlockFrequency;
     const STEP = 5000; //currently unless maxBlocks > 5000 this doesnt have any effect
     let lastProcessedBlock = Math.min(fetchEventsFromBlock + maxBlocks, checkpointBlock);
 
-    let events = flatten(
+    const events = flatten(
       await pAll(
         range(fetchEventsFromBlock, lastProcessedBlock + 1, STEP).map(
           (startBlock) => () =>
@@ -294,10 +292,17 @@ export class BridgeSDK {
       ),
     );
 
-    events = events.filter((_) => _.args.targetChainId.toNumber() === targetChainId).slice(0, maxRequests);
-    lastProcessedBlock = last(events)?.blockNumber || lastProcessedBlock;
+    const targetEvents = events.filter((_) => _.args.targetChainId.toNumber() === targetChainId);
+    const maxEvents = targetEvents.slice(0, maxRequests);
+    const lastBlock = last(maxEvents)?.blockNumber || 0;
 
-    const ids = events.map((_) => _.args.id);
+    //add any events from lastblock so we process all block events
+    maxEvents.push(...targetEvents.slice(maxRequests).filter((_) => _.blockNumber === lastBlock));
+
+    lastProcessedBlock =
+      lastProcessedBlock === checkpointBlock || targetEvents.length === 0 ? lastProcessedBlock : lastBlock;
+
+    const ids = maxEvents.map((_) => _.args.id);
 
     const idsResult = flatten(
       await pAll(
@@ -319,7 +324,7 @@ export class BridgeSDK {
     // });
 
     const unexecutedIds = ids.filter((v, i) => idsResult[i] === false);
-    const validEvents = events.filter((e) => unexecutedIds.includes(e.args.id));
+    const validEvents = maxEvents.filter((e) => unexecutedIds.includes(e.args.id));
     return { validEvents, checkpointBlock, lastProcessedBlock, fetchEventsFromBlock };
   };
 }

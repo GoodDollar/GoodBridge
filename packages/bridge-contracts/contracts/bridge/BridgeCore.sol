@@ -44,7 +44,7 @@ abstract contract BridgeCore {
 
     function isValidConsensus(address[] memory signers) public virtual returns (bool isValid);
 
-    function chainStartBlock(uint256 chainId) public virtual returns (uint256 bridgeStartBlock);
+    function chainStartBlock(uint256 chainId) public view virtual returns (uint256 bridgeStartBlock);
 
     function _executeReceipt(
         uint256 chainId,

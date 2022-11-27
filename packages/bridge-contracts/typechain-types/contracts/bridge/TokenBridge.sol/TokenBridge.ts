@@ -185,6 +185,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     "usedReceipts(bytes32)": FunctionFragment;
     "validatorsCycleEnd()": FunctionFragment;
     "verifyParentBlocks(uint256,uint256,bytes[],bytes)": FunctionFragment;
+    "withdraw(address)": FunctionFragment;
   };
 
   getFunction(
@@ -232,6 +233,7 @@ export interface TokenBridgeInterface extends utils.Interface {
       | "usedReceipts"
       | "validatorsCycleEnd"
       | "verifyParentBlocks"
+      | "withdraw"
   ): FunctionFragment;
 
   encodeFunctionData(
@@ -419,6 +421,10 @@ export interface TokenBridgeInterface extends utils.Interface {
       PromiseOrValue<BytesLike>
     ]
   ): string;
+  encodeFunctionData(
+    functionFragment: "withdraw",
+    values: [PromiseOrValue<string>]
+  ): string;
 
   decodeFunctionResult(
     functionFragment: "BRIDGE_TOPIC",
@@ -568,6 +574,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     functionFragment: "verifyParentBlocks",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "withdraw", data: BytesLike): Result;
 
   events: {
     "BridgeRequest(address,address,uint256,uint256,bool,uint256,uint256)": EventFragment;
@@ -740,8 +747,8 @@ export interface TokenBridge extends BaseContract {
 
     chainStartBlock(
       arg0: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
-    ): Promise<ContractTransaction>;
+      overrides?: CallOverrides
+    ): Promise<[BigNumber] & { bridgeStartBlock: BigNumber }>;
 
     chainVerifiedBlocks(
       arg0: PromiseOrValue<BigNumberish>,
@@ -886,6 +893,11 @@ export interface TokenBridge extends BaseContract {
       childRlpHeader: PromiseOrValue<BytesLike>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    withdraw(
+      token: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
   };
 
   BRIDGE_TOPIC(overrides?: CallOverrides): Promise<string>;
@@ -966,8 +978,8 @@ export interface TokenBridge extends BaseContract {
 
   chainStartBlock(
     arg0: PromiseOrValue<BigNumberish>,
-    overrides?: Overrides & { from?: PromiseOrValue<string> }
-  ): Promise<ContractTransaction>;
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   chainVerifiedBlocks(
     arg0: PromiseOrValue<BigNumberish>,
@@ -1106,6 +1118,11 @@ export interface TokenBridge extends BaseContract {
     childBlockNumber: PromiseOrValue<BigNumberish>,
     parentRlpHeaders: PromiseOrValue<BytesLike>[],
     childRlpHeader: PromiseOrValue<BytesLike>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  withdraw(
+    token: PromiseOrValue<string>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -1328,6 +1345,11 @@ export interface TokenBridge extends BaseContract {
       childRlpHeader: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
     ): Promise<void>;
+
+    withdraw(
+      token: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
   };
 
   filters: {
@@ -1424,7 +1446,7 @@ export interface TokenBridge extends BaseContract {
 
     chainStartBlock(
       arg0: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     chainVerifiedBlocks(
@@ -1566,6 +1588,11 @@ export interface TokenBridge extends BaseContract {
       childRlpHeader: PromiseOrValue<BytesLike>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
+
+    withdraw(
+      token: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
   };
 
   populateTransaction: {
@@ -1611,7 +1638,7 @@ export interface TokenBridge extends BaseContract {
 
     chainStartBlock(
       arg0: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     chainVerifiedBlocks(
@@ -1757,6 +1784,11 @@ export interface TokenBridge extends BaseContract {
       childBlockNumber: PromiseOrValue<BigNumberish>,
       parentRlpHeaders: PromiseOrValue<BytesLike>[],
       childRlpHeader: PromiseOrValue<BytesLike>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    withdraw(
+      token: PromiseOrValue<string>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
   };

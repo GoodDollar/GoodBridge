@@ -379,8 +379,8 @@ export interface BridgeMixedConsensus extends BaseContract {
   functions: {
     chainStartBlock(
       chainId: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
-    ): Promise<ContractTransaction>;
+      overrides?: CallOverrides
+    ): Promise<[BigNumber] & { bridgeStartBlock: BigNumber }>;
 
     chainVerifiedBlocks(
       arg0: PromiseOrValue<BigNumberish>,
@@ -478,8 +478,8 @@ export interface BridgeMixedConsensus extends BaseContract {
 
   chainStartBlock(
     chainId: PromiseOrValue<BigNumberish>,
-    overrides?: Overrides & { from?: PromiseOrValue<string> }
-  ): Promise<ContractTransaction>;
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   chainVerifiedBlocks(
     arg0: PromiseOrValue<BigNumberish>,
@@ -678,7 +678,7 @@ export interface BridgeMixedConsensus extends BaseContract {
   estimateGas: {
     chainStartBlock(
       chainId: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     chainVerifiedBlocks(
@@ -774,7 +774,7 @@ export interface BridgeMixedConsensus extends BaseContract {
   populateTransaction: {
     chainStartBlock(
       chainId: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     chainVerifiedBlocks(

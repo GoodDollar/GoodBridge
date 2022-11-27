@@ -78,7 +78,12 @@ describe('bridge sdk', () => {
       await localNode.send('evm_mine', []);
     }
     await delay(3000); //wait for checkpoint to be registered
-    const relayResult = await sdk.relayTx(99, 100, bridgeTx.transactionHash, recipient);
+    const relayResult = await sdk.relayTx(
+      99,
+      100,
+      bridgeTx.transactionHash,
+      recipient.connect(await sdk.getChainRpc(100)),
+    );
     await relayResult.relayPromise;
     expect(relayResult.relayTxHash).toBeDefined();
     expect(relayResult.relayPromise).toBeDefined();
@@ -109,8 +114,8 @@ describe('bridge sdk', () => {
     expect(events2.validEvents.length).toBeGreaterThan(0);
     expect(events2.validEvents.length).toEqual(events.validEvents.length + 1);
     expect(events2.validEvents[events2.validEvents.length - 1].args.to).toEqual(recipient.address);
-    expect(events.checkpointBlock).toEqual(events.lastProcessedBlock);
-    expect(events2.checkpointBlock).toEqual(events2.lastProcessedBlock);
+    expect(events.checkpointBlock).toBeGreaterThanOrEqual(events.lastProcessedBlock);
+    expect(events2.checkpointBlock).toBeGreaterThanOrEqual(events2.lastProcessedBlock);
     expect(events.checkpointBlock).toBeGreaterThan(0);
     expect(events2.checkpointBlock).toBeGreaterThan(0);
   });
@@ -129,7 +134,7 @@ describe('bridge sdk', () => {
 
     expect(events.validEvents.length).toBeGreaterThan(0);
     const txs = events.validEvents.map((_) => _.transactionHash);
-    await sdk.relayTxs(99, 100, txs, recipient);
+    await sdk.relayTxs(99, 100, txs, recipient.connect(await sdk.getChainRpc(100)));
     const events2 = await sdk.fetchPendingBridgeRequests(99, 100, events.fetchEventsFromBlock);
     expect(events2.validEvents.length).toEqual(0);
   });

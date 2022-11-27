@@ -1,8 +1,12 @@
 import { ethers } from 'hardhat';
+import { pick } from 'lodash';
+import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers';
 import { expect } from 'chai';
 import { TokenBridge } from '../typechain-types';
 import { range } from 'lodash';
 import * as SignUtils from '../../bridge-app/src/utils';
+import { BigNumber } from 'ethers';
+import { bridge } from '../typechain-types/contracts';
 
 describe('Bridge', () => {
   let signers, bridgeA: TokenBridge, bridgeB: TokenBridge, token;
@@ -62,6 +66,161 @@ describe('Bridge', () => {
     await bridgeB.setSourceBridges([bridgeA.address], [1]);
   });
 
+  const basicFixture = async () => {
+    return { bridgeA, bridgeB };
+  };
+
+  describe('bridge params', () => {
+    it('should have chainstartblock set to 1', async () => {
+      expect(await bridgeA.chainStartBlock(3948484)).eq(1);
+    });
+
+    it('should set limits only by owner', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      await bridgeA.setBridgeLimits({
+        txLimit: 1,
+        dailyLimit: 1,
+        accountDailyLimit: 1,
+        minAmount: 1,
+        onlyWhitelisted: true,
+      });
+      const limits = await bridgeA.bridgeLimits();
+      expect(limits.txLimit).eq(1);
+      expect(limits.dailyLimit).eq(1);
+      expect(limits.accountDailyLimit).eq(1);
+      expect(limits.minAmount).eq(1);
+      expect(limits.onlyWhitelisted).eq(true);
+
+      await expect(
+        bridgeA.connect(signers[1]).setBridgeLimits({
+          txLimit: 1,
+          dailyLimit: 1,
+          accountDailyLimit: 1,
+          minAmount: 1,
+          onlyWhitelisted: true,
+        }),
+      ).revertedWith('owner');
+    });
+
+    it('should set fees only by owner', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      await bridgeA.setBridgeFees({
+        fee: 1,
+        maxFee: 1,
+        minFee: 1,
+      });
+
+      const fees = await bridgeA.bridgeFees();
+      expect(fees.fee).eq(1);
+      expect(fees.maxFee).eq(1);
+      expect(fees.minFee).eq(1);
+
+      await expect(
+        bridgeA.connect(signers[1]).setBridgeFees({
+          fee: 1,
+          maxFee: 1,
+          minFee: 1,
+        }),
+      ).revertedWith('owner');
+    });
+
+    it('should set faucet only by owner', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      await bridgeA.setFaucet(signers[1].address);
+
+      expect(await bridgeA.faucet()).eq(signers[1].address);
+
+      await expect(bridgeA.connect(signers[1]).setFaucet(ethers.constants.AddressZero)).revertedWith('owner');
+    });
+
+    it('should set trusted bridges only by owner', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      await bridgeA.setSourceBridges([signers[1].address, signers[2].address], [5, 5]);
+
+      expect(await bridgeA.sourceBridgeToBlockstart(signers[1].address)).eq(5);
+      expect(await bridgeA.sourceBridgeToBlockstart(signers[2].address)).eq(5);
+
+      await expect(
+        bridgeA.connect(signers[1]).setSourceBridges([signers[1].address, signers[2].address], [1, 1]),
+      ).revertedWith('owner');
+    });
+
+    it('should set consensus ratio only by owner', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      await bridgeA.setConsensusRatio(10);
+
+      expect(await bridgeA.consensusRatio()).eq(10);
+      expect(await bridgeA.sourceBridgeToBlockstart(signers[2].address)).eq(5);
+
+      await expect(bridgeA.connect(signers[1]).setConsensusRatio(10)).revertedWith('owner');
+    });
+
+    it('should set required validators only by owner', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      await bridgeA.setRequiredValidators([signers[1].address, signers[2].address]);
+
+      expect(await bridgeA.requiredValidatorsSet()).eq(2);
+      expect(await bridgeA.requiredValidators(signers[1].address)).eq(2);
+      expect(await bridgeA.requiredValidators(signers[2].address)).eq(2);
+
+      await expect(
+        bridgeA.connect(signers[1]).setRequiredValidators([signers[1].address, signers[2].address]),
+      ).revertedWith('owner');
+    });
+  });
+
+  describe.only('enforce limits', () => {
+    it('should enforce tx limit', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      const { txLimit } = await bridgeA.bridgeLimits();
+      await token.approve(bridgeA.address, txLimit.mul(2));
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, txLimit)).not.reverted;
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, txLimit.add(1))).revertedWith('txLimit');
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, txLimit)).not.reverted;
+    });
+
+    it('should enforce global daily limit', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      await bridgeA.setBridgeLimits({
+        txLimit: 1000,
+        dailyLimit: 2000,
+        accountDailyLimit: 3000,
+        minAmount: 1,
+        onlyWhitelisted: false,
+      });
+      let { txLimit, dailyLimit } = await bridgeA.bridgeLimits();
+      expect((await bridgeA.bridgeDailyLimit()).bridged24Hours).eq(0);
+      await token.approve(bridgeA.address, dailyLimit.mul(2));
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, txLimit)).not.reverted;
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, txLimit)).not.reverted;
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, 1)).revertedWith('dailyLimit');
+
+      await time.increase(24 * 60 * 60);
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, 1)).not.reverted;
+      expect((await bridgeA.bridgeDailyLimit()).bridged24Hours).eq(1);
+    });
+
+    it('should enforce account daily limit', async () => {
+      const { bridgeA } = await loadFixture(basicFixture);
+      await bridgeA.setBridgeLimits({
+        txLimit: 1000,
+        dailyLimit: 2000,
+        accountDailyLimit: 1500,
+        minAmount: 1,
+        onlyWhitelisted: false,
+      });
+      let { txLimit, dailyLimit } = await bridgeA.bridgeLimits();
+      expect((await bridgeA.bridgeDailyLimit()).bridged24Hours).eq(0);
+      await token.approve(bridgeA.address, dailyLimit.mul(2));
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, txLimit)).not.reverted;
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, 500)).not.reverted;
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, 1)).revertedWith('accountDailyLimit');
+
+      await time.increase(24 * 60 * 60);
+      await expect(bridgeA.bridgeTo(signers[1].address, 100, 1)).not.reverted;
+      expect((await bridgeA.accountsDailyLimit(signers[0].address)).bridged24Hours).eq(1);
+    });
+  });
   describe('block proofs', () => {
     let childHeader;
     it('should submit signed block after 10 previous blocks', async () => {
@@ -95,6 +254,7 @@ describe('Bridge', () => {
         .reverted;
     });
   });
+
   describe('transfer and receive', () => {
     let tx;
     it('should transfer to bridge', async () => {
