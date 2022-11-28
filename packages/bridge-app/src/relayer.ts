@@ -100,8 +100,18 @@ const runBridge = async (
       const bridgeA = `${chainA}_${chainB}_${bridge[chainA]}`;
       const bridgeB = `${chainB}_${chainA}_${bridge[chainB]}`;
       const [
-        { validEvents: eventsA = [], lastProcessedBlock: lastProcessedA, checkpointBlock: checkpointBlockA },
-        { validEvents: eventsB = [], lastProcessedBlock: lastProcessedB, checkpointBlock: checkpointBlockB },
+        {
+          validEvents: eventsA = [],
+          lastProcessedBlock: lastProcessedA,
+          checkpointBlock: checkpointBlockA,
+          fetchEventsFromBlock: fetchEventsFromBlockA,
+        },
+        {
+          validEvents: eventsB = [],
+          lastProcessedBlock: lastProcessedB,
+          checkpointBlock: checkpointBlockB,
+          fetchEventsFromBlock: fetchEventsFromBlockB,
+        },
       ] = await Promise.all([
         sdk.fetchPendingBridgeRequests(Number(chainA), Number(chainB), lastProcessed[bridgeA]).catch((e) => {
           logger.error('fetchPendingBridgeRequests', { bridgeA }, e.message);
@@ -151,33 +161,37 @@ const runBridge = async (
       );
 
       if (lastProcessedA && (relays[0]?.status === 1 || txsA.length === 0)) {
-        lastProcessed[chainA + '_' + chainB] = lastProcessedA;
+        lastProcessed[bridgeA] = lastProcessedA;
         logger.info('relay success updating last processed block:', { bridgeA, lastProcessedA });
       }
       if (lastProcessedB && (relays[1]?.status === 1 || txsB.length === 0)) {
-        lastProcessed[chainB + '_' + chainA] = lastProcessedB;
+        lastProcessed[bridgeB] = lastProcessedB;
         logger.info('relay success updating last processed block:', { bridgeB, lastProcessedB });
       }
 
       logger.info('relay result:', {
         bridgeA,
+        fetchEventsFromBlockA,
+        lastProcessedA,
+        checkpointBlockA,
         relayHash: results?.[0]?.transactionHash,
         status: results?.[0]?.status,
         error: results?.[1]?.error,
-        lastProcessedA,
         hasMore,
       });
       logger.info('relay result:', {
         bridgeB,
+        fetchEventsFromBlockB,
+        lastProcessedB,
+        checkpointBlockB,
         relayHash: results?.[1]?.transactionHash,
         status: results?.[1]?.status,
         error: results?.[1]?.error,
-        lastProcessedB,
         hasMore,
       });
     }
 
-  fs.writeFileSync(`${CONFIG_DIR}/lastprocessed.json`, JSON.stringify(lastProcessed));
+  fs.writeFileSync(path.join(configDir, 'lastprocessed.json'), JSON.stringify(lastProcessed));
   //if one of the bridges has possibly more requests we didnt process run again immediatly, otherwise wait for interval
   if (shouldRun) {
     timeouts[idx] = setTimeout(() => runBridge(idx, bridge, signer), hasMore ? 0 : interval);
@@ -185,7 +199,7 @@ const runBridge = async (
 };
 
 const updateLastProcessed = () => {
-  merge(lastProcessed, JSON.parse(fs.readFileSync(`${CONFIG_DIR}/lastprocessed.json`).toString() || '{}'));
+  merge(lastProcessed, JSON.parse(fs.readFileSync(path.join(configDir, 'lastprocessed.json')).toString() || '{}'));
   logger.info('updateLastProcessed:', { lastProcessed });
 };
 
@@ -200,7 +214,7 @@ export const relayerApp = async (bridges?: Array<{ [key: string]: string }>, int
   }
   const signerAddress = await signer.getAddress();
   relayer = signerAddress;
-  logger.info('starting:', { signerAddress, BLOCK_REGISTRY_ADDRESS, bridges, REGISTRY_RPC });
+  logger.info('starting:', { signerAddress, BLOCK_REGISTRY_ADDRESS, bridges, REGISTRY_RPC, CONFIG_DIR });
   bridges.map((_, idx) => runBridge(idx, _, signer as ethers.Signer, interval));
   return bridges;
 };

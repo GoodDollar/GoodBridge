@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/bridge-app",
-  "version": "1.2.1",
+  "version": "1.2.3",
   "description": "Minimalistic bridge",
   "engines": {
     "node": ">= 16"
@@ -45,7 +45,7 @@
     "test": "jest --coverage",
     "prettier": "prettier --config .prettierrc --write .",
     "test:watch": "jest --watch",
-    "prepack": "yarn prebuild && yarn build:release && docker build . -t gooddollar/bridge-app",
+    "prepack": "yarn prebuild && yarn build:release",
     "postpublish": "./dockerpublish.sh"
   },
   "dependencies": {

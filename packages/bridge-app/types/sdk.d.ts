@@ -1,4 +1,4 @@
-import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
+import { JsonRpcProvider } from '@ethersproject/providers';
 import { Contract, ethers, Signer } from 'ethers';
 import Logger from 'js-logger';
 import * as SignUtils from './utils';
@@ -18,7 +18,7 @@ export declare class BridgeSDK {
     }, registryBlockFrequency?: number, registryRpc?: string, multicalls?: {
         [key: string]: string;
     }, logger?: typeof Logger);
-    getChainRpc: (chainId: number) => Promise<JsonRpcBatchProvider>;
+    getChainRpc: (chainId: number) => Promise<JsonRpcProvider>;
     getBridgeContract: (chainId: number, provider?: JsonRpcProvider) => Promise<Contract>;
     getCheckpointBlockFromEvents: (sourceChainId: number, checkpointBlockNumber: number) => Promise<{
         signatures: any[];

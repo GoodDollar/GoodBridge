@@ -30,7 +30,7 @@ describe('block header registry', () => {
     }
   });
 
-  describe.only('generates receipt proofs', () => {
+  describe('generates receipt proofs', () => {
     it('generate receipt proof for fuse', async () => {
       const proof = await SigUtils.receiptProof(
         '0x2824ac1c95dc8d7ab1dcf8b0d7a483dab3549ee815e406d0d13f54ff7deab909',

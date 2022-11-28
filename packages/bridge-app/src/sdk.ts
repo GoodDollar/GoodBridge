@@ -30,7 +30,7 @@ export class BridgeSDK {
     multicalls: { [key: string]: string } = {},
     logger?: typeof Logger,
   ) {
-    this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcBatchProvider(registryRpc));
+    this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcProvider(registryRpc));
     this.registryBlockFrequency = registryBlockFrequency;
     this.bridges = { ...DEFAULT_BRIDGES, ...bridges };
     Object.entries(multicalls).map((pair) => setMulticallAddress(Number(pair[0]), pair[1]));
@@ -44,7 +44,7 @@ export class BridgeSDK {
     const blockchain = blockchains.find((_) => _.chainId.toNumber() === chainId);
     const rpcs = blockchain.rpc.split(',');
     const randomRpc = rpcs[random(0, rpcs.length - 1)];
-    return new ethers.providers.JsonRpcBatchProvider(randomRpc);
+    return new ethers.providers.JsonRpcProvider(randomRpc);
   };
 
   getBridgeContract = async (chainId: number, provider?: JsonRpcProvider) => {
@@ -160,7 +160,9 @@ export class BridgeSDK {
       Number(minBlockReceipt.receipt.blockNumber),
       Number(maxBlockReceipt.receipt.blockNumber),
       targetBridgeContract,
-    );
+    ).catch((e) => {
+      throw new Error(`getBlocksToSubmit failed: ${e.message}`);
+    });
 
     const blockToReceipts = groupBy(receiptProofs, (_) => Number(_.receipt.blockNumber));
     const mptProofs = Object.entries(blockToReceipts).map(([k, receiptProofs]) => {
@@ -217,7 +219,9 @@ export class BridgeSDK {
     const sourceBridgeContract = await this.getBridgeContract(sourceChainId, rpc);
     const receiptProofs = await Promise.all(
       txHashes.map((txHash) => SignUtils.receiptProof(txHash, rpc, sourceChainId)),
-    );
+    ).catch((e) => {
+      throw new Error(`receiptProof failed: ${e.message}`);
+    });
 
     const logs = flatten(
       receiptProofs.map((receiptProof) => {
@@ -235,7 +239,9 @@ export class BridgeSDK {
     const bridgeRequests = logs
       .filter((_) => _.name === 'BridgeRequest')
       .map((_) => pick(_.args, ['from', 'to', 'amount']));
-    const tx = await this.submitBlocksAndExecute(sourceChainId, targetChainId, receiptProofs, signer);
+    const tx = await this.submitBlocksAndExecute(sourceChainId, targetChainId, receiptProofs, signer).catch((e) => {
+      throw new Error(`submitBlocksAndExecute failed: ${e.message}`);
+    });
     return {
       relayTxHash: tx.hash,
       relayPromise: tx.wait(),
@@ -269,7 +275,7 @@ export class BridgeSDK {
     const checkpointBlock = await this.fetchLatestCheckpointBlock(sourceChainId).catch((e) => {
       throw new Error(`fetchLatestCheckpointBlock failed ${sourceChainId} ${e.message}`);
     });
-    const fetchEventsFromBlock = fromBlock || checkpointBlock - this.registryBlockFrequency;
+    const fetchEventsFromBlock = fromBlock || Math.max(checkpointBlock - 20000, 0);
     const STEP = 5000; //currently unless maxBlocks > 5000 this doesnt have any effect
     let lastProcessedBlock = Math.min(fetchEventsFromBlock + maxBlocks, checkpointBlock);
 
@@ -299,9 +305,6 @@ export class BridgeSDK {
     //add any events from lastblock so we process all block events
     maxEvents.push(...targetEvents.slice(maxRequests).filter((_) => _.blockNumber === lastBlock));
 
-    lastProcessedBlock =
-      lastProcessedBlock === checkpointBlock || targetEvents.length === 0 ? lastProcessedBlock : lastBlock;
-
     const ids = maxEvents.map((_) => _.args.id);
 
     const idsResult = flatten(
@@ -324,7 +327,13 @@ export class BridgeSDK {
     // });
 
     const unexecutedIds = ids.filter((v, i) => idsResult[i] === false);
-    const validEvents = maxEvents.filter((e) => unexecutedIds.includes(e.args.id));
+    let validEvents = maxEvents.filter((e) => unexecutedIds.includes(e.args.id));
+    //get events only in range of 50 blocks, since otherwise relay will take too much gas to submit checkpoint blocks
+    validEvents = validEvents.filter((_) => _.blockNumber <= validEvents[0].blockNumber + 50);
+    const lastValidBlock = last(validEvents)?.blockNumber || 0;
+
+    lastProcessedBlock = validEvents.length === 0 ? lastProcessedBlock : lastValidBlock;
+
     return { validEvents, checkpointBlock, lastProcessedBlock, fetchEventsFromBlock };
   };
 }
