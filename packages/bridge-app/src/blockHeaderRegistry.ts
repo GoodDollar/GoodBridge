@@ -1,15 +1,13 @@
 // import  pino from 'pino'
 import fs from 'fs';
-import { isObject, random } from 'lodash';
 import * as ethers from 'ethers';
-import logger from 'js-logger';
 import { Wallet, Signer } from 'ethers';
 import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
-import { chunk, filter, flatten, merge, range, throttle } from 'lodash';
+import { chunk, filter, flatten, range, throttle, random } from 'lodash';
 import { config } from 'dotenv';
-import fetch from 'node-fetch';
 import pAll from 'p-all';
 import * as SignUtils from './utils';
+import { Logger } from './logger';
 import ConsensusABI from './abi/ConsensusMock.json';
 
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
@@ -26,45 +24,7 @@ const configDir = CONFIG_DIR;
 
 let validatorId;
 
-const consoleHandler = logger.createDefaultHandler();
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const errorHandler = async (messages: Array<any>, context) => {
-  if (!INDICATIVE_KEY || context.level.value !== logger.ERROR.value) return;
-
-  const [eventName, ...rest] = messages;
-  const objs: Array<object> = rest.filter((_) => isObject(_));
-  const properties = merge({ validatorId }, ...objs);
-
-  try {
-    await fetch(`https://api.indicative.com/service/event/${INDICATIVE_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        eventName,
-        eventUniqueId: validatorId,
-        properties,
-      }),
-    });
-    console.log('sent error log', {
-      eventName,
-      eventUniqueId: validatorId,
-      properties,
-    });
-  } catch (e) {
-    console.error('failed sending error log', e.message, e);
-  }
-};
-
-const logLevel = logger['info'.toUpperCase()];
-logger.setLevel(logLevel);
-
-logger.setHandler((messages, context) => {
-  consoleHandler(messages, context);
-  errorHandler(messages, context);
-});
-
+let logger = Logger('BlockRegistry', '', INDICATIVE_KEY);
 // eslint-disable-next-line prefer-const
 export let stepSize = Number(STEP_SIZE);
 
@@ -109,6 +69,7 @@ async function initBlockRegistryContract(signer: Wallet, registry: string, conse
     logger.warn('unable to read lastBlocks.json', e.message);
   }
   validatorId = await signer.getAddress();
+  logger = Logger('BlockRegistry', validatorId, INDICATIVE_KEY);
   // if (!ETH_RPC) throw 'Missing ETH_RPC in environment';
   // if (!BSC_RPC) throw 'Missing BSC_RPC in environment';
   // initBlockchain(1, ETH_RPC);
@@ -252,7 +213,7 @@ const _refreshRPCs = async () => {
     const chains = await blockRegistryContract.getRPCs();
     logger.info('got registered rpcs:', chains);
     const randRpc = chains.map(({ chainId, rpc }) => {
-      const rpcs = rpc.split(',');
+      const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
       const randomRpc = rpcs[random(0, rpcs.length - 1)];
       return { chainId: chainId.toNumber(), rpc: randomRpc };
     });

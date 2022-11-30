@@ -1,12 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as ethers from 'ethers';
-import logger from 'js-logger';
 import path from 'path';
 import fs from 'fs';
-import { merge, isObject } from 'lodash';
 import { config } from 'dotenv';
-
 import { BridgeSDK } from './sdk';
+import { Logger } from './logger';
 
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 
@@ -25,52 +23,7 @@ const {
   INDICATIVE_KEY,
 } = process.env;
 
-const consoleHandler = logger.createDefaultHandler();
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const errorHandler = async (messages: Array<any>, context) => {
-  if (!INDICATIVE_KEY || context.level.value !== logger.ERROR.value) return;
-  const [eventName, ...rest] = messages;
-  const objs: Array<object> = rest.filter((_) => isObject(_));
-  const properties = merge({ relayer }, ...objs);
-
-  try {
-    await fetch(`https://api.indicative.com/service/event/${INDICATIVE_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        eventName,
-        eventUniqueId: relayer,
-        properties,
-      }),
-    });
-    logger.info('sent error log', {
-      eventName,
-      eventUniqueId: relayer,
-      properties,
-    });
-  } catch (e) {
-    logger.error('failed sending error log', e.message, e);
-  }
-};
-
-const logLevel = logger['info'.toUpperCase()];
-logger.setLevel(logLevel);
-
-const logColors = {
-  [logger.ERROR.name]: '\x1b[31m%s\x1b[0m',
-  [logger.WARN.name]: '\x1b[33m%s\x1b[0m',
-  [logger.INFO.name]: '\x1b[36m%s\x1b[0m',
-  [logger.DEBUG.name]: '\x1b[32m%s\x1b[0m',
-};
-
-logger.setHandler((messages, context) => {
-  const msgs = Array.from(messages);
-  msgs.unshift(logColors[context.level.name], `${new Date().toLocaleString()} ${context.level.name}:`);
-  consoleHandler(msgs, context);
-  errorHandler(msgs, context);
-});
+let logger = Logger('Relayer', '', INDICATIVE_KEY);
 
 const configDir = CONFIG_DIR;
 
@@ -214,6 +167,8 @@ export const relayerApp = async (bridges?: Array<{ [key: string]: string }>, int
   }
   const signerAddress = await signer.getAddress();
   relayer = signerAddress;
+  logger = Logger('Relayer', relayer, INDICATIVE_KEY);
+
   logger.info('starting:', { signerAddress, BLOCK_REGISTRY_ADDRESS, bridges, REGISTRY_RPC, CONFIG_DIR });
   bridges.map((_, idx) => runBridge(idx, _, signer as ethers.Signer, interval));
   return bridges;

@@ -30,7 +30,7 @@ export class BridgeSDK {
     multicalls: { [key: string]: string } = {},
     logger?: typeof Logger,
   ) {
-    this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcProvider(registryRpc));
+    this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcBatchProvider(registryRpc));
     this.registryBlockFrequency = registryBlockFrequency;
     this.bridges = { ...DEFAULT_BRIDGES, ...bridges };
     Object.entries(multicalls).map((pair) => setMulticallAddress(Number(pair[0]), pair[1]));
@@ -42,9 +42,9 @@ export class BridgeSDK {
     this.rpcs = blockchains;
 
     const blockchain = blockchains.find((_) => _.chainId.toNumber() === chainId);
-    const rpcs = blockchain.rpc.split(',');
+    const rpcs = blockchain.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
     const randomRpc = rpcs[random(0, rpcs.length - 1)];
-    return new ethers.providers.JsonRpcProvider(randomRpc);
+    return new ethers.providers.JsonRpcBatchProvider(randomRpc);
   };
 
   getBridgeContract = async (chainId: number, provider?: JsonRpcProvider) => {
