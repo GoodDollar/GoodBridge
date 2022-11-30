@@ -1,12 +1,6 @@
 import * as ethers from 'ethers';
 import * as SigUtils from '../src/utils';
-import * as BridgeApp from '../src/blockHeaderRegistry';
 
-const delay = async (milis) => {
-  return new Promise((res) => {
-    setTimeout(res, milis);
-  });
-};
 jest.setTimeout(120000);
 
 describe('block merkle patricia tree tests', () => {
@@ -47,7 +41,7 @@ describe('block merkle patricia tree tests', () => {
       expect(proof).toBeTruthy();
     });
 
-    it.only('generate receipt proof for celo', async () => {
+    it('generate receipt proof for celo', async () => {
       const proof = await SigUtils.receiptProof(
         '0x25a5e77f301944de1741355e1f1d710816b88a2f405e32efc69c10bb1b82f45d',
         // '0xd91bdc7527e7210a3a976c95b6e93d2a2ab5305a7d2bf2e5ec1c75fe452d8c7a',

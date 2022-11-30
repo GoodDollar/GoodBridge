@@ -5,6 +5,7 @@ import fs from 'fs';
 import { config } from 'dotenv';
 import { BridgeSDK } from './sdk';
 import { Logger } from './logger';
+import { merge } from 'lodash';
 
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 

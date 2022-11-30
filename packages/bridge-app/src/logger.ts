@@ -11,7 +11,7 @@ export const Logger = (name: string, loggerId: string, indicativeKey?: string) =
     const properties = merge({ loggerId }, ...objs);
 
     try {
-      await fetch(`https://api.indicative.com/service/event/${INDICATIVE_KEY}`, {
+      await fetch(`https://api.indicative.com/service/event/${indicativeKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

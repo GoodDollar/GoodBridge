@@ -243,7 +243,7 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
   const [, , stack] = await promisfy(tree.findPath, tree)(encode(targetReceipt.transactionIndex));
   const receiptsRoot = '0x' + tree.root.toString('hex');
   if (receiptsRoot !== blockHeader.block.receiptsRoot) {
-    console.error({
+    console.error(receipts, {
       receiptsRoot,
       blockReceiptsRoot: blockHeader.block.receiptsRoot,
     });
