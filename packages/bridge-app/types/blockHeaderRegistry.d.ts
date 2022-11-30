@@ -1,7 +1,7 @@
 /// <reference types="lodash" />
-import logger from 'js-logger';
 import { Wallet, Signer } from 'ethers';
 import { JsonRpcProvider } from '@ethersproject/providers';
+declare let logger: import("js-logger").ILogger;
 export declare let stepSize: number;
 declare type ChainData = {
     lastBlock?: number;
