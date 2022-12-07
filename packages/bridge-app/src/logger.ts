@@ -43,12 +43,13 @@ export const Logger = (name: string, loggerId: string, indicativeKey?: string) =
   };
 
   logger.setHandler((messages, context) => {
-    const { name, level } = context;
+    const { name } = context;
+
+    const msgs = Array.from(messages);
 
     if (name) {
-      messages.unshift({ from: name });
+      msgs.unshift({ from: name });
     }
-    const msgs = Array.from(messages);
     msgs.unshift(
       logColors[context.level.name],
       `FROM: ${context.name}`,

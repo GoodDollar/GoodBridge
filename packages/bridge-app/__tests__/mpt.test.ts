@@ -44,9 +44,6 @@ describe('block merkle patricia tree tests', () => {
     it('generate receipt proof for celo', async () => {
       const proof = await SigUtils.receiptProof(
         '0x25a5e77f301944de1741355e1f1d710816b88a2f405e32efc69c10bb1b82f45d',
-        // '0xd91bdc7527e7210a3a976c95b6e93d2a2ab5305a7d2bf2e5ec1c75fe452d8c7a',
-        // '0x4bdb44dcc624fc3c8f99c74f7e24f6227e2109d5b924850cbb1e6f23f0ebd539',
-        // '0x88926efc4ce8319c303344986ec8af0a752c7f908ad0de906eaec1fb703670a7',
         new ethers.providers.JsonRpcBatchProvider('https://forno.celo.org'),
         42220,
       );
