@@ -39,9 +39,10 @@ export class BridgeSDK {
 
   getChainRpc = async (chainId: number) => {
     const blockchains = this.rpcs || (await this.registryContract.getRPCs());
+
     this.rpcs = blockchains;
 
-    const blockchain = blockchains.find((_) => _.chainId.toNumber() === chainId);
+    const blockchain = blockchains.find((_) => _.chainId.toNumber() === chainId)?.rpc;
     const rpcs = blockchain.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
     const randomRpc = rpcs[random(0, rpcs.length - 1)];
     return new ethers.providers.JsonRpcBatchProvider(randomRpc);

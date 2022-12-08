@@ -44,7 +44,7 @@ const runBridge = async (
   signer: ethers.Signer,
   interval = 60000,
 ) => {
-  const sdk = new BridgeSDK(BLOCK_REGISTRY_ADDRESS, bridge, 10, REGISTRY_RPC);
+  const sdk = new BridgeSDK(BLOCK_REGISTRY_ADDRESS, bridge, 10, REGISTRY_RPC, {}, logger as any);
   const chains = Object.keys(bridge);
   let hasMore = false;
   for (let i = 0; i < chains.length - 1; i++)
@@ -125,6 +125,7 @@ const runBridge = async (
 
       logger.info('relay result:', {
         bridgeA,
+        lastProcessedBlock: lastProcessed[bridgeA],
         fetchEventsFromBlockA,
         lastProcessedA,
         checkpointBlockA,
@@ -135,6 +136,7 @@ const runBridge = async (
       });
       logger.info('relay result:', {
         bridgeB,
+        lastProcessedBlock: lastProcessed[bridgeB],
         fetchEventsFromBlockB,
         lastProcessedB,
         checkpointBlockB,

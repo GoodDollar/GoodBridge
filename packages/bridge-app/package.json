@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/bridge-app",
-  "version": "1.2.4",
+  "version": "1.2.8",
   "description": "Minimalistic bridge",
   "engines": {
     "node": ">= 16"
@@ -55,6 +55,7 @@
     "ethers-multicall": "^0.2.3",
     "js-logger": "^1.6.1",
     "lodash": "^4.17.21",
+    "node-fetch": "2",
     "p-all": "3.0.0"
   }
 }

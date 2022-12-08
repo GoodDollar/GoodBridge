@@ -1,12 +1,13 @@
 import logger from 'js-logger';
 import { isObject, merge } from 'lodash';
+import fetch from 'node-fetch';
 
 export const Logger = (name: string, loggerId: string, indicativeKey?: string) => {
   const consoleHandler = logger.createDefaultHandler();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const errorHandler = async (messages: Array<any>, context) => {
     if (!indicativeKey || context.level.value !== logger.ERROR.value) return;
-    const [eventName, ...rest] = messages;
+    const [, , , , eventName, ...rest] = messages;
     const objs: Array<object> = rest.filter((_) => isObject(_));
     const properties = merge({ loggerId }, ...objs);
 
@@ -43,21 +44,12 @@ export const Logger = (name: string, loggerId: string, indicativeKey?: string) =
   };
 
   logger.setHandler((messages, context) => {
-    const { name } = context;
-
     const msgs = Array.from(messages);
 
-    if (name) {
-      msgs.unshift({ from: name });
-    }
-    msgs.unshift(
-      logColors[context.level.name],
-      `FROM: ${context.name}`,
-      `${new Date().toLocaleString()} ${context.level.name}:`,
-    );
+    msgs.unshift(logColors[context.level.name], context.level.name, `FROM: ${name}`, `${new Date().toLocaleString()}:`);
     consoleHandler(msgs, context);
     errorHandler(msgs, context);
   });
 
-  return logger.get(name);
+  return logger;
 };
