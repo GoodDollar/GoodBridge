@@ -1,9 +1,7 @@
 import { ethers } from 'hardhat';
-import { expect, use } from 'chai';
-import { solidity } from 'ethereum-waffle';
-import { GetProof } from 'eth-proof';
+import { expect } from 'chai';
+
 import * as SignUtils from '../../bridge-app/src/utils';
-use(solidity);
 
 describe('Parser/MPT Verifier', () => {
   let verifier;
@@ -131,7 +129,7 @@ describe('Parser/MPT Verifier', () => {
         keyIndex: 0,
         proofIndex: 0,
       }),
-    ).revertedWith('verifyTrieProof');
+    ).revertedWith('verifyTrieProof else');
   });
 
   it('should not verify receipt inclusion with bad root', async () => {

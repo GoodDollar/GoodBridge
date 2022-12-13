@@ -1,12 +1,12 @@
 import { HardhatUserConfig } from 'hardhat/config';
 import '@nomiclabs/hardhat-ethers';
-import '@nomiclabs/hardhat-waffle';
 import '@typechain/hardhat';
 import 'solidity-coverage';
 import 'hardhat-gas-reporter';
 import 'hardhat-contract-sizer';
 import '@openzeppelin/hardhat-upgrades';
-
+import '@nomicfoundation/hardhat-chai-matchers';
+import '@nomiclabs/hardhat-waffle';
 import { HttpNetworkAccountsConfig } from 'hardhat/types';
 
 const pkey = process.env.PRIVATE_KEY;

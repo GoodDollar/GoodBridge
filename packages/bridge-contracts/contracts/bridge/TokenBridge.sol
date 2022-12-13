@@ -142,6 +142,8 @@ contract TokenBridge is BridgeMixedConsensus {
     }
 
     function canBridge(address from, uint256 amount) public returns (bool isWithinLimit, string memory error) {
+        if (isClosed) return (false, 'closed');
+
         if (amount < bridgeLimits.minAmount) return (false, 'minAmount');
 
         if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
@@ -212,7 +214,6 @@ contract TokenBridge is BridgeMixedConsensus {
     ) internal virtual {
         require(target != address(0), 'invalid target');
         require(targetChainId > 0, 'invalid targetChainId');
-        require(!isClosed, 'closed');
 
         if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
             bridgeDailyLimit.lastTransferReset = block.timestamp;
@@ -277,7 +278,7 @@ contract TokenBridge is BridgeMixedConsensus {
 
     function _executeReceipt(
         uint256 chainId,
-        uint256 blockNumber,
+        uint256 receiptBlockNumber,
         RLPParser.TransactionReceipt memory receipt
     ) internal virtual override returns (bool ok) {
         if (receipt.status != 1) return false;
@@ -290,7 +291,7 @@ contract TokenBridge is BridgeMixedConsensus {
             // where topic is BridgeTransfer
             // console.log('log address %s', log.contractAddress);
             // console.logBytes32(log.topics[0]);
-            if (sourceBridgeToBlockstart[log.contractAddress] > blockNumber) continue;
+            if (sourceBridgeToBlockstart[log.contractAddress] > receiptBlockNumber) continue;
 
             if (sourceBridgeToBlockstart[log.contractAddress] == 0 || log.topics[0] != BRIDGE_TOPIC) {
                 continue;
@@ -315,7 +316,7 @@ contract TokenBridge is BridgeMixedConsensus {
                     address(uint160(uint256(log.topics[2]))), // to - stack to deep
                     amount,
                     chainId,
-                    blockNumber,
+                    receiptBlockNumber,
                     withRelay,
                     uint256(log.topics[3])
                 ); //added internal function for stack too deep

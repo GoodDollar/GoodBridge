@@ -1,25 +1,22 @@
-import { ethers } from 'hardhat';
-import { pick } from 'lodash';
-import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers';
+import { ethers, waffle } from 'hardhat';
 import { expect } from 'chai';
+import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers';
 import { TokenBridge } from '../typechain-types';
 import { range } from 'lodash';
 import * as SignUtils from '../../bridge-app/src/utils';
-import { BigNumber } from 'ethers';
-import { bridge } from '../typechain-types/contracts';
 
 describe('Bridge', () => {
   let signers, bridgeA: TokenBridge, bridgeB: TokenBridge, token;
   before(async () => {
     signers = await ethers.getSigners();
-    const validators = signers.map((_) => _.address);
+    const validators = signers.slice(0, 5).map((_) => _.address);
     const requiredValidators = validators.slice(0, 2);
     token = await (await ethers.getContractFactory('TestToken')).deploy();
     bridgeA = (await (
       await ethers.getContractFactory('TokenBridge')
     ).deploy(
       validators,
-      10000000,
+      1,
       requiredValidators,
       0,
       token.address,
@@ -42,7 +39,7 @@ describe('Bridge', () => {
       await ethers.getContractFactory('TokenBridge')
     ).deploy(
       validators,
-      10000000,
+      1,
       requiredValidators.slice(2, 4),
       0,
       token.address,
@@ -64,10 +61,40 @@ describe('Bridge', () => {
     await token.transfer(bridgeB.address, ethers.constants.WeiPerEther);
     await bridgeA.setSourceBridges([bridgeB.address], [1]);
     await bridgeB.setSourceBridges([bridgeA.address], [1]);
+    await loadFixture(cleanFixture);
   });
 
-  const basicFixture = async () => {
+  const cleanFixture = async () => {
     return { bridgeA, bridgeB };
+  };
+
+  const basicFixture = async () => {
+    await loadFixture(cleanFixture);
+    await token.approve(bridgeA.address, 1000);
+    let tx = await (await bridgeA.bridgeTo(signers[1].address, 1337, 1000)).wait();
+    return { bridgeA, bridgeB, bridgeFromAToBTx: tx };
+  };
+
+  const withCheckpointFixutre = async () => {
+    const res = await loadFixture(basicFixture);
+    const block = await ethers.provider.send('eth_getBlockByNumber', [
+      '0x' + res.bridgeFromAToBTx.blockNumber.toString(16),
+      true,
+    ]);
+    const blockHeader = SignUtils.prepareBlock(block, 1337);
+    let sig1 = await SignUtils.signBlock(blockHeader.rlpHeader, 1337, signers[0], 0, []);
+    const sig2 = await SignUtils.signBlock(blockHeader.rlpHeader, 1337, signers[1], 0, []);
+    const { signature, ...signedBlock } = {
+      ...sig1,
+      ...{
+        signatures: [
+          ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], Object.values(sig1.signature)),
+          ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], Object.values(sig2.signature)),
+        ],
+      },
+    };
+    await bridgeB.submitBlocks([signedBlock]);
+    return res;
   };
 
   describe('bridge params', () => {
@@ -99,7 +126,7 @@ describe('Bridge', () => {
           minAmount: 1,
           onlyWhitelisted: true,
         }),
-      ).revertedWith('owner');
+      ).revertedWith('Ownable: caller is not the owner');
     });
 
     it('should set fees only by owner', async () => {
@@ -121,7 +148,7 @@ describe('Bridge', () => {
           maxFee: 1,
           minFee: 1,
         }),
-      ).revertedWith('owner');
+      ).revertedWith('Ownable: caller is not the owner');
     });
 
     it('should set faucet only by owner', async () => {
@@ -130,7 +157,9 @@ describe('Bridge', () => {
 
       expect(await bridgeA.faucet()).eq(signers[1].address);
 
-      await expect(bridgeA.connect(signers[1]).setFaucet(ethers.constants.AddressZero)).revertedWith('owner');
+      await expect(bridgeA.connect(signers[1]).setFaucet(ethers.constants.AddressZero)).revertedWith(
+        'Ownable: caller is not the owner',
+      );
     });
 
     it('should set trusted bridges only by owner', async () => {
@@ -142,17 +171,16 @@ describe('Bridge', () => {
 
       await expect(
         bridgeA.connect(signers[1]).setSourceBridges([signers[1].address, signers[2].address], [1, 1]),
-      ).revertedWith('owner');
+      ).revertedWith('Ownable: caller is not the owner');
     });
 
     it('should set consensus ratio only by owner', async () => {
       const { bridgeA } = await loadFixture(basicFixture);
-      await bridgeA.setConsensusRatio(10);
+      await bridgeA.setConsensusRatio(10n);
 
-      expect(await bridgeA.consensusRatio()).eq(10);
-      expect(await bridgeA.sourceBridgeToBlockstart(signers[2].address)).eq(5);
+      expect(await bridgeA.consensusRatio()).eq(10n);
 
-      await expect(bridgeA.connect(signers[1]).setConsensusRatio(10)).revertedWith('owner');
+      await expect(bridgeA.connect(signers[1]).setConsensusRatio(10)).revertedWith('Ownable: caller is not the owner');
     });
 
     it('should set required validators only by owner', async () => {
@@ -165,11 +193,11 @@ describe('Bridge', () => {
 
       await expect(
         bridgeA.connect(signers[1]).setRequiredValidators([signers[1].address, signers[2].address]),
-      ).revertedWith('owner');
+      ).revertedWith('Ownable: caller is not the owner');
     });
   });
 
-  describe.only('enforce limits', () => {
+  describe('enforce limits', () => {
     it('should enforce tx limit', async () => {
       const { bridgeA } = await loadFixture(basicFixture);
       const { txLimit } = await bridgeA.bridgeLimits();
@@ -180,7 +208,7 @@ describe('Bridge', () => {
     });
 
     it('should enforce global daily limit', async () => {
-      const { bridgeA } = await loadFixture(basicFixture);
+      const { bridgeA } = await loadFixture(cleanFixture);
       await bridgeA.setBridgeLimits({
         txLimit: 1000,
         dailyLimit: 2000,
@@ -201,7 +229,7 @@ describe('Bridge', () => {
     });
 
     it('should enforce account daily limit', async () => {
-      const { bridgeA } = await loadFixture(basicFixture);
+      const { bridgeA } = await loadFixture(cleanFixture);
       await bridgeA.setBridgeLimits({
         txLimit: 1000,
         dailyLimit: 2000,
@@ -221,9 +249,39 @@ describe('Bridge', () => {
       expect((await bridgeA.accountsDailyLimit(signers[0].address)).bridged24Hours).eq(1);
     });
   });
+
   describe('block proofs', () => {
     let childHeader;
+    it('should update validators from signed block of chain 122', async () => {
+      await loadFixture(basicFixture);
+      const block = await ethers.provider.send('eth_getBlockByNumber', ['latest', false]);
+      childHeader = SignUtils.prepareBlock(block, 122);
+      const sig1 = await SignUtils.signBlock(childHeader.rlpHeader, 122, signers[0], 10, [
+        signers[10].address,
+        signers[9].address,
+      ]);
+      const sig2 = await SignUtils.signBlock(childHeader.rlpHeader, 122, signers[1], 10, [
+        signers[10].address,
+        signers[9].address,
+      ]);
+      const { signature, ...signedBlock } = {
+        ...sig1,
+        ...{
+          signatures: [
+            ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], Object.values(sig1.signature)),
+            ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], Object.values(sig2.signature)),
+          ],
+        },
+      };
+      await expect(bridgeB.submitBlocks([signedBlock])).not.reverted;
+      expect(await bridgeB.validatorsCycleEnd()).eq(10);
+      expect(await bridgeB.currentValidators(signers[10].address)).eq(10);
+      expect(await bridgeB.currentValidators(signers[9].address)).eq(10);
+      expect(await bridgeB.chainVerifiedBlocks(122, block.number)).equal(signedBlock.blockHash);
+    });
+
     it('should submit signed block after 10 previous blocks', async () => {
+      await loadFixture(basicFixture);
       for (let i = 0; i < 10; i++) await signers[0].sendTransaction({ value: 0, to: signers[1].address });
       const block = await ethers.provider.send('eth_getBlockByNumber', ['latest', false]);
       childHeader = SignUtils.prepareBlock(block, 1337);
@@ -253,14 +311,61 @@ describe('Bridge', () => {
       await expect(bridgeB.verifyParentBlocks(1337, childHeader.block.number, parentRlps, childHeader.rlpHeader)).not
         .reverted;
     });
+
+    it('should submit signed block with parent blocks and txs via submitChainBlockParentsAndTxs', async () => {
+      await loadFixture(basicFixture);
+      await token.approve(bridgeA.address, 1000);
+      const tx = await (await bridgeA.bridgeTo(signers[1].address, 1337, 1000)).wait();
+
+      for (let i = 0; i < 10; i++) await signers[0].sendTransaction({ value: 0, to: signers[1].address });
+      const block = await ethers.provider.send('eth_getBlockByNumber', [
+        '0x' + (tx.blockNumber + 9).toString(16),
+        false,
+      ]);
+      const childHeader = SignUtils.prepareBlock(block, 1337);
+      const sig1 = await SignUtils.signBlock(childHeader.rlpHeader, 1337, signers[0], 0, []);
+      const sig2 = await SignUtils.signBlock(childHeader.rlpHeader, 1337, signers[1], 0, []);
+      const { signature, ...signedBlock } = {
+        ...sig1,
+        ...{
+          signatures: [
+            ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], Object.values(sig1.signature)),
+            ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], Object.values(sig2.signature)),
+          ],
+        },
+      };
+
+      const parents = await Promise.all(
+        range(childHeader.block.number - 1, childHeader.block.number - 11).map(async (idx) => {
+          const block = await ethers.provider.send('eth_getBlockByNumber', ['0x' + idx.toString(16), false]);
+          return SignUtils.prepareBlock(block, 1337);
+        }),
+      );
+      const parentRlps = parents.map((_) => _.rlpHeader);
+
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const expectedRoot = proof.receiptsRoot;
+      const receiptRlp = proof.receiptRlp;
+
+      const mptProof = {
+        expectedRoot,
+        expectedValue: receiptRlp,
+        proof: proof.receiptProof,
+        key: SignUtils.index2key(proof.txIndex, proof.receiptProof.length),
+        keyIndex: 0,
+        proofIndex: 0,
+      };
+
+      const proofs = [{ receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber }];
+
+      await expect(bridgeB.submitChainBlockParentsAndTxs(signedBlock, block.number, parentRlps, proofs)).not.reverted;
+    });
   });
 
   describe('transfer and receive', () => {
-    let tx;
     it('should transfer to bridge', async () => {
-      await token.approve(bridgeA.address, 1000);
-      tx = await (await bridgeA.bridgeTo(signers[1].address, 1337, 1000)).wait();
-      const bridgeEvent = tx.events.find((_) => _.event === 'BridgeRequest');
+      const { bridgeFromAToBTx } = await loadFixture(basicFixture);
+      const bridgeEvent = bridgeFromAToBTx.events?.find((_) => _.event === 'BridgeRequest') || ({} as any);
       expect(bridgeEvent.topics[0]).eq(await bridgeA.BRIDGE_TOPIC());
       expect(bridgeEvent.args.from).to.eq(signers[0].address);
       expect(bridgeEvent.args.to).to.eq(signers[1].address);
@@ -269,6 +374,7 @@ describe('Bridge', () => {
     });
 
     it('should submit signed block to target bridge', async () => {
+      const { bridgeFromAToBTx: tx } = await loadFixture(basicFixture);
       const block = await ethers.provider.send('eth_getBlockByNumber', ['0x' + tx.blockNumber.toString(16), true]);
       const blockHeader = SignUtils.prepareBlock(block, 1337);
       let sig1 = await SignUtils.signBlock(blockHeader.rlpHeader, 1337, signers[0], 0, []);
@@ -286,7 +392,54 @@ describe('Bridge', () => {
       expect(await bridgeB.chainVerifiedBlocks(1337, tx.blockNumber)).equal(signedBlock.blockHash);
     });
 
+    it('execute receipt should fail for various reasons', async () => {
+      const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const expectedRoot = proof.receiptsRoot;
+      //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
+      const receiptRlp = proof.receiptRlp;
+
+      const mptProof = {
+        expectedRoot,
+        expectedValue: receiptRlp,
+        proof: proof.receiptProof,
+        key: SignUtils.index2key(proof.txIndex, proof.receiptProof.length),
+        keyIndex: 0,
+        proofIndex: 0,
+      };
+      await expect(
+        bridgeA.executeReceipts(1337, [
+          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp + '00', blockNumber: tx.blockNumber },
+        ]),
+      ).revertedWith('invalid block hash');
+
+      mptProof.keyIndex = 1;
+      await expect(
+        bridgeB.executeReceipts(1337, [
+          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+        ]),
+      ).revertedWith('not start index');
+
+      mptProof.keyIndex = 0;
+      mptProof.expectedRoot = expectedRoot.slice(0, -2) + '00';
+      await expect(
+        bridgeB.executeReceipts(1337, [
+          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+        ]),
+      ).revertedWith('receiptRoot mismatch');
+
+      mptProof.expectedRoot = expectedRoot;
+      const copy = mptProof.proof[0];
+      mptProof.proof[0] = mptProof.proof[0].slice(0, -2) + '00';
+      await expect(
+        bridgeB.executeReceipts(1337, [
+          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+        ]),
+      ).revertedWith('verifyTrieProof root node hash invalid');
+    });
+
     it('should receive from bridge with valid proof', async () => {
+      const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
       const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
@@ -317,6 +470,7 @@ describe('Bridge', () => {
     });
 
     it('should not receive from bridge with used proof', async () => {
+      const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
       const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
@@ -331,6 +485,10 @@ describe('Bridge', () => {
         proofIndex: 0,
       };
 
+      await bridgeB.executeReceipts(1337, [
+        { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+      ]);
+
       const staticResult = await bridgeB.callStatic.executeReceipts(1337, [
         { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
       ]);
@@ -342,7 +500,93 @@ describe('Bridge', () => {
       ]);
       const txData = await (await res).wait();
       const txLog = txData.events?.find((_) => _.event === 'ExecutedTransfer');
-      expect(txLog).to.be.undefined();
+      expect(txLog).to.be.undefined;
+    });
+  });
+
+  describe('token bridge', () => {
+    it('should skip old receipt', async () => {
+      const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const expectedRoot = proof.receiptsRoot;
+      //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
+      const receiptRlp = proof.receiptRlp;
+
+      const mptProof = {
+        expectedRoot,
+        expectedValue: receiptRlp,
+        proof: proof.receiptProof,
+        key: SignUtils.index2key(proof.txIndex, proof.receiptProof.length),
+        keyIndex: 0,
+        proofIndex: 0,
+      };
+
+      await bridgeB.setSourceBridges([bridgeA.address], [tx.blockNumber + 1]);
+      const res = await bridgeB.callStatic.executeReceipts(1337, [
+        { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+      ]);
+      expect(res[0][0]).to.eq('execute failed');
+    });
+
+    it('should call topgas and not fail on revert', async () => {
+      const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
+      const faucet = await waffle.deployMockContract(signers[0], [
+        'function canTop(address account ) view returns (bool valid)',
+        'function topWallet(address account)',
+      ]);
+      await faucet.mock.canTop.returns(true);
+      await faucet.mock.topWallet.revertsWithReason('xxx');
+      await bridgeB.setFaucet(faucet.address);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const expectedRoot = proof.receiptsRoot;
+      //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
+      const receiptRlp = proof.receiptRlp;
+
+      const mptProof = {
+        expectedRoot,
+        expectedValue: receiptRlp,
+        proof: proof.receiptProof,
+        key: SignUtils.index2key(proof.txIndex, proof.receiptProof.length),
+        keyIndex: 0,
+        proofIndex: 0,
+      };
+
+      await expect(
+        bridgeB.executeReceipts(1337, [
+          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+        ]),
+      ).not.reverted;
+    });
+
+    it('should call topgas', async () => {
+      const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
+      const faucet = await waffle.deployMockContract(signers[0], [
+        'function canTop(address account ) view returns (bool valid)',
+        'function topWallet(address account)',
+      ]);
+      await faucet.mock.canTop.returns(true);
+      await faucet.mock.topWallet.returns();
+      await bridgeB.setFaucet(faucet.address);
+
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const expectedRoot = proof.receiptsRoot;
+      //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
+      const receiptRlp = proof.receiptRlp;
+
+      const mptProof = {
+        expectedRoot,
+        expectedValue: receiptRlp,
+        proof: proof.receiptProof,
+        key: SignUtils.index2key(proof.txIndex, proof.receiptProof.length),
+        keyIndex: 0,
+        proofIndex: 0,
+      };
+
+      await expect(
+        bridgeB.executeReceipts(1337, [
+          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+        ]),
+      ).not.reverted;
     });
   });
 });

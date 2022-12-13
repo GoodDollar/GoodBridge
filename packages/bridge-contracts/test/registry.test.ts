@@ -1,8 +1,5 @@
-import { expect, use } from 'chai';
 import { ethers, upgrades } from 'hardhat';
-import { solidity } from 'ethereum-waffle';
-
-use(solidity);
+import { expect } from 'chai';
 
 describe('BlockHeaderRegistry', () => {
   let BlockHeaderRegistry;
@@ -89,7 +86,7 @@ describe('BlockHeaderRegistry', () => {
   };
 
   describe('Blockchains', () => {
-    it('Should cost less gas with events only', async () => {
+    it('[ @skip-on-coverage ] Should cost less gas with events only', async () => {
       const eventsOnly = await upgrades.deployProxy(BlockHeaderRegistry, [voting.address, consensus.address, true], {
         kind: 'uups',
       });
@@ -159,7 +156,7 @@ describe('BlockHeaderRegistry', () => {
       await expect(blockHeaderRegistry.getSignedBlock(1, 0)).revertedWith('_blockHashes.length');
     });
 
-    it('Should skip already signed block at the same height', async () => {
+    it('[ @skip-on-coverage ] Should skip already signed block at the same height', async () => {
       const signer = signers[0];
       const rlpHeader = ethers.utils.RLP.encode(Object.values(header).map((v) => (v === 0 ? '0x' : v)));
       const bhash = ethers.utils.keccak256(rlpHeader);
