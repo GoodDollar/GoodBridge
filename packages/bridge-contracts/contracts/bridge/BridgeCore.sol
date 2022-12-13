@@ -42,6 +42,9 @@ abstract contract BridgeCore {
 
     uint256 public validatorsCycleEnd;
 
+    event BlockVerified(uint256 chainId, uint256 blockNumber, bytes32 blockHash);
+    event ValidatorsSet(address[] validators, uint256 cycleEnd);
+
     function isValidConsensus(address[] memory signers) public virtual returns (bool isValid);
 
     function chainStartBlock(uint256 chainId) public view virtual returns (uint256 bridgeStartBlock);
@@ -77,6 +80,8 @@ abstract contract BridgeCore {
             if (isFuse && _block.validators.length > 0 && blockHeader.number >= validatorsCycleEnd) {
                 _setValidators(_block.validators, _block.cycleEnd);
             }
+
+            emit BlockVerified(_block.chainId, blockHeader.number, rlpHeaderHash);
         }
     }
 
@@ -86,6 +91,7 @@ abstract contract BridgeCore {
         }
         validatorsCycleEnd = cycleEnd;
         numValidators = validators.length;
+        emit ValidatorsSet(validators, cycleEnd);
     }
 
     function executeReceipts(uint256 chainId, BlockReceiptProofs[] calldata blocks)
@@ -163,6 +169,7 @@ abstract contract BridgeCore {
             );
             chainVerifiedBlocks[chainId][parent.number] = parentHash;
             child = parent;
+            emit BlockVerified(chainId, parent.number, parentHash);
         }
     }
 

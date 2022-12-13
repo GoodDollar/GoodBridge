@@ -248,8 +248,23 @@ describe('Bridge', () => {
       await expect(bridgeA.bridgeTo(signers[1].address, 100, 1)).not.reverted;
       expect((await bridgeA.accountsDailyLimit(signers[0].address)).bridged24Hours).eq(1);
     });
+
+    xit('should enforce min transfer amount', async () => {});
+    xit('target address should not be 0 and chain id should be >0', async () => {});
   });
 
+  describe('fees', () => {
+    xit('should charge min fee when applicable', async () => {
+      //verify both bridge + relayer get the fee
+    });
+    xit('should charge max fee when applicable', async () => {});
+    xit('should charge full fee when relaying', async () => {
+      //perform execute receipt by non target/sender
+    });
+    xit('should charge half fee when self relaying', async () => {
+      //perform execute receipt by target/sender
+    });
+  });
   describe('block proofs', () => {
     let childHeader;
     it('should update validators from signed block of chain 122', async () => {
@@ -359,6 +374,23 @@ describe('Bridge', () => {
       const proofs = [{ receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber }];
 
       await expect(bridgeB.submitChainBlockParentsAndTxs(signedBlock, block.number, parentRlps, proofs)).not.reverted;
+    });
+
+    xit('it should revert if duplicate signature found', async () => {
+      //duplicate one signatures when submitting block
+    });
+    xit('it should fail consensus', async () => {
+      //remove one signature when submitting block
+    });
+
+    xit('verifyparentblocks should fail if child rlpheadher hash doesnt match existing submitted block', async () => {
+      //add some bytes to the child rlpheader
+    });
+    xit('verifyparentblocks should fail if parent hash doesnt match grandparent hash', async () => {
+      //add a random parent block to the list of blocks
+    });
+    xit('verifyparentblocks should not fail when verifying parents again', async () => {
+      //perform two consecutive calls that shouldnt fail
     });
   });
 
@@ -528,6 +560,23 @@ describe('Bridge', () => {
       expect(res[0][0]).to.eq('execute failed');
     });
 
+    xit('should not execute if receipt status not 1', async () => {
+      //cause bridgeTo to fail by forcing low gas limit
+      //call execute receipts
+      //verify result [0][0] execute failed
+    });
+
+    xit('should not execute if receipt log topic isnt valid', async () => {
+      //get receipt proof for some other tx in bridge that generate an event (like submit blocks)
+      //call execute receipts
+      //verify result[0][0]  = execute failed
+    });
+
+    xit('should not execute if target chainid does not match', async () => {
+      //create bridgeto with some invalid chainid
+      //verify result[0][0]  = execute failed
+    });
+
     it('should call topgas and not fail on revert', async () => {
       const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
       const faucet = await waffle.deployMockContract(signers[0], [
@@ -587,6 +636,43 @@ describe('Bridge', () => {
           { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
         ]),
       ).not.reverted;
+    });
+
+    xit('should not allow to bridge when closed', async () => {
+      //set bridge as closed
+    });
+    xit('should not allow to bridge if whitelisted required and account not whitelisted', async () => {
+      //turn on bridge whitelisting requirement
+      //mock identity contract
+      //set bridge identity
+      //call to bridge should revert
+    });
+
+    xit('should bridge with/withoutout relay', async () => {
+      //call bridgewithoutrelay
+      //event with relay=false should be emitted
+      //call bridge
+      //event with relay=true should be emitted
+    });
+    xit('only owner should be able to withdraw/close bridge', async () => {
+      //check that close+withdraw call not with owner reverts with correct reason
+      //verify that call to close+withdraw by owner returns token balance to owner and close bridge
+    });
+
+    xit('should be able to bridge using transferAndCall without relay in data', async () => {
+      //create a bridge with a token that supports transferAndCall (erc677) - you can use GoodDollar @gooddollar/goodprotocol
+      //encode in data chainId + targetAddress
+      //verify event was emitted with relay = true
+    });
+    xit('should be able to bridge using transferAndCall with relay in data', async () => {
+      //create a bridge with a token that supports transferAndCall (erc677) - you can use GoodDollar @gooddollar/goodprotocol
+      //encode in data chainId + targetAddress + withoutRelay (true)
+      //verify event was emitted with relay = false
+    });
+    xit('should be able to bridge using transferAndCall with relay in data', async () => {
+      //create a bridge with a token that supports transferAndCall (erc677) - you can use GoodDollar @gooddollar/goodprotocol
+      //encode in data chainId + targetAddress + withoutRelay (true)
+      //verify event was emitted with relay = false
     });
   });
 });
