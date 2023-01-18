@@ -13,6 +13,12 @@ describe('Bridge', () => {
     const validators = signers.slice(0, 5).map((_) => _.address);
     const requiredValidators = validators.slice(0, 2);
     token = await (await ethers.getContractFactory('TestToken')).deploy();
+    const ns = await waffle.deployMockContract(signers[0], ['function getAddress(string) returns(address)']);
+    const id = await waffle.deployMockContract(signers[0], ['function isWhitelisted(address) returns(bool)']);
+
+    await ns.mock.getAddress.withArgs('IDENTITY').returns(id.address);
+    await id.mock.isWhitelisted.returns(true);
+
     bridgeA = (await upgrades.deployProxy(
       await ethers.getContractFactory('TokenBridge'),
       [
@@ -34,7 +40,7 @@ describe('Bridge', () => {
           onlyWhitelisted: true,
         },
         ethers.constants.AddressZero,
-        ethers.constants.AddressZero,
+        ns.address,
       ],
       { kind: 'uups' },
     )) as TokenBridge;
@@ -60,7 +66,7 @@ describe('Bridge', () => {
           onlyWhitelisted: true,
         },
         ethers.constants.AddressZero,
-        ethers.constants.AddressZero,
+        ns.address,
       ],
       { kind: 'uups' },
     )) as TokenBridge;
@@ -425,12 +431,13 @@ describe('Bridge', () => {
 
     it('should enforce account daily limit', async () => {
       const { bridgeA } = await loadFixture(cleanFixture);
+
       await bridgeA.setBridgeLimits({
         txLimit: 1000,
         dailyLimit: 2000,
         accountDailyLimit: 1500,
         minAmount: 1,
-        onlyWhitelisted: false,
+        onlyWhitelisted: true,
       });
       let { txLimit, dailyLimit } = await bridgeA.bridgeLimits();
       expect((await bridgeA.bridgeDailyLimit()).bridged24Hours).eq(0);
