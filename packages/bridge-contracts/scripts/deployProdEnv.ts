@@ -9,6 +9,7 @@ import contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import prompt from 'prompt';
 import { defaults } from 'lodash';
 import fse from 'fs-extra';
+import { BigNumber } from 'ethers';
 
 const celotemp = {
   'production-celo': {
@@ -124,33 +125,55 @@ const deployBridge = async () => {
       break;
   }
   const tokenBridge = await ethers.getContractFactory('TokenBridge');
-  const sourceBridge = await tokenBridge
-    .connect(fusesigner)
-    .deploy(
+  const sourceToken = await ethers.getContractAt('IERC20Metadata', contracts[network.name].GoodDollar);
+  const sourceDecimals = await sourceToken.decimals();
+  let multiplier = BigNumber.from('10').pow(sourceDecimals);
+  const sourceBridge = await upgrades.deployProxy(
+    tokenBridge.connect(fusesigner),
+    [
       reqValidators,
       0,
       reqValidators,
       consensusRatio,
       contracts[network.name].GoodDollar,
-      { maxFee: 10000, minFee: 200, fee: 10 },
-      { dailyLimit: 1e10, txLimit: 1e8, accountDailyLimit: 1e9, minAmount: 100000, onlyWhitelisted: false },
+      { maxFee: multiplier.mul(100), minFee: multiplier.mul(2), fee: multiplier.mul(1) },
+      {
+        dailyLimit: multiplier.mul(1e8),
+        txLimit: multiplier.mul(1e6),
+        accountDailyLimit: multiplier.mul(1e7),
+        minAmount: multiplier.mul(1000),
+        onlyWhitelisted: false,
+      },
       contracts[network.name].FuseFaucet,
       contracts[network.name].NameService,
-    );
+    ],
+    { kind: 'uups' },
+  );
 
-  const targetBridge = await tokenBridge
-    .connect(celosigner)
-    .deploy(
+  const targetToken = await ethers.getContractAt('IERC20Metadata', allContracts[celoNetwork].GoodDollar);
+  const targetDecimals = await targetToken.decimals();
+  const celomultiplier = BigNumber.from('10').pow(targetDecimals);
+  const targetBridge = await upgrades.deployProxy(
+    tokenBridge.connect(celosigner),
+    [
       reqValidators,
       0,
       reqValidators,
       consensusRatio,
       allContracts[celoNetwork].GoodDollar,
-      { maxFee: 10000, minFee: 200, fee: 10 },
-      { dailyLimit: 1e10, txLimit: 1e8, accountDailyLimit: 1e9, minAmount: 100000, onlyWhitelisted: false },
+      { maxFee: celomultiplier.mul(100), minFee: celomultiplier.mul(2), fee: celomultiplier.mul(1) },
+      {
+        dailyLimit: celomultiplier.mul(1e8),
+        txLimit: celomultiplier.mul(1e6),
+        accountDailyLimit: celomultiplier.mul(1e7),
+        minAmount: celomultiplier.mul(1000),
+        onlyWhitelisted: false,
+      },
       allContracts[celoNetwork].Faucet,
       allContracts[celoNetwork].NameService,
-    );
+    ],
+    { kind: 'uups' },
+  );
 
   console.log('deployed bridges...');
   await (
@@ -167,14 +190,14 @@ const deployBridge = async () => {
       ]);
       console.log('minting tokens...');
 
-      await (await token.connect(fusesigner).mint(fusesigner.address, 100000000)).wait();
-      await (await token.connect(fusesigner).mint(sourceBridge.address, 1000000000)).wait();
+      await (await token.connect(fusesigner).mint(fusesigner.address, multiplier.mul(1000000))).wait();
+      await (await token.connect(fusesigner).mint(sourceBridge.address, multiplier.mul(10000000))).wait();
 
       console.log('minting target tokens...');
       const targetToken = token.attach(allContracts[celoNetwork].GoodDollar).connect(celosigner);
 
-      await (await targetToken.mint(celosigner.address, 100000000)).wait();
-      await (await targetToken.mint(targetBridge.address, 1000000000)).wait();
+      await (await targetToken.mint(celosigner.address, celomultiplier.mul(1000000))).wait();
+      await (await targetToken.mint(targetBridge.address, celomultiplier.mul(1000000))).wait();
     } catch (e) {
       console.error('failed minting tokens', e);
     }

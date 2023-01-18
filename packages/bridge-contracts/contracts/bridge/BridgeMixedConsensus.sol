@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
 // import 'hardhat/console.sol';
 
 import './BridgeCore.sol';
 
-abstract contract BridgeMixedConsensus is BridgeCore, Ownable {
+abstract contract BridgeMixedConsensus is BridgeCore, OwnableUpgradeable {
     uint256 public requiredValidatorsSet;
 
     mapping(address => uint256) public requiredValidators;
@@ -14,12 +14,15 @@ abstract contract BridgeMixedConsensus is BridgeCore, Ownable {
 
     uint32 public consensusRatio;
 
-    constructor(
+    uint256[16] _gap;
+
+    function initialize_consensus(
         address[] memory _validators,
         uint256 _cycleEnd,
         address[] memory _requiredValidators,
         uint32 _consensusRatio
-    ) {
+    ) internal virtual {
+        __Ownable_init_unchained();
         _setValidators(_validators, _cycleEnd);
         _setRequiredValidators(_requiredValidators);
 

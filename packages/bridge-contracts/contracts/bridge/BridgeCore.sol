@@ -7,6 +7,8 @@ import '../utils/RLPReader.sol';
 import '../utils/RLPParser.sol';
 import '../utils/MPT.sol';
 
+// import 'hardhat/console.sol';
+
 abstract contract BridgeCore {
     using RLPReader for RLPReader.RLPItem;
     using RLPReader for RLPReader.Iterator;
@@ -41,6 +43,8 @@ abstract contract BridgeCore {
     uint256 public numValidators;
 
     uint256 public validatorsCycleEnd;
+
+    uint256[16] private _gap;
 
     event BlockVerified(uint256 chainId, uint256 blockNumber, bytes32 blockHash);
     event ValidatorsSet(address[] validators, uint256 cycleEnd);

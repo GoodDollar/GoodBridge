@@ -1,9 +1,10 @@
-import { ethers, waffle } from 'hardhat';
+import { ethers, waffle, upgrades } from 'hardhat';
 import { expect } from 'chai';
 import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers';
 import { TokenBridge } from '../typechain-types';
 import { range } from 'lodash';
 import * as SignUtils from '../../bridge-app/src/utils';
+import { keccak256 } from 'ethers/lib/utils';
 
 describe('Bridge', () => {
   let signers, bridgeA: TokenBridge, bridgeB: TokenBridge, token;
@@ -12,52 +13,58 @@ describe('Bridge', () => {
     const validators = signers.slice(0, 5).map((_) => _.address);
     const requiredValidators = validators.slice(0, 2);
     token = await (await ethers.getContractFactory('TestToken')).deploy();
-    bridgeA = (await (
-      await ethers.getContractFactory('TokenBridge')
-    ).deploy(
-      validators,
-      1,
-      requiredValidators,
-      0,
-      token.address,
-      {
-        minFee: 0,
-        maxFee: 2,
-        fee: 10,
-      },
-      {
-        dailyLimit: 1e10,
-        txLimit: 1e8,
-        accountDailyLimit: 1e9,
-        minAmount: 100,
-        onlyWhitelisted: true,
-      },
-      ethers.constants.AddressZero,
-      ethers.constants.AddressZero,
+    bridgeA = (await upgrades.deployProxy(
+      await ethers.getContractFactory('TokenBridge'),
+      [
+        validators,
+        1,
+        requiredValidators,
+        0,
+        token.address,
+        {
+          minFee: 0,
+          maxFee: 2,
+          fee: 10,
+        },
+        {
+          dailyLimit: 1e10,
+          txLimit: 1e8,
+          accountDailyLimit: 1e9,
+          minAmount: 100,
+          onlyWhitelisted: true,
+        },
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+      ],
+      { kind: 'uups' },
     )) as TokenBridge;
-    bridgeB = (await (
-      await ethers.getContractFactory('TokenBridge')
-    ).deploy(
-      validators,
-      1,
-      requiredValidators.slice(2, 4),
-      0,
-      token.address,
-      {
-        minFee: 0,
-        maxFee: 2,
-        fee: 10,
-      },
-      {
-        dailyLimit: 1e10,
-        txLimit: 1e8,
-        accountDailyLimit: 1e9,
-        minAmount: 100,
-        onlyWhitelisted: true,
-      },
-      ethers.constants.AddressZero,
-      ethers.constants.AddressZero,
+
+    bridgeB = (await upgrades.deployProxy(
+      await ethers.getContractFactory('TokenBridge'),
+      [
+        validators,
+        1,
+        requiredValidators.slice(2, 4),
+        0,
+        token.address,
+        {
+          minFee: 0,
+          maxFee: 2,
+          fee: 10,
+        },
+        {
+          dailyLimit: 1e10,
+          txLimit: 1e8,
+          accountDailyLimit: 1e9,
+          minAmount: 100,
+          onlyWhitelisted: true,
+        },
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+      ],
+      { kind: 'uups' },
     )) as TokenBridge;
+
     await token.transfer(bridgeB.address, ethers.constants.WeiPerEther);
     await bridgeA.setSourceBridges([bridgeB.address], [1]);
     await bridgeB.setSourceBridges([bridgeA.address], [1]);
@@ -96,6 +103,194 @@ describe('Bridge', () => {
     await bridgeB.submitBlocks([signedBlock]);
     return res;
   };
+
+  const decimalsFixture = async () => {
+    const validators = signers.slice(0, 5).map((_) => _.address);
+    const requiredValidators = validators.slice(0, 2);
+    const ten = await (await ethers.getContractFactory('TestToken10')).deploy();
+    const tenBridge = (await upgrades.deployProxy(
+      await ethers.getContractFactory('TokenBridge'),
+      [
+        validators,
+        1,
+        requiredValidators.slice(2, 3),
+        0,
+        ten.address,
+        {
+          minFee: 0,
+          maxFee: 0,
+          fee: 10,
+        },
+        {
+          dailyLimit: ethers.constants.WeiPerEther.mul(1e12),
+          txLimit: ethers.constants.WeiPerEther.mul(1e12),
+          accountDailyLimit: ethers.constants.WeiPerEther.mul(1e12),
+          minAmount: 100,
+          onlyWhitelisted: true,
+        },
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+      ],
+      { kind: 'uups' },
+    )) as TokenBridge;
+
+    const ray = await (await ethers.getContractFactory('TestToken27')).deploy();
+    const rayBridge = (await upgrades.deployProxy(
+      await ethers.getContractFactory('TokenBridge'),
+      [
+        validators,
+        1,
+        requiredValidators.slice(2, 3),
+        0,
+        ray.address,
+        {
+          minFee: 0,
+          maxFee: 0,
+          fee: 10,
+        },
+        {
+          dailyLimit: ethers.constants.WeiPerEther.mul(1e12),
+          txLimit: ethers.constants.WeiPerEther.mul(1e12),
+          accountDailyLimit: ethers.constants.WeiPerEther.mul(1e12),
+          minAmount: 100,
+          onlyWhitelisted: true,
+        },
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+      ],
+      { kind: 'uups' },
+    )) as TokenBridge;
+
+    await ray.transfer(rayBridge.address, ethers.constants.WeiPerEther.mul(1e10));
+    await ten.transfer(tenBridge.address, ethers.constants.WeiPerEther);
+    await tenBridge.setSourceBridges([rayBridge.address], [1]);
+    await rayBridge.setSourceBridges([tenBridge.address], [1]);
+
+    await ten.approve(tenBridge.address, 1e10);
+    await ray.approve(rayBridge.address, ethers.constants.WeiPerEther.mul(1e9));
+    const tenTx = await (await tenBridge.bridgeTo(signers[1].address, 1337, 1e10)).wait();
+    const rayTx = await (
+      await rayBridge.bridgeTo(signers[1].address, 1337, ethers.constants.WeiPerEther.mul(1e9))
+    ).wait();
+
+    const block = await ethers.provider.send('eth_getBlockByNumber', ['0x' + rayTx.blockNumber.toString(16), true]);
+    const blockHeader = SignUtils.prepareBlock(block, 1337);
+    let sig1 = await SignUtils.signBlock(blockHeader.rlpHeader, 1337, signers[0], 0, []);
+    const sig2 = await SignUtils.signBlock(blockHeader.rlpHeader, 1337, signers[1], 0, []);
+    const { signature, ...signedBlock } = {
+      ...sig1,
+      ...{
+        signatures: [
+          ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], Object.values(sig1.signature)),
+          ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], Object.values(sig2.signature)),
+        ],
+      },
+    };
+    await (await tenBridge.submitBlocks([signedBlock])).wait();
+    const tx = await (await rayBridge.submitBlocks([signedBlock])).wait();
+
+    //make sure we have the blocks for the tenTx verified
+    const parents = await Promise.all(
+      range(rayTx.blockNumber - 1, rayTx.blockNumber - 5).map(async (idx) => {
+        const block = await ethers.provider.send('eth_getBlockByNumber', ['0x' + idx.toString(16), false]);
+        return SignUtils.prepareBlock(block, 1337);
+      }),
+    );
+    const parentRlps = parents.map((_) => _.rlpHeader);
+    await tenBridge.verifyParentBlocks(1337, rayTx.blockNumber, parentRlps, blockHeader.rlpHeader);
+    await rayBridge.verifyParentBlocks(1337, rayTx.blockNumber, parentRlps, blockHeader.rlpHeader);
+
+    return { ten, ray, tenBridge, rayBridge, tenTx, rayTx };
+  };
+
+  describe('token decimals', () => {
+    it('should convert between decimals correctly', async () => {
+      const { tenBridge, rayBridge } = await loadFixture(decimalsFixture);
+
+      expect(await tenBridge.normalizeFromTokenTo18Decimals(1e10)).equal(ethers.constants.WeiPerEther);
+      expect(await tenBridge.normalizeFrom18ToTokenDecimals(ethers.constants.WeiPerEther)).equal(10000000000);
+
+      expect(await rayBridge.normalizeFromTokenTo18Decimals(ethers.BigNumber.from(10).pow(27))).equal(
+        ethers.constants.WeiPerEther,
+      );
+      expect(await rayBridge.normalizeFrom18ToTokenDecimals(ethers.constants.WeiPerEther)).equal(
+        ethers.BigNumber.from(10).pow(27),
+      );
+    });
+
+    it('should emit normalized 18 decimals amount on bridge request', async () => {
+      const { ten, ray, tenBridge, rayBridge } = await loadFixture(decimalsFixture);
+      await ten.approve(tenBridge.address, 1e10);
+      await ray.approve(rayBridge.address, ethers.constants.WeiPerEther.mul(1e9));
+      const { events = [] } = await (await tenBridge.bridgeTo(signers[1].address, 100, 1e10)).wait();
+      const request = events.find((_) => _.event === 'BridgeRequest');
+      expect(request?.args?.amount).equal(ethers.constants.WeiPerEther);
+
+      const { events: rayEvents } = await (
+        await rayBridge.bridgeTo(signers[1].address, 100, ethers.constants.WeiPerEther.mul(1e9))
+      ).wait();
+      const rayRequest = rayEvents?.find((_) => _.event === 'BridgeRequest');
+      expect(rayRequest?.args?.amount).equal(ethers.constants.WeiPerEther);
+    });
+
+    it('should release tokens in normalized down to local token decimals', async () => {
+      const { ten, tenBridge, rayBridge, rayTx } = await loadFixture(decimalsFixture);
+
+      const proof = await SignUtils.receiptProof(rayTx.transactionHash, ethers.provider);
+      const expectedRoot = proof.receiptsRoot;
+      //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
+      const receiptRlp = proof.receiptRlp;
+
+      const mptProof = {
+        expectedRoot,
+        expectedValue: receiptRlp,
+        proof: proof.receiptProof,
+        key: SignUtils.index2key(proof.txIndex, proof.receiptProof.length),
+        keyIndex: 0,
+        proofIndex: 0,
+      };
+
+      const tx = await (
+        await tenBridge.executeReceipts(1337, [
+          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: rayTx.blockNumber },
+        ])
+      ).wait();
+
+      //verifying that 1ray was converted to 1e10
+      const tenClaimedEvent = tx.events?.find((_) => _.event === 'ExecutedTransfer');
+      expect(tenClaimedEvent?.args?.amount).eq(1e10);
+      expect(await ten.balanceOf(signers[1].address)).eq(1e10);
+    });
+
+    it('should release tokens in normalized up to local token decimals', async () => {
+      const { ray, rayBridge, tenTx } = await loadFixture(decimalsFixture);
+
+      const proof = await SignUtils.receiptProof(tenTx.transactionHash, ethers.provider);
+      const expectedRoot = proof.receiptsRoot;
+      //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
+      const receiptRlp = proof.receiptRlp;
+
+      const mptProof = {
+        expectedRoot,
+        expectedValue: receiptRlp,
+        proof: proof.receiptProof,
+        key: SignUtils.index2key(proof.txIndex, proof.receiptProof.length),
+        keyIndex: 0,
+        proofIndex: 0,
+      };
+
+      const tx = await (
+        await rayBridge.executeReceipts(1337, [
+          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tenTx.blockNumber },
+        ])
+      ).wait();
+
+      //verifying that 1e10 was converted to ray
+      const rayClaimedEvent = tx.events?.find((_) => _.event === 'ExecutedTransfer');
+      expect(rayClaimedEvent?.args?.amount).eq(ethers.constants.WeiPerEther.mul(1e9));
+      expect(await ray.balanceOf(signers[1].address)).eq(ethers.constants.WeiPerEther.mul(1e9));
+    });
+  });
 
   describe('bridge params', () => {
     it('should have chainstartblock set to 1', async () => {

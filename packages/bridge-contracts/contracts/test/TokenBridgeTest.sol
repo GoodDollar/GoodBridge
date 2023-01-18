@@ -16,8 +16,8 @@ contract TokenBridgeTest is TokenBridge {
         IFaucet _faucet,
         INameService _nameService,
         uint256 _chainIdOverride
-    )
-        TokenBridge(
+    ) {
+        initialize(
             _validators,
             _cycleEnd,
             _requiredValidators,
@@ -27,8 +27,7 @@ contract TokenBridgeTest is TokenBridge {
             _limits,
             _faucet,
             _nameService
-        )
-    {
+        );
         chainId = _chainIdOverride;
     }
 

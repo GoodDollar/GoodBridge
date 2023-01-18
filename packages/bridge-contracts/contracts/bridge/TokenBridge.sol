@@ -2,7 +2,9 @@
 pragma solidity >=0.8.0;
 
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
+import '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
+import '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 
 import './BridgeMixedConsensus.sol';
 
@@ -22,7 +24,7 @@ interface IIdentity {
     function isWhitelisted(address) external returns (bool);
 }
 
-contract TokenBridge is BridgeMixedConsensus {
+contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
     struct BridgeFees {
         uint256 minFee;
         uint256 maxFee;
@@ -102,7 +104,7 @@ contract TokenBridge is BridgeMixedConsensus {
         uint256 indexed id
     );
 
-    constructor(
+    function initialize(
         address[] memory _validators,
         uint256 _cycleEnd,
         address[] memory _requiredValidators,
@@ -112,13 +114,16 @@ contract TokenBridge is BridgeMixedConsensus {
         BridgeLimits memory _limits,
         IFaucet _faucet,
         INameService _nameService
-    ) BridgeMixedConsensus(_validators, _cycleEnd, _requiredValidators, _consensusRatio) {
+    ) public virtual initializer {
+        initialize_consensus(_validators, _cycleEnd, _requiredValidators, _consensusRatio);
         bridgedToken = _bridgedToken;
         bridgeFees = _fees;
         bridgeLimits = _limits;
         faucet = _faucet;
         nameService = _nameService;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     // start block is enforced per source contract
     function chainStartBlock(uint256) public view virtual override returns (uint256 bridgeStartBlock) {
@@ -146,10 +151,20 @@ contract TokenBridge is BridgeMixedConsensus {
 
         if (amount < bridgeLimits.minAmount) return (false, 'minAmount');
 
+        uint256 account24hours = accountsDailyLimit[from].bridged24Hours;
+        if (accountsDailyLimit[from].lastTransferReset < block.timestamp - 1 days) {
+            account24hours = amount;
+        } else {
+            account24hours += amount;
+        }
+
         if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
             IIdentity id = IIdentity(nameService.getAddress('IDENTITY'));
             if (address(id) != address(0))
                 if (id.isWhitelisted(from) == false) return (false, 'not whitelisted');
+
+            // account limit only makes sense if we are using whitelisted, otherwise it is easy to by pass
+            if (account24hours > bridgeLimits.accountDailyLimit) return (false, 'accountDailyLimit');
         }
 
         if (amount > bridgeLimits.txLimit) return (false, 'txLimit');
@@ -157,14 +172,6 @@ contract TokenBridge is BridgeMixedConsensus {
         if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {} else {
             if (bridgeDailyLimit.bridged24Hours + amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
         }
-
-        uint256 account24hours = accountsDailyLimit[from].bridged24Hours;
-        if (accountsDailyLimit[from].lastTransferReset < block.timestamp - 1 days) {
-            account24hours = amount;
-        } else {
-            account24hours += amount;
-        }
-        if (account24hours > bridgeLimits.accountDailyLimit) return (false, 'accountDailyLimit');
 
         return (true, '');
     }
@@ -206,6 +213,28 @@ contract TokenBridge is BridgeMixedConsensus {
         return true;
     }
 
+    function normalizeFromTokenTo18Decimals(uint256 amount) public view returns (uint256 normalized) {
+        uint8 decimals = IERC20Metadata(bridgedToken).decimals();
+        if (decimals < 18) {
+            uint256 diff = 18 - decimals;
+            normalized = amount * 10**diff;
+        } else if (decimals > 18) {
+            uint256 diff = decimals - 18;
+            normalized = amount / 10**diff;
+        } else normalized = amount;
+    }
+
+    function normalizeFrom18ToTokenDecimals(uint256 amount) public view returns (uint256 normalized) {
+        uint8 decimals = IERC20Metadata(bridgedToken).decimals();
+        if (decimals < 18) {
+            uint256 diff = 18 - decimals;
+            normalized = amount / 10**diff;
+        } else if (decimals > 18) {
+            uint256 diff = decimals - 18;
+            normalized = amount * 10**diff;
+        } else normalized = amount;
+    }
+
     function _enforceLimits(
         address from,
         address target,
@@ -243,11 +272,12 @@ contract TokenBridge is BridgeMixedConsensus {
 
         if (isOnTokenTransfer == false)
             require(IERC20(bridgedToken).transferFrom(from, address(this), amount), 'transferFrom');
+        uint256 normalizedAmount = normalizeFromTokenTo18Decimals(amount); //on bridge request we normalize amount from source chain decimals to 18 decimals
         emit BridgeRequest(
             from,
             target,
             targetChainId,
-            amount,
+            normalizedAmount,
             relay,
             block.timestamp,
             uint256(
@@ -257,7 +287,7 @@ contract TokenBridge is BridgeMixedConsensus {
                         target,
                         _chainId(),
                         targetChainId,
-                        amount,
+                        normalizedAmount,
                         address(this),
                         block.timestamp,
                         currentId++
@@ -335,24 +365,25 @@ contract TokenBridge is BridgeMixedConsensus {
         bool withRelay,
         uint256 id
     ) internal {
+        uint256 normalizedAmount = normalizeFrom18ToTokenDecimals(amount); //on transfer we normalize the request which is in 18 decimals back to local chain token decimals
         (uint256 bridgeFee, uint256 relayFee) = _takeFee(
-            amount,
+            normalizedAmount,
             withRelay && msg.sender != target && msg.sender != from
         );
         uint256 fee = bridgeFee + relayFee;
 
         // chainIdToTotalRelayFees[sourceChainId] += relayFee;
         // chainIdToTotalBridgeFees[sourceChainId] += bridgeFee;
-        // chainIdToTotalBridged[sourceChainId] += amount;
+        // chainIdToTotalBridged[sourceChainId] += normalizedAmount;
 
         //make it easier to find out for relayers about the status
         executedRequests[id] = true;
         _topGas(target);
 
-        require(IERC20(bridgedToken).transfer(target, amount - fee), 'transfer');
+        require(IERC20(bridgedToken).transfer(target, normalizedAmount - fee), 'transfer');
         if (relayFee > 0) require(IERC20(bridgedToken).transfer(msg.sender, relayFee), 'relayFee');
 
-        emit ExecutedTransfer(from, target, msg.sender, amount, fee, sourceChainId, sourceBlockNumber, id);
+        emit ExecutedTransfer(from, target, msg.sender, normalizedAmount, fee, sourceChainId, sourceBlockNumber, id);
     }
 
     function _topGas(address target) internal {
