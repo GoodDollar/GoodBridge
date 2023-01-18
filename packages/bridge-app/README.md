@@ -11,6 +11,7 @@
 
 ```
 curl https://raw.githubusercontent.com/GoodDollar/GoodBridge/master/packages/bridge-app/dockerstart.sh -o dockerstart.sh
+chmod u+x dockerstart.sh
 ./dockerstart.sh
 ```
 
