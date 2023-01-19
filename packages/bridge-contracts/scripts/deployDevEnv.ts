@@ -4,6 +4,8 @@
 // When running the script with `npx hardhat run <script>` you'll find the Hardhat
 // Runtime Environment's members available in the global scopecode.
 import { ethers, upgrades } from 'hardhat';
+import release from '../release/deployment.json';
+import fse from 'fs-extra';
 
 async function main() {
   // Hardhat always runs the compile task when running scripts with its command
@@ -23,7 +25,7 @@ async function main() {
   const rf = await ethers.getContractFactory('BlockHeaderRegistry');
   const registery = await upgrades.deployProxy(rf, [mockValidators[0], consensus.address, false]);
 
-  await deployBridge();
+  const bridgeContracts = await deployBridge();
 
   const multicall = await (await ethers.getContractFactory('Multicall')).deploy();
   await registery.addBlockchain(9999, 'http://localhost:8545');
@@ -32,6 +34,15 @@ async function main() {
   console.log('deployed registery to:', registery.address);
   console.log('validators:', mockValidators.length);
   console.log('multicall:', multicall.address);
+
+  release['test'] = {
+    ...bridgeContracts,
+    consensus: consensus.address,
+    voting: voting.address,
+    multicall: multicall.address,
+    registery: registery.address,
+  };
+  await fse.writeJSON('release/deployment.json', release);
 }
 
 async function deployBridge() {
@@ -77,6 +88,13 @@ async function deployBridge() {
     sourceToken: sourceToken.address,
     targetToken: targetToken.address,
   });
+
+  return {
+    sourceBridge: sourceBridge.address,
+    targetBridge: targetBridge.address,
+    sourceToken: sourceToken.address,
+    targetToken: targetToken.address,
+  };
 }
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.

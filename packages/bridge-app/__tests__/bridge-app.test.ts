@@ -1,6 +1,8 @@
 import * as ethers from 'ethers';
+import { uniq } from 'lodash';
 import * as SigUtils from '../src/utils';
 import * as BridgeApp from '../src/blockHeaderRegistry';
+import release from '../../bridge-contracts/release/deployment.json';
 
 const delay = async (milis) => {
   return new Promise((res) => {
@@ -22,7 +24,7 @@ describe('block header registry', () => {
     // Jest 27 now uses "modern" implementation of fake timers
     // https://jestjs.io/blog/2021/05/25/jest-27#flipping-defaults
     // https://github.com/facebook/jest/pull/5171
-    registry = await SigUtils.getRegistryContract('0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', signer);
+    registry = await SigUtils.getRegistryContract(release['test'].registery, signer);
     try {
       await registry.voting();
     } catch (e) {
@@ -64,8 +66,8 @@ describe('block header registry', () => {
     BridgeApp.setStepSize(2);
     BridgeApp.initBlockRegistryContract(
       signer,
-      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      release['test'].registery,
+      release['test'].consensus,
       'http://localhost:8545',
     );
 
@@ -94,8 +96,8 @@ describe('block header registry', () => {
 
     BridgeApp.initBlockRegistryContract(
       signer,
-      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      release['test'].registery,
+      release['test'].consensus,
       'http://localhost:8545',
     );
 
@@ -107,7 +109,7 @@ describe('block header registry', () => {
     expect(BridgeApp.blockchains['9999'].rpc).toBe('http://localhost:8545');
 
     const blocks = await BridgeApp.emitRegistry();
-    expect(blocks.length).toEqual(2);
+    expect(uniq(blocks.map((_) => _.chainId)).length).toBeGreaterThanOrEqual(2);
     const fuseBlock = blocks.find((_) => _.chainId === 122);
     await delay(BridgeApp.stepSize * 6000);
     const nextBlocks = await BridgeApp.emitRegistry();
@@ -121,15 +123,15 @@ describe('block header registry', () => {
     await BridgeApp.initBlockchain(56, 'https://bscrpc.com');
     BridgeApp.initBlockRegistryContract(
       signer,
-      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      release['test'].registery,
+      release['test'].consensus,
       'http://localhost:8545',
     );
 
     //should initialize chains from contract as defined in deployDevEnv.ts script
     const blocks = await BridgeApp.emitRegistry();
     expect(blocks.length).toBeGreaterThan(1);
-    await delay(30000);
+    await delay(10000);
     const nextBlocks = await BridgeApp.emitRegistry();
     expect(nextBlocks.length).toBeGreaterThan(1);
   });

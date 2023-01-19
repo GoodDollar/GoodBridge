@@ -4,6 +4,7 @@ import * as BridgeApp from '../src/blockHeaderRegistry';
 import { BridgeSDK } from '../src/sdk';
 import { abi as TokenABI } from '../src/abi/TestToken.json';
 import { range } from 'lodash';
+import release from '../../bridge-contracts/release/deployment.json';
 
 const delay = async (milis) => {
   return new Promise((res) => {
@@ -15,15 +16,15 @@ jest.setTimeout(120000);
 describe('bridge sdk', () => {
   let intervalId;
 
-  const sourceBridgeAddr = '0x0165878A594ca255338adfa4d48449f69242Eb8F';
-  const targetBridgeAddr = '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853';
+  const sourceBridgeAddr = release['test'].sourceBridge;
+  const targetBridgeAddr = release['test'].targetBridge;
   const localNode = new ethers.providers.JsonRpcProvider('http://localhost:8545');
   const sdk = new BridgeSDK(
-    '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+    release['test'].registery,
     { 99: sourceBridgeAddr, 100: targetBridgeAddr },
     10,
     'http://localhost:8545',
-    { 99: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0', 100: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0' },
+    { 99: release['test'].multicall, 100: release['test'].multicall },
   );
 
   const validators = range(0, 7).map((i) =>
@@ -37,8 +38,8 @@ describe('bridge sdk', () => {
   );
   let registry: ethers.Contract;
 
-  const sourceToken = new ethers.Contract('0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9', TokenABI, signer);
-  const targetToken = new ethers.Contract('0x5FC8d32690cc91D4c39d9d3abcBD16989F875707', TokenABI, signer);
+  const sourceToken = new ethers.Contract(release['test'].sourceToken, TokenABI, signer);
+  const targetToken = new ethers.Contract(release['test'].targetToken, TokenABI, signer);
   const recipient = ethers.Wallet.createRandom().connect(localNode);
   const sender = ethers.Wallet.createRandom().connect(localNode);
 
@@ -48,13 +49,13 @@ describe('bridge sdk', () => {
     await signer.sendTransaction({ to: sender.address, value: ethers.constants.WeiPerEther });
 
     await sourceToken.transfer(sender.address, 1000000);
-    registry = await SigUtils.getRegistryContract('0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', signer);
+    registry = await SigUtils.getRegistryContract(release['test'].registery, signer);
     await registry.addBlockchain(99, 'http://localhost:8545');
     await registry.addBlockchain(100, 'http://localhost:8545');
     await BridgeApp.initBlockRegistryContract(
       signer,
-      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      release['test'].registery,
+      release['test'].consensus,
       'http://localhost:8545',
     );
     await BridgeApp._refreshRPCs();
@@ -96,7 +97,7 @@ describe('bridge sdk', () => {
   it('fetches unexecuted requests', async () => {
     const recipient = ethers.Wallet.createRandom().connect(localNode);
 
-    const events = await sdk.fetchPendingBridgeRequests(99, 100);
+    const events = await sdk.fetchPendingBridgeRequests(99, 100, await localNode.getBlockNumber());
 
     const sourceBridge = await (await sdk.getBridgeContract(99, localNode)).connect(signer);
     await (await sourceToken.connect(sender).approve(sourceBridgeAddr, 100000)).wait();
@@ -110,7 +111,6 @@ describe('bridge sdk', () => {
 
     await sdk.fetchPendingBridgeRequests(99, 100, events.fetchEventsFromBlock); //hardhat bug requires reading events twice for them to appear
     const events2 = await sdk.fetchPendingBridgeRequests(99, 100, events.fetchEventsFromBlock);
-
     expect(events2.validEvents.length).toBeGreaterThan(0);
     expect(events2.validEvents.length).toEqual(events.validEvents.length + 1);
     expect(events2.validEvents[events2.validEvents.length - 1].args.to).toEqual(recipient.address);

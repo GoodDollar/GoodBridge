@@ -5,6 +5,7 @@ import { BridgeSDK } from '../src/sdk';
 import { abi as TokenABI } from '../src/abi/TestToken.json';
 import { range } from 'lodash';
 import { relayerApp, stop } from '../src/relayer';
+import release from '../../bridge-contracts/release/deployment.json';
 
 const delay = async (milis) => {
   return new Promise((res) => {
@@ -16,15 +17,15 @@ jest.setTimeout(120000);
 describe('relayer app', () => {
   let intervalId;
 
-  const sourceBridgeAddr = '0x0165878A594ca255338adfa4d48449f69242Eb8F';
-  const targetBridgeAddr = '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853';
+  const sourceBridgeAddr = release['test'].sourceBridge;
+  const targetBridgeAddr = release['test'].targetBridge;
   const localNode = new ethers.providers.JsonRpcProvider('http://localhost:8545');
   const sdk = new BridgeSDK(
-    '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+    release['test'].registery,
     { 99: sourceBridgeAddr, 100: targetBridgeAddr },
     10,
     'http://localhost:8545',
-    { 99: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0', 100: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0' },
+    { 99: release['test'].multicall, 100: release['test'].multicall },
   );
 
   const validators = range(0, 7).map((i) =>
@@ -38,7 +39,7 @@ describe('relayer app', () => {
   );
   let registry: ethers.Contract;
 
-  const sourceToken = new ethers.Contract('0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9', TokenABI, signer);
+  const sourceToken = new ethers.Contract(release['test'].sourceToken, TokenABI, signer);
 
   const recipient = ethers.Wallet.createRandom().connect(localNode);
   const sender = ethers.Wallet.createRandom().connect(localNode);
@@ -49,13 +50,13 @@ describe('relayer app', () => {
     await signer.sendTransaction({ to: sender.address, value: ethers.constants.WeiPerEther });
 
     await sourceToken.transfer(sender.address, 1000000);
-    registry = await SigUtils.getRegistryContract('0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', signer);
+    registry = await SigUtils.getRegistryContract(release['test'].registery, signer);
     await registry.addBlockchain(99, 'http://localhost:8545');
     await registry.addBlockchain(100, 'http://localhost:8545');
     await BridgeApp.initBlockRegistryContract(
       signer,
-      '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
-      '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      release['test'].registery,
+      release['test'].consensus,
       'http://localhost:8545',
     );
     await BridgeApp._refreshRPCs();
@@ -87,6 +88,7 @@ describe('relayer app', () => {
 
     const targetBridge = await (await sdk.getBridgeContract(100, localNode)).connect(signer);
     const events = await targetBridge.queryFilter('ExecutedTransfer', -50);
+
     const executedEvent = events.find((_) => _.args.id.toString() === id.toString());
 
     expect(executedEvent).toBeTruthy();

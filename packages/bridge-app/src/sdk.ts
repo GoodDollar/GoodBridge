@@ -251,10 +251,13 @@ export class BridgeSDK {
   };
 
   fetchLatestCheckpointBlock = async (sourceChainId: number) => {
+    /// get the latest added block as checkpoint
+    //TODO: need to verify latest checkpoint has enough signers according to the bridge contract requirements
     const latestCheckpointFilter = this.registryContract.filters.BlockAdded(null, sourceChainId);
     const events = await this.registryContract.queryFilter(latestCheckpointFilter, -(this.registryBlockFrequency * 10));
-    const bestBlock = maxBy(Object.values(groupBy(events, (_) => _.args.blockNumber)), (_) => _[0].blockNumber);
-    if (bestBlock?.length > 0) return bestBlock[0].args.blockNumber.toNumber() as number;
+    const bestBlock = maxBy(events, (_) => _.args.blockNumber);
+
+    if (bestBlock) return bestBlock.args.blockNumber.toNumber() as number;
     throw new Error(`no recent checkpoint block for chain ${sourceChainId}`);
   };
 
@@ -282,19 +285,15 @@ export class BridgeSDK {
 
     const events = flatten(
       await pAll(
-        range(fetchEventsFromBlock, lastProcessedBlock + 1, STEP).map(
-          (startBlock) => () =>
-            bridge
-              .queryFilter('BridgeRequest', startBlock, Math.min(startBlock + STEP, lastProcessedBlock))
-              .catch(() => {
-                throw new Error(
-                  `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${Math.min(
-                    startBlock + STEP,
-                    lastProcessedBlock,
-                  )}`,
-                );
-              }),
-        ),
+        range(fetchEventsFromBlock, lastProcessedBlock + 1, STEP).map((startBlock) => () => {
+          const toBlock = Math.min(startBlock + STEP, lastProcessedBlock);
+          // console.log('fetching bridgerequests:', { startBlock, toBlock });
+          return bridge.queryFilter('BridgeRequest', startBlock, toBlock).catch(() => {
+            throw new Error(
+              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock}`,
+            );
+          });
+        }),
         { concurrency: 5 },
       ),
     );
@@ -329,6 +328,7 @@ export class BridgeSDK {
 
     const unexecutedIds = ids.filter((v, i) => idsResult[i] === false);
     let validEvents = maxEvents.filter((e) => unexecutedIds.includes(e.args.id));
+
     //get events only in range of 50 blocks, since otherwise relay will take too much gas to submit checkpoint blocks
     validEvents = validEvents.filter((_) => _.blockNumber <= validEvents[0].blockNumber + 50);
     const lastValidBlock = last(validEvents)?.blockNumber || 0;

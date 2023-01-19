@@ -156,12 +156,18 @@ const runBridge = async (
 
 const updateLastProcessed = () => {
   merge(lastProcessed, JSON.parse(fs.readFileSync(path.join(configDir, 'lastprocessed.json')).toString() || '{}'));
+
   logger.info('updateLastProcessed:', { lastProcessed });
 };
 
 export const relayerApp = async (bridges?: Array<{ [key: string]: string }>, interval = 60000) => {
   bridges = bridges || JSON.parse(BRIDGES);
-  updateLastProcessed();
+  try {
+    updateLastProcessed();
+  } catch (e) {
+    logger.warn('missing lastprocessed. creating...');
+    fs.writeFileSync(path.join(configDir, 'lastprocessed.json'), JSON.stringify(lastProcessed));
+  }
   let signer = await initWalletFromJson().catch((e) => logger.warn('failed initWalletFromJson', e.message));
   if (!signer) {
     logger.info('not found signer from json store, trying mnemonic/privatekey');
