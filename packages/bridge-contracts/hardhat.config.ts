@@ -48,7 +48,7 @@ const config: HardhatUserConfig = {
     fuse: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 122,
-      url: 'https://rpc.fuse.io',
+      url: 'https://fuse-rpc.gateway.pokt.network',
     },
     staging: {
       accounts: accounts as HttpNetworkAccountsConfig,
