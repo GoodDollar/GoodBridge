@@ -996,7 +996,7 @@
 
 "@gooddollar/bridge-app@file:/Users/hadar/workspace/fuse-blockheaders-bridge/packages/bridge-app":
   "resolved" "file:packages/bridge-app"
-  "version" "1.2.8"
+  "version" "1.2.9"
   dependencies:
     "dotenv" "^16.0.3"
     "eth-proof" "^2.1.6"
