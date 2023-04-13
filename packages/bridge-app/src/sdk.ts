@@ -312,7 +312,12 @@ export class BridgeSDK {
         chunk(ids, 500).map((idsChunk) => () => {
           const calls = idsChunk.map((id) => targetMulti.executedRequests(id));
           return multicallProvider.all(calls).catch(() => {
-            throw new Error(`multicallProvider failed ${calls.length} multicall=${targetMulti.address}`);
+            throw new Error(
+              `multicallProvider failed ${calls.length} multicall=${targetMulti.address} sample ids:${idsChunk.slice(
+                0,
+                10,
+              )}`,
+            );
           });
         }),
         { concurrency: 5 },

@@ -1,6 +1,7 @@
 FROM gcr.io/distroless/nodejs:16
 WORKDIR /app
-COPY ./dist ./
+COPY ./dist ./bridge
+COPY ./distRelay ./relay
 
 ENV POLLING_INTERVAL=5000
 ENV LOG_LEVEL=info
@@ -14,5 +15,5 @@ ENV TEST_MODE=false
 ENV STEP_SIZE=10
 ENV CONFIG_DIR=/config/
 
-CMD ["index.js"]
+CMD ["bridge/index.js"]
 

@@ -10,3 +10,4 @@ packages/bridge-contracts/.yarn/install-state.gz
 packages/bridge-app/.env
 packages/bridge-app/.env.prod
 packages/bridge-app/relayer
+packages/bridge-app/distRelay

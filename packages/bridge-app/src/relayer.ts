@@ -21,7 +21,7 @@ const defaultBridges = Object.values(bridges).map((bridge) => ({
 
 const {
   REGISTRY_RPC = 'https://rpc.fuse.io',
-  BLOCK_REGISTRY_ADDRESS,
+  BLOCK_REGISTRY_ADDRESS = (bridges['production'] || bridges['staging']).registry,
   MNEMONIC = 'test test test test test test test test test test test junk',
   BRIDGES = JSON.stringify(defaultBridges),
   PRIVATE_KEY,
