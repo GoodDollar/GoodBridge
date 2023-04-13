@@ -3,10 +3,10 @@ import * as ethers from 'ethers';
 import path from 'path';
 import fs from 'fs';
 import { config } from 'dotenv';
+import { merge } from 'lodash';
 import { BridgeSDK } from './sdk';
 import { Logger } from './logger';
-import { merge } from 'lodash';
-
+import bridges from '@gooddollar/bridge-contracts/release/deployment.json';
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 
 let relayer;
@@ -14,11 +14,16 @@ let relayer;
 //1. better logger
 //2. better fetchpendingbridgerequests not dependant on latest checkpoint if old blocks
 
+const defaultBridges = Object.values(bridges).map((bridge) => ({
+  '122': bridge.fuseBridge,
+  '42220': bridge.celoBridge,
+}));
+
 const {
   REGISTRY_RPC = 'https://rpc.fuse.io',
   BLOCK_REGISTRY_ADDRESS,
   MNEMONIC = 'test test test test test test test test test test test junk',
-  BRIDGES = '[{"122":"0x00D6017Bf36Cb32B3Fc5C1c91EfAF958096Eb285","42220":"0x4865aFc4a6Ccf36415dC5c012AE23F31fD70Ee70"}]',
+  BRIDGES = JSON.stringify(defaultBridges),
   PRIVATE_KEY,
   CONFIG_DIR = './',
   INDICATIVE_KEY,
