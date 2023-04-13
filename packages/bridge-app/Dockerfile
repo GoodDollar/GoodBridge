@@ -1,15 +1,7 @@
-FROM node:16-alpine as build
-WORKDIR /app
-
-COPY ./package.json .
-RUN yarn install
-
-COPY ./ ./
-RUN yarn build:release
-RUN rm -fr node_modules
-RUN yarn install --production
-
 FROM gcr.io/distroless/nodejs:16
+WORKDIR /app
+COPY ./dist ./
+
 ENV POLLING_INTERVAL=5000
 ENV LOG_LEVEL=info
 ENV REGISTRY_RPC=http://172.17.0.1:8545
@@ -21,7 +13,6 @@ ENV CONSENSUS_ADDRESS=0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79
 ENV TEST_MODE=false
 ENV STEP_SIZE=10
 ENV CONFIG_DIR=/config/
-COPY --from=build /app /app
-WORKDIR /app
-CMD ["dist/main.js"]
+
+CMD ["index.js"]
 
