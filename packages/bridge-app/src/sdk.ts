@@ -28,6 +28,7 @@ export class BridgeSDK {
     registryBlockFrequency = 10,
     registryRpc = 'https://rpc.fuse.io',
     multicalls: { [key: string]: string } = {},
+    rpcs = undefined,
     logger?: typeof Logger,
   ) {
     this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcBatchProvider(registryRpc));
@@ -35,14 +36,17 @@ export class BridgeSDK {
     this.bridges = { ...DEFAULT_BRIDGES, ...bridges };
     Object.entries(multicalls).map((pair) => setMulticallAddress(Number(pair[0]), pair[1]));
     this.logger = logger;
+    this.rpcs = rpcs;
   }
 
   getChainRpc = async (chainId: number) => {
-    const blockchains = this.rpcs || (await this.registryContract.getRPCs());
+    if (!this.rpcs) {
+      const blockchains = await this.registryContract.getRPCs();
+      blockchains.forEach((_) => (_.chainId = _.chainId.toNumber()));
+      this.rpcs = blockchains;
+    }
 
-    this.rpcs = blockchains;
-
-    const blockchain = blockchains.find((_) => _.chainId.toNumber() === chainId)?.rpc;
+    const blockchain = this.rpcs.find((_) => _.chainId === chainId)?.rpc;
     const rpcs = blockchain.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
     const randomRpc = rpcs[random(0, rpcs.length - 1)];
     return new ethers.providers.JsonRpcBatchProvider(randomRpc);

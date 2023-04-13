@@ -112,8 +112,8 @@ const runBridge = async (
               return undefined;
             }),
       ]);
-      logger.info('relaying:', { bridgeA, relayHash: relays?.[0]?.relayTxHash, txs: txsA.length });
-      logger.info('relaying:', { bridgeB, relayHash: relays?.[1]?.relayTxHash, txs: txsB.length });
+      txsA.length && logger.info('relaying:', { bridgeA, relayHash: relays?.[0]?.relayTxHash, txs: txsA.length });
+      txsB.length && logger.info('relaying:', { bridgeB, relayHash: relays?.[1]?.relayTxHash, txs: txsB.length });
       const results = await Promise.all(
         relays.map(
           (_) =>
@@ -128,35 +128,37 @@ const runBridge = async (
 
       if (lastProcessedA && (relays[0]?.status === 1 || txsA.length === 0)) {
         lastProcessed[bridgeA] = lastProcessedA;
-        logger.info('relay success updating last processed block:', { bridgeA, lastProcessedA });
+        logger.info('relay success updating last processed block:', { bridgeA, lastProcessedA, fetchEventsFromBlockA });
       }
       if (lastProcessedB && (relays[1]?.status === 1 || txsB.length === 0)) {
         lastProcessed[bridgeB] = lastProcessedB;
-        logger.info('relay success updating last processed block:', { bridgeB, lastProcessedB });
+        logger.info('relay success updating last processed block:', { bridgeB, lastProcessedB, fetchEventsFromBlockB });
       }
 
-      logger.info('relay result:', {
-        bridgeA,
-        lastProcessedBlock: lastProcessed[bridgeA],
-        fetchEventsFromBlockA,
-        lastProcessedA,
-        checkpointBlockA,
-        relayHash: results?.[0]?.transactionHash,
-        status: results?.[0]?.status,
-        error: results?.[1]?.error,
-        hasMore,
-      });
-      logger.info('relay result:', {
-        bridgeB,
-        lastProcessedBlock: lastProcessed[bridgeB],
-        fetchEventsFromBlockB,
-        lastProcessedB,
-        checkpointBlockB,
-        relayHash: results?.[1]?.transactionHash,
-        status: results?.[1]?.status,
-        error: results?.[1]?.error,
-        hasMore,
-      });
+      results?.[0] &&
+        logger.info('relay result:', {
+          bridgeA,
+          lastProcessedBlock: lastProcessed[bridgeA],
+          fetchEventsFromBlockA,
+          lastProcessedA,
+          checkpointBlockA,
+          relayHash: results?.[0]?.transactionHash,
+          status: results?.[0]?.status,
+          error: results?.[0]?.error,
+          hasMore,
+        });
+      results?.[1] &&
+        logger.info('relay result:', {
+          bridgeB,
+          lastProcessedBlock: lastProcessed[bridgeB],
+          fetchEventsFromBlockB,
+          lastProcessedB,
+          checkpointBlockB,
+          relayHash: results?.[1]?.transactionHash,
+          status: results?.[1]?.status,
+          error: results?.[1]?.error,
+          hasMore,
+        });
     }
 
   fs.writeFileSync(path.join(configDir, 'lastprocessed.json'), JSON.stringify(lastProcessed));
