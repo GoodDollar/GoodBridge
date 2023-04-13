@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import * as Registry from './blockHeaderRegistry';
 import bridgeContracts from '@gooddollar/bridge-contracts/release/deployment.json';
+import { relayerApp } from './relayer';
 
 const {
   REGISTRY_RPC = 'https://rpc.fuse.io',
@@ -60,6 +61,17 @@ const initWalletFromJson = async () => {
   if (keystore && password) return ethers.Wallet.fromEncryptedJson(keystore, password);
 };
 
-// if (process.argv[1].includes('main')) {
-bridgeApp();
-// }
+const appArg = process.argv[2];
+logger.info('starting app:', { appArg });
+switch (appArg) {
+  case 'relayer':
+    relayerApp().catch((e) => {
+      console.error(e);
+    });
+    break;
+  case 'bridge':
+  default:
+    bridgeApp().catch((e) => {
+      console.error(e);
+    });
+}

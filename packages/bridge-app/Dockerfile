@@ -1,10 +1,10 @@
 FROM gcr.io/distroless/nodejs:16
 WORKDIR /app
 COPY ./dist ./bridge
-COPY ./distRelay ./relay
 
 ENV POLLING_INTERVAL=5000
 ENV LOG_LEVEL=info
+# expecting machine to be a fuse validator
 ENV REGISTRY_RPC=http://172.17.0.1:8545
 ENV FUSE_RPC=http://172.17.0.1:8545
 # ENV OLD_BLOCK_REGISTRY_ADDRESS=0x0602b55F96eC0d347E5123C556272015fFee9fC5
