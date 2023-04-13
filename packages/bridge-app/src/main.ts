@@ -3,10 +3,11 @@ import { logger } from './blockHeaderRegistry';
 import path from 'path';
 import fs from 'fs';
 import * as Registry from './blockHeaderRegistry';
+import bridgeContracts from '@gooddollar/bridge-contracts/release/deployment.json';
 
 const {
   REGISTRY_RPC = 'https://rpc.fuse.io',
-  BLOCK_REGISTRY_ADDRESS,
+  BLOCK_REGISTRY_ADDRESS = (bridgeContracts['production'] || bridgeContracts['staging']).registry,
   CONSENSUS_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3',
   MNEMONIC = 'test test test test test test test test test test test junk',
   PRIVATE_KEY,
