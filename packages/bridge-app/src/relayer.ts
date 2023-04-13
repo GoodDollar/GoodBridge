@@ -19,6 +19,13 @@ const defaultBridges = Object.values(bridges).map((bridge) => ({
   '42220': bridge.celoBridge,
 }));
 
+const defaultRpcs = [
+  {
+    chainId: 122,
+    rpc: 'https://rpc.fuse.io',
+  },
+  { chainId: 42220, rpc: 'https://forno.celo.org' },
+];
 const {
   REGISTRY_RPC = 'https://rpc.fuse.io',
   BLOCK_REGISTRY_ADDRESS = (bridges['production'] || bridges['staging']).registry,
@@ -49,7 +56,7 @@ const runBridge = async (
   signer: ethers.Signer,
   interval = 60000,
 ) => {
-  const sdk = new BridgeSDK(BLOCK_REGISTRY_ADDRESS, bridge, 10, REGISTRY_RPC, {}, logger as any);
+  const sdk = new BridgeSDK(BLOCK_REGISTRY_ADDRESS, bridge, 10, REGISTRY_RPC, {}, defaultRpcs, logger as any);
   const chains = Object.keys(bridge);
   let hasMore = false;
   for (let i = 0; i < chains.length - 1; i++)
