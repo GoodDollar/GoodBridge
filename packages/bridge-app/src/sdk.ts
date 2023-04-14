@@ -145,7 +145,7 @@ export class BridgeSDK {
       ),
       { concurrency: 50 },
     );
-    return blocks.map((_) => SignUtils.prepareBlock(_));
+    return blocks.map((_) => SignUtils.prepareBlock(_, sourceChainId));
   };
 
   submitBlocksAndExecute = async (

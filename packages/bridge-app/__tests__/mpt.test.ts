@@ -1,5 +1,7 @@
 import * as ethers from 'ethers';
 import * as SigUtils from '../src/utils';
+import { BridgeSDK } from '../src/sdk';
+import release from '../../bridge-contracts/release/deployment.json';
 
 jest.setTimeout(120000);
 
@@ -122,7 +124,7 @@ describe('block merkle patricia tree tests', () => {
 
     it('creates celo rlpHeader 2', async () => {
       const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
-        '18750696',
+        '18756992',
         42220,
         'https://forno.celo.org',
       );
@@ -132,5 +134,21 @@ describe('block merkle patricia tree tests', () => {
       expect(blockHeader).toBeDefined();
       expect(computedHash).toEqual(block.hash);
     });
+  });
+
+  it('creates multiple celo rlpHeaders', async () => {
+    const sdk = new BridgeSDK(
+      release['fuse'].registry,
+      { 122: release['fuse'].fuseBridge, 42220: release.fuse.celoBridge },
+      10,
+      'https://rpc.fuse.io',
+      undefined,
+      [
+        { chainId: 122, rpc: 'https://rpc.fuse.io' },
+        { chainId: 42220, rpc: 'https://forno.celo.org' },
+      ],
+    );
+    const blocks = await sdk.getChainBlockHeaders(42220, 18756990, 18756992);
+    expect(blocks.length).toBeGreaterThan(1);
   });
 });
