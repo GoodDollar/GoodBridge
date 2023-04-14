@@ -119,5 +119,18 @@ describe('block merkle patricia tree tests', () => {
       expect(blockHeader).toBeDefined();
       expect(computedHash).toEqual(block.hash);
     });
+
+    it('creates celo rlpHeader 2', async () => {
+      const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
+        '18750696',
+        42220,
+        'https://forno.celo.org',
+      );
+      //blocknumber should be at slot 9
+      expect(Number(ethers.utils.RLP.decode(rlpHeader)[6])).toEqual(Number(block.number));
+      expect(rlpHeader).toBeDefined();
+      expect(blockHeader).toBeDefined();
+      expect(computedHash).toEqual(block.hash);
+    });
   });
 });

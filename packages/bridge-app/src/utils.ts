@@ -131,7 +131,7 @@ export const getBlockchainHeader = async (blockTag: string, chainId: number, rpc
   const web3 = rpcs[String(chainId)] || new JsonRpcBatchProvider(rpc);
   rpcs[String(chainId)] = web3;
   const block = await web3.send('eth_getBlockByNumber', [
-    blockTag === 'latest' ? 'latest' : ethers.utils.hexlify(Number(blockTag)),
+    blockTag === 'latest' ? 'latest' : '0x' + Number(blockTag).toString(16),
     false,
   ]);
   return prepareBlock(block, chainId);
