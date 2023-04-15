@@ -33,7 +33,7 @@ export const Logger = (name: string, loggerId: string, indicativeKey?: string) =
     }
   };
 
-  const logLevel = logger['info'.toUpperCase()];
+  const logLevel = logger[(process.env.LOG_LEVEL || 'info').toUpperCase()];
   logger.setLevel(logLevel);
 
   const logColors = {

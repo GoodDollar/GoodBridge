@@ -89,7 +89,11 @@ const runBridge = async (
         }),
       ]);
 
-      if (lastProcessedA < checkpointBlockA || lastProcessedB < checkpointBlockB) hasMore = true;
+      if (
+        (lastProcessedA && lastProcessedA < checkpointBlockA) ||
+        (lastProcessedB && lastProcessedB < checkpointBlockB)
+      )
+        hasMore = true;
 
       const txsA = eventsA.map((_) => _.transactionHash);
       const txsB = eventsB.map((_) => _.transactionHash);
@@ -112,6 +116,7 @@ const runBridge = async (
               return undefined;
             }),
       ]);
+
       txsA.length && logger.info('relaying:', { bridgeA, relayHash: relays?.[0]?.relayTxHash, txs: txsA.length });
       txsB.length && logger.info('relaying:', { bridgeB, relayHash: relays?.[1]?.relayTxHash, txs: txsB.length });
       const results = await Promise.all(
@@ -126,11 +131,11 @@ const runBridge = async (
         ),
       );
 
-      if (lastProcessedA && (relays[0]?.status === 1 || txsA.length === 0)) {
+      if (lastProcessedA && (results[0]?.status === 1 || txsA.length === 0)) {
         lastProcessed[bridgeA] = lastProcessedA;
         logger.info('relay success updating last processed block:', { bridgeA, lastProcessedA, fetchEventsFromBlockA });
       }
-      if (lastProcessedB && (relays[1]?.status === 1 || txsB.length === 0)) {
+      if (lastProcessedB && (results[1]?.status === 1 || txsB.length === 0)) {
         lastProcessed[bridgeB] = lastProcessedB;
         logger.info('relay success updating last processed block:', { bridgeB, lastProcessedB, fetchEventsFromBlockB });
       }
@@ -159,9 +164,10 @@ const runBridge = async (
           error: results?.[1]?.error,
           hasMore,
         });
+
+      fs.writeFileSync(path.join(configDir, 'lastprocessed.json'), JSON.stringify(lastProcessed));
     }
 
-  fs.writeFileSync(path.join(configDir, 'lastprocessed.json'), JSON.stringify(lastProcessed));
   //if one of the bridges has possibly more requests we didnt process run again immediatly, otherwise wait for interval
   if (shouldRun) {
     timeouts[idx] = setTimeout(() => runBridge(idx, bridge, signer), hasMore ? 0 : interval);
