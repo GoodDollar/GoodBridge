@@ -50,4 +50,46 @@ library RLPParser {
         }
         log.data = ls[2].toBytes();
     }
+
+    function getBlockReceiptsRoot(
+        uint256 chainId,
+        bytes memory rlpHeader
+    ) internal pure returns (bytes32 receiptsRoot) {
+        RLPReader.Iterator memory it = rlpHeader.toRlpItem().iterator();
+        it.next();
+        it.next();
+        it.next();
+        it.next(); // pos 3
+
+        if (chainId != 42220) it.next(); //pos 4
+
+        receiptsRoot = bytes32(it.next().toUint()); //pos 4 or 5
+    }
+
+    function getBlockNumber(uint256 chainId, bytes memory rlpHeader) internal pure returns (uint256 blockNumber) {
+        RLPReader.Iterator memory it = rlpHeader.toRlpItem().iterator();
+        it.next();
+        it.next();
+        it.next();
+        it.next();
+        it.next();
+        it.next(); // pos 5
+
+        if (chainId != 42220) {
+            it.next();
+            it.next(); //pos 7
+        }
+
+        blockNumber = it.next().toUint(); //pos 6 or 8
+    }
+
+    function getBlockParentAndNumber(
+        uint256 chainId,
+        bytes memory rlpHeader
+    ) internal pure returns (uint256 blockNumber, bytes32 parentHash) {
+        RLPReader.Iterator memory it = rlpHeader.toRlpItem().iterator();
+        parentHash = bytes32(it.next().toUint()); // pos 0
+
+        blockNumber = getBlockNumber(chainId, rlpHeader);
+    }
 }

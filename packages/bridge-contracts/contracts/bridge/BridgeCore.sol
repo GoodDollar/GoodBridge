@@ -75,17 +75,17 @@ abstract contract BridgeCore {
             require(isValidConsensus(signers), 'invalid signers');
 
             //save the verified block
-            BlockHeader memory blockHeader = parseRLPToHeader(_block.rlpHeader, _block.chainId);
-            require(blockHeader.number >= chainStartBlock(_block.chainId), 'block too old');
+            uint256 blockNumber = RLPParser.getBlockNumber(_block.chainId, _block.rlpHeader);
+            require(blockNumber >= chainStartBlock(_block.chainId), 'block too old');
 
-            chainVerifiedBlocks[_block.chainId][blockHeader.number] = rlpHeaderHash;
+            chainVerifiedBlocks[_block.chainId][blockNumber] = rlpHeaderHash;
 
             //update the validators set
-            if (isFuse && _block.validators.length > 0 && blockHeader.number >= validatorsCycleEnd) {
+            if (isFuse && _block.validators.length > 0 && blockNumber >= validatorsCycleEnd) {
                 _setValidators(_block.validators, _block.cycleEnd);
             }
 
-            emit BlockVerified(_block.chainId, blockHeader.number, rlpHeaderHash);
+            emit BlockVerified(_block.chainId, blockNumber, rlpHeaderHash);
         }
     }
 
@@ -107,8 +107,7 @@ abstract contract BridgeCore {
             BlockReceiptProofs memory blockReceipts = blocks[i];
             bytes32 blockHash = chainVerifiedBlocks[chainId][blockReceipts.blockNumber];
             require(keccak256(blockReceipts.blockHeaderRlp) == blockHash, 'invalid block hash');
-            RLPReader.RLPItem[] memory ls = blockReceipts.blockHeaderRlp.toRlpItem().toList();
-            bytes32 receiptRoot = bytes32(ls[5].toUint());
+            bytes32 receiptRoot = RLPParser.getBlockReceiptsRoot(chainId, blockReceipts.blockHeaderRlp);
             results[i] = new string[](blockReceipts.receiptProofs.length);
             for (uint256 j = 0; j < blockReceipts.receiptProofs.length; j++) {
                 bytes32 receiptKey = keccak256(
@@ -141,16 +140,6 @@ abstract contract BridgeCore {
         }
     }
 
-    function parseRLPToHeader(bytes memory rlpHeader, uint256 chainId) public pure returns (BlockHeader memory header) {
-        RLPReader.RLPItem[] memory ls = rlpHeader.toRlpItem().toList();
-        header.parentHash = bytes32(ls[0].toUint());
-        // header.root = bytes32(ls[3].toUint());
-        // header.txHash = bytes32(ls[4].toUint());
-        // header.receiptHash = bytes32(ls[5].toUint());
-        // header.bloom = ls[6].toBytes();
-        header.number = ls[chainId == 42220 ? 6 : 8].toUint();
-    }
-
     function verifyParentBlocks(
         uint256 chainId,
         uint256 childBlockNumber,
@@ -159,20 +148,23 @@ abstract contract BridgeCore {
     ) public {
         bytes32 childHash = chainVerifiedBlocks[chainId][childBlockNumber];
         require(childHash == keccak256(childRlpHeader), 'invalid child rlpHeader');
-        BlockHeader memory child = parseRLPToHeader(childRlpHeader, chainId);
+        (, bytes32 childParentHash) = RLPParser.getBlockParentAndNumber(chainId, childRlpHeader);
         for (uint256 i = 0; i < parentRlpHeaders.length; i++) {
             bytes32 parentHash = keccak256(parentRlpHeaders[i]);
-            require(child.parentHash == parentHash, 'not parent');
-            BlockHeader memory parent = parseRLPToHeader(parentRlpHeaders[i], chainId);
-            require(parent.number >= chainStartBlock(chainId), 'block too old');
+            require(childParentHash == parentHash, 'not parent');
+            (uint256 parentBlockNumber, bytes32 parentParentHash) = RLPParser.getBlockParentAndNumber(
+                chainId,
+                parentRlpHeaders[i]
+            );
+            require(parentBlockNumber >= chainStartBlock(chainId), 'block too old');
             require(
-                chainVerifiedBlocks[chainId][parent.number] == bytes32(0) ||
-                    chainVerifiedBlocks[chainId][parent.number] == parentHash,
+                chainVerifiedBlocks[chainId][parentBlockNumber] == bytes32(0) ||
+                    chainVerifiedBlocks[chainId][parentBlockNumber] == parentHash,
                 'already verified'
             );
-            chainVerifiedBlocks[chainId][parent.number] = parentHash;
-            child = parent;
-            emit BlockVerified(chainId, parent.number, parentHash);
+            chainVerifiedBlocks[chainId][parentBlockNumber] = parentHash;
+            childParentHash = parentParentHash;
+            emit BlockVerified(chainId, parentBlockNumber, parentHash);
         }
     }
 

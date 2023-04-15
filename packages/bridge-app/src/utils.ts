@@ -176,7 +176,6 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
   }
   const rlpHeader = getRlpHeader(header);
   const blockHash = ethers.utils.keccak256(rlpHeader);
-  // console.log({block,header,rlpHeader, blockHash})
   if (blockHash !== block.hash) {
     throw new Error(`rlp hash doesnt match expected blockhash ${block.number}`);
   }
@@ -204,7 +203,7 @@ export const index2key = (index, proofLength) => {
   return '0x' + actualkey.map((v) => v.toString(16).padStart(2, '0')).join('');
 };
 
-export const receiptProof = async (txHash: string, provider: ethers.providers.JsonRpcProvider, chainId?: number) => {
+export const receiptProof = async (txHash: string, provider: ethers.providers.JsonRpcProvider, chainId: number) => {
   const targetReceipt = await provider.send('eth_getTransactionReceipt', [txHash]);
   if (!targetReceipt) {
     throw new Error('txhash/targetReceipt not found. (use Archive node)');

@@ -14,10 +14,12 @@ describe('Parser/MPT Verifier', () => {
     fuseProof = await SignUtils.receiptProof(
       '0x8770fb92888d3ff30dfc96040a9371872737318c81e6ca1cb2b0e88ad981e627',
       new ethers.providers.JsonRpcBatchProvider('https://rpc.fuse.io'),
+      122,
     );
     ethProof = await SignUtils.receiptProof(
       '0x32ba5e829fc530871442755ad770693c7fadf7160f271d0e572dd9453f5adaaa',
       ethRpc,
+      1,
     );
     // celoProof = await SignUtils.receiptProof("0x2de34d3317cee9052bfc086602022070c90d12ed60374ee192a505655b0be0f6",celoRpc, 42220)
   });

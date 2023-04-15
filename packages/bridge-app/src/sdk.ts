@@ -29,7 +29,7 @@ export class BridgeSDK {
     registryRpc = 'https://rpc.fuse.io',
     multicalls: { [key: string]: string } = {},
     rpcs = undefined,
-    logger?: typeof Logger,
+    logger = Logger,
   ) {
     this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcBatchProvider(registryRpc));
     this.registryBlockFrequency = registryBlockFrequency;
@@ -71,7 +71,12 @@ export class BridgeSDK {
       ),
       (_) => _.length,
     );
-    // console.log({ bestCheckpoint });
+    this.logger.debug('getCheckpointBlockFromEvents', {
+      sourceChainId,
+      checkpointBlockNumber,
+      bestCheckpoint,
+      checkpointArgs: bestCheckpoint[0].args,
+    });
     return (
       bestCheckpoint && {
         signatures: bestCheckpoint.map((_) => _.args.signature),
@@ -116,6 +121,7 @@ export class BridgeSDK {
             return false;
           });
       }
+      this.logger.debug('got checkpoint block:', { checkPointBlockNumber, getCheckpointFromEvents, signedCheckPoint });
       if (!signedCheckPoint) throw new Error(`checkpoint block ${checkPointBlockNumber} does not exists yet`);
     }
     //in anycase fetch checkpoint + parent blocks, since we require to submit the block rlp header with proof
@@ -124,6 +130,8 @@ export class BridgeSDK {
       minTxBlockNumber,
       checkPointBlockNumber,
     );
+
+    parentAndCheckpointBlocks.forEach((b) => this.logger.debug('getBlocksToSubmit parentAndCheckpointBlocks:', b));
     const checkpointBlock = last(parentAndCheckpointBlocks);
 
     const signedBlock = {
@@ -145,6 +153,7 @@ export class BridgeSDK {
       ),
       { concurrency: 50 },
     );
+    this.logger.debug('getChainBlockHeaders', { sourceChainId, startBlock, endBlock, fetchedBlocks: blocks.length });
     return blocks.map((_) => SignUtils.prepareBlock(_, sourceChainId));
   };
 
@@ -168,7 +177,12 @@ export class BridgeSDK {
     ).catch((e) => {
       throw new Error(`getBlocksToSubmit failed: ${e.message}`);
     });
-
+    this.logger.debug('submitBlocksAndExecute got blocks to submit:', {
+      checkPointBlockNumber,
+      signedBlock,
+      parentAndCheckpointBlocks: parentAndCheckpointBlocks.length,
+      receiptProofs,
+    });
     const blockToReceipts = groupBy(receiptProofs, (_) => Number(_.receipt.blockNumber));
     const mptProofs = Object.entries(blockToReceipts).map(([k, receiptProofs]) => {
       const txBlock = parentAndCheckpointBlocks.find((_) => Number(_.block.number) === Number(k));
@@ -210,6 +224,8 @@ export class BridgeSDK {
     //       },
     //     ],
     //   });
+    mptProofs.forEach((proof) => this.logger.debug('submitBlocksAndExecute proof:', JSON.stringify(proof)));
+
     return targetBridgeContract
       .connect(signer)
       .submitChainBlockParentsAndTxs(signedBlock, checkPointBlockNumber, parentRlps, mptProofs);
