@@ -1,6 +1,6 @@
 FROM gcr.io/distroless/nodejs:16
 WORKDIR /app
-COPY ./dist ./bridge
+COPY ./distDocker ./bridge
 
 ENV POLLING_INTERVAL=5000
 ENV LOG_LEVEL=info
