@@ -82,8 +82,6 @@ function initLastBlocks(lastBlocks: Array<[string, number]>) {
 }
 
 async function initBlockchain(chainId: number, rpc: string) {
-  //on fuse use the local validator node rpc
-  if (chainId === 122) rpc = FUSE_RPC || rpc;
   logger.info('initBlockchain', { chainId, rpc });
 
   ////// this is a hack for ankr, for some reason this seems to initialize it correctly otherwise the JsonRpcBatchProvider below doesnt work
@@ -214,6 +212,10 @@ const _refreshRPCs = async () => {
     logger.info('got registered rpcs:', chains);
     const randRpc = chains.map(({ chainId, rpc }) => {
       const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
+      if (chainId.toNumber() === 122 && FUSE_RPC) {
+        //on fuse use the local validator node rpc
+        rpcs.push(FUSE_RPC);
+      }
       const randomRpc = rpcs[random(0, rpcs.length - 1)];
       return { chainId: chainId.toNumber(), rpc: randomRpc };
     });
@@ -264,9 +266,13 @@ async function emitRegistry(signers?: Array<Signer>) {
       return blocks;
     } catch (e) {
       logger.error('failed adding blocks to registry:', { message: e.message, blocks });
+      //recycle rpcs on error
+      _refreshRPCs();
     }
   } catch (e) {
     logger.error('failed emitRegistry', { message: e.message });
+    //recycle rpcs on error
+    _refreshRPCs();
   }
 }
 
