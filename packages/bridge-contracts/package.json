@@ -46,7 +46,7 @@
     "typescript": "^4.8.3"
   },
   "dependencies": {
-    "@gooddollar/goodprotocol": "^1.0.30-beta.3",
+    "@gooddollar/goodprotocol": "^2.0.4",
     "@openzeppelin/contracts": "^4.4.1",
     "eth-proof": "^2.1.6",
     "merkle-patricia-tree": "^2.*",

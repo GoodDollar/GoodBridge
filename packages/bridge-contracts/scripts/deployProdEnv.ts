@@ -75,7 +75,7 @@ const deployBridge = async () => {
       reqValidators,
       consensusRatio,
       contracts[network.name].GoodDollar,
-      { maxFee: multiplier.mul(100), minFee: multiplier.mul(2), fee: multiplier.mul(1) },
+      { maxFee: multiplier.mul(1e6), minFee: multiplier.mul(10), fee: 15 }, //maxFee = txLimit, minFee= 10G$ to cover some gas fees, fee 0.15% to cover multichain 0.1% + gas fees
       {
         dailyLimit: multiplier.mul(1e8),
         txLimit: multiplier.mul(1e6),
@@ -107,7 +107,7 @@ const deployBridge = async () => {
       reqValidators,
       consensusRatio,
       allContracts[celoNetwork].GoodDollar,
-      { maxFee: celomultiplier.mul(100), minFee: celomultiplier.mul(2), fee: celomultiplier.mul(1) },
+      { maxFee: celomultiplier.mul(1e6), minFee: celomultiplier.mul(10), fee: 15 }, //maxFee = txLimit, minFee= 10G$ to cover some gas fees, fee 0.15% to cover multichain 0.1% + gas fees
       {
         dailyLimit: celomultiplier.mul(1e8),
         txLimit: celomultiplier.mul(1e6),

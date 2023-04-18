@@ -8,5 +8,10 @@
         "fuseBridge": "0x1CD7a472FF2c6826252932CC8aC40473898d90E8",
         "celoBridge": "0x0A6538C9DAc037f5313CaAEb42b19081993e3183",
         "registry": "0x44a1E0A83821E239F9Cef248CECc3AC5b910aeD2"
+    },
+    "production": {
+        "fuseBridge": "0x08fdf766694C353401350c225cAEB9C631dC3288",
+        "celoBridge": "0xfb152Fc469A3E9154f8AA60bbD6700EcBC357A54",
+        "registry": "0x44a1E0A83821E239F9Cef248CECc3AC5b910aeD2"
     }
 }
