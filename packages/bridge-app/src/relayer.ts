@@ -7,7 +7,7 @@ import { merge } from 'lodash';
 import { BridgeSDK } from './sdk';
 import { Logger } from './logger';
 import bridges from '@gooddollar/bridge-contracts/release/deployment.json';
-import version from 'package.json';
+import version from '../package.json';
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 
 let relayer;
