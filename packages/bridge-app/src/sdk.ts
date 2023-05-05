@@ -97,7 +97,7 @@ export class BridgeSDK {
     const sourceTxBlockHash = await targetBridgeContract.chainVerifiedBlocks(sourceChainId, maxTxBlockNumber);
     // // console.log({ sourceTxBlockHash }, txBlockNumber, this.registryBlockFrequency);
     let signedCheckPoint;
-    const checkPointBlockNumber =
+    let checkPointBlockNumber =
       maxTxBlockNumber + (this.registryBlockFrequency - (maxTxBlockNumber % this.registryBlockFrequency));
 
     //if doesnt have latest block, then fetch nearest signed checkpoint block from registry
@@ -110,19 +110,28 @@ export class BridgeSDK {
 
       if (getCheckpointFromEvents) {
         signedCheckPoint = await this.getCheckpointBlockFromEvents(sourceChainId, checkPointBlockNumber).catch((e) => {
-          console.warn('getCheckpointBlockFromEvents', e);
+          this.logger.warn('getCheckpointBlockFromEvents', e);
           return undefined;
         });
       } else {
         signedCheckPoint = await this.registryContract
           .getSignedBlock(sourceChainId, checkPointBlockNumber)
           .catch((e) => {
-            console.warn('getSignedBlock', e);
+            this.logger.warn('getSignedBlock', e);
             return false;
           });
       }
       this.logger.debug('got checkpoint block:', { checkPointBlockNumber, getCheckpointFromEvents, signedCheckPoint });
-      if (!signedCheckPoint) throw new Error(`checkpoint block ${checkPointBlockNumber} does not exists yet`);
+      if (!signedCheckPoint?.signatures?.length)
+        throw new Error(`checkpoint block ${checkPointBlockNumber} does not exists yet`);
+    } else {
+      checkPointBlockNumber = maxTxBlockNumber; //since latest required block is already verified we dont need checkpoint
+      this.logger.info('getBlocksToSubmit found verified checkpoint:', {
+        minTxBlockNumber,
+        checkPointBlockNumber,
+        maxTxBlockNumber,
+        sourceTxBlockHash,
+      });
     }
     //in anycase fetch checkpoint + parent blocks, since we require to submit the block rlp header with proof
     const parentAndCheckpointBlocks = await this.getChainBlockHeaders(
@@ -224,6 +233,8 @@ export class BridgeSDK {
     //       },
     //     ],
     //   });
+
+    this.logger.debug('submitBlocksAndExecute data:', { signedBlock, checkPointBlockNumber, parentRlps });
     mptProofs.forEach((proof) => this.logger.debug('submitBlocksAndExecute proof:', JSON.stringify(proof)));
 
     return targetBridgeContract

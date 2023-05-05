@@ -7,6 +7,7 @@ import { merge } from 'lodash';
 import { BridgeSDK } from './sdk';
 import { Logger } from './logger';
 import bridges from '@gooddollar/bridge-contracts/release/deployment.json';
+import version from 'package.json';
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 
 let relayer;
@@ -36,7 +37,7 @@ const {
   INDICATIVE_KEY,
 } = process.env;
 
-let logger = Logger('Relayer', '', INDICATIVE_KEY);
+let logger = Logger(`${version} Relayer`, '', INDICATIVE_KEY);
 
 const configDir = CONFIG_DIR;
 
@@ -50,6 +51,71 @@ export const stop = () => {
   timeouts.forEach(clearTimeout);
 };
 
+const runBridgeSide = async (
+  sdk: BridgeSDK,
+  bridgeContracts: { [chainId: string]: string },
+  chainA: string,
+  chainB: string,
+  signer: ethers.Signer,
+) => {
+  let hasMore = true;
+  while (hasMore) {
+    const bridge = `${chainA}_${chainB}_${bridgeContracts[chainA]}`;
+
+    const {
+      validEvents: events = [],
+      lastProcessedBlock,
+      checkpointBlock: checkpointBlock,
+      fetchEventsFromBlock: fetchEventsFromBlock,
+    } = await sdk.fetchPendingBridgeRequests(Number(chainA), Number(chainB), lastProcessed[bridge]).catch((e) => {
+      logger.error('fetchPendingBridgeRequests', { bridge }, e.message);
+      throw e;
+    });
+
+    if (lastProcessedBlock && lastProcessedBlock < checkpointBlock) hasMore = true;
+    else hasMore = false;
+
+    const txs = events.map((_) => _.transactionHash);
+
+    const relay =
+      txs.length > 0 &&
+      (await sdk
+        .relayTxs(Number(chainA), Number(chainB), txs, signer.connect(await sdk.getChainRpc(Number(chainB))))
+        .catch((e) => {
+          logger.error('relayTxs', { bridge, txs }, e.message.slice(0, 1000));
+          throw e;
+        }));
+
+    txs.length && logger.info('relaying:', { bridge, relayHash: relay?.relayTxHash, txs: txs.length });
+
+    const result =
+      relay?.relayPromise &&
+      (await relay.relayPromise.catch((e) => {
+        logger.error('relayTxs promise failed', { bridge, transactionHash: relay.relayTxHash }, e.message);
+        throw e;
+      }));
+
+    if (lastProcessedBlock && (result?.status === 1 || txs.length === 0)) {
+      lastProcessed[bridge] = lastProcessedBlock;
+      logger.info('relay success updating last processed block:', { bridge, lastProcessedBlock, fetchEventsFromBlock });
+    }
+
+    result &&
+      logger.info('relay result:', {
+        bridge,
+        fetchEventsFromBlock,
+        newLastProcessedBlock: lastProcessedBlock,
+        checkpointBlock,
+        relayHash: result?.transactionHash,
+        status: result?.status,
+        error: result?.error,
+        hasMore,
+      });
+
+    fs.writeFileSync(path.join(configDir, 'lastprocessed.json'), JSON.stringify(lastProcessed));
+  }
+};
+
 const runBridge = async (
   idx: number,
   bridge: { [chainId: string]: string },
@@ -58,119 +124,27 @@ const runBridge = async (
 ) => {
   const sdk = new BridgeSDK(BLOCK_REGISTRY_ADDRESS, bridge, 10, REGISTRY_RPC, {}, defaultRpcs, logger as any);
   const chains = Object.keys(bridge);
-  let hasMore = false;
+
   for (let i = 0; i < chains.length - 1; i++)
     for (let j = i + 1; j < chains.length; j++) {
       const chainA = chains[i];
       const chainB = chains[j];
       const bridgeA = `${chainA}_${chainB}_${bridge[chainA]}`;
       const bridgeB = `${chainB}_${chainA}_${bridge[chainB]}`;
-      const [
-        {
-          validEvents: eventsA = [],
-          lastProcessedBlock: lastProcessedA,
-          checkpointBlock: checkpointBlockA,
-          fetchEventsFromBlock: fetchEventsFromBlockA,
-        },
-        {
-          validEvents: eventsB = [],
-          lastProcessedBlock: lastProcessedB,
-          checkpointBlock: checkpointBlockB,
-          fetchEventsFromBlock: fetchEventsFromBlockB,
-        },
-      ] = await Promise.all([
-        sdk.fetchPendingBridgeRequests(Number(chainA), Number(chainB), lastProcessed[bridgeA]).catch((e) => {
-          logger.error('fetchPendingBridgeRequests', { bridgeA }, e.message);
-          return {} as any;
-        }),
-        sdk.fetchPendingBridgeRequests(Number(chainB), Number(chainA), lastProcessed[bridgeB]).catch((e) => {
-          logger.error('fetchPendingBridgeRequests', { bridgeB }, e.message);
-          return {} as any;
-        }),
-      ]);
 
-      if (
-        (lastProcessedA && lastProcessedA < checkpointBlockA) ||
-        (lastProcessedB && lastProcessedB < checkpointBlockB)
-      )
-        hasMore = true;
-
-      const txsA = eventsA.map((_) => _.transactionHash);
-      const txsB = eventsB.map((_) => _.transactionHash);
-
-      const relays = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        txsA.length > 0 &&
-          sdk
-            .relayTxs(Number(chainA), Number(chainB), txsA, signer.connect(await sdk.getChainRpc(Number(chainB))))
-            .catch((e) => {
-              logger.error('relayTxs', { bridgeA, txsA }, e.message);
-              return undefined;
-            }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        txsB.length > 0 &&
-          sdk
-            .relayTxs(Number(chainB), Number(chainA), txsB, signer.connect(await sdk.getChainRpc(Number(chainA))))
-            .catch((e) => {
-              logger.error('relayTxs', { bridgeB, txsB }, e.message);
-              return undefined;
-            }),
-      ]);
-
-      txsA.length && logger.info('relaying:', { bridgeA, relayHash: relays?.[0]?.relayTxHash, txs: txsA.length });
-      txsB.length && logger.info('relaying:', { bridgeB, relayHash: relays?.[1]?.relayTxHash, txs: txsB.length });
-      const results = await Promise.all(
-        relays.map(
-          (_) =>
-            _ &&
-            _.relayPromise &&
-            _.relayPromise.catch((e) => {
-              logger.error('relayTxs promise failed', { bridgeA, transactionHash: _.relayTxHash }, e.message);
-              return { transactionHash: _.relayTxHash, status: 0, error: e.message };
-            }),
+      await Promise.all([
+        runBridgeSide(sdk, bridge, chainA, chainB, signer).catch((e) =>
+          logger.error('failed runBridgeSide', e.message, { bridgeA }),
         ),
-      );
-
-      if (lastProcessedA && (results[0]?.status === 1 || txsA.length === 0)) {
-        lastProcessed[bridgeA] = lastProcessedA;
-        logger.info('relay success updating last processed block:', { bridgeA, lastProcessedA, fetchEventsFromBlockA });
-      }
-      if (lastProcessedB && (results[1]?.status === 1 || txsB.length === 0)) {
-        lastProcessed[bridgeB] = lastProcessedB;
-        logger.info('relay success updating last processed block:', { bridgeB, lastProcessedB, fetchEventsFromBlockB });
-      }
-
-      results?.[0] &&
-        logger.info('relay result:', {
-          bridgeA,
-          lastProcessedBlock: lastProcessed[bridgeA],
-          fetchEventsFromBlockA,
-          lastProcessedA,
-          checkpointBlockA,
-          relayHash: results?.[0]?.transactionHash,
-          status: results?.[0]?.status,
-          error: results?.[0]?.error,
-          hasMore,
-        });
-      results?.[1] &&
-        logger.info('relay result:', {
-          bridgeB,
-          lastProcessedBlock: lastProcessed[bridgeB],
-          fetchEventsFromBlockB,
-          lastProcessedB,
-          checkpointBlockB,
-          relayHash: results?.[1]?.transactionHash,
-          status: results?.[1]?.status,
-          error: results?.[1]?.error,
-          hasMore,
-        });
-
-      fs.writeFileSync(path.join(configDir, 'lastprocessed.json'), JSON.stringify(lastProcessed));
+        runBridgeSide(sdk, bridge, chainB, chainA, signer).catch((e) =>
+          logger.error('failed runBridgeSide', e.message, { bridgeB }),
+        ),
+      ]);
     }
 
   //if one of the bridges has possibly more requests we didnt process run again immediatly, otherwise wait for interval
   if (shouldRun) {
-    timeouts[idx] = setTimeout(() => runBridge(idx, bridge, signer), hasMore ? 0 : interval);
+    timeouts[idx] = setTimeout(() => runBridge(idx, bridge, signer), interval);
   }
 };
 
