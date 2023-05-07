@@ -3,7 +3,7 @@ import fs from 'fs';
 import * as ethers from 'ethers';
 import { Wallet, Signer } from 'ethers';
 import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
-import { chunk, filter, flatten, range, throttle, random } from 'lodash';
+import { chunk, filter, flatten, merge, range, throttle, random } from 'lodash';
 import { config } from 'dotenv';
 import pAll from 'p-all';
 import * as SignUtils from './utils';
@@ -98,112 +98,117 @@ async function initBlockchain(chainId: number, rpc: string) {
 
 //fetch every step block
 async function fetchNewBlocks(signers: Array<Signer>) {
-  const ps = Object.entries(blockchains).map(async ([chainId, blockchain]): Promise<SignedBlock[]> => {
-    logger.info('starting fetchNewBlocks for', { chainId, lastCheckPoint: blockchain.lastBlock });
-    let cycleEnd = 0;
-    let cycleStart = 0;
-    let validators = [];
+  const ps = Object.entries(blockchains).map(
+    async ([chainId, blockchain]): Promise<{
+      signedBlocks: SignedBlock[];
+      lastBlock: { [chainId: string]: number };
+    }> => {
+      logger.info('starting fetchNewBlocks for', { chainId, lastCheckPoint: blockchain.lastBlock });
+      let cycleEnd = 0;
+      let cycleStart = 0;
+      let validators = [];
+      let curBlockNumber = -1;
+      try {
+        curBlockNumber = await blockchain.web3.getBlockNumber();
+        curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
 
-    try {
-      let curBlockNumber = await blockchain.web3.getBlockNumber();
-      curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
-
-      // const block = await blockchain.web3.eth.getBlock(blockchain.lastBlock ? blockchain.lastBlock + 1 : 'latest')
-      const latestCheckpoint = await blockchain.web3.send('eth_getBlockByNumber', [
-        '0x' + curBlockNumber.toString(16),
-        false,
-      ]);
-      logger.info('current checkpoint block:', { chainId, curBlockNumber });
-
-      let blocks = [];
-      if (blockchain.lastBlock && blockchain.lastBlock < curBlockNumber) {
-        logger.info('fetching missing blocks', {
-          chainId,
-          lastFetchedBlock: blockchain.lastBlock,
-          curBlockNumber,
-        });
-        blocks = await pAll(
-          range(blockchain.lastBlock + stepSize, curBlockNumber, stepSize).map(
-            (i) => () => blockchain.web3.send('eth_getBlockByNumber', [ethers.utils.hexValue(i), false]),
-          ),
-          { concurrency: 50 },
-        );
-      }
-      if (blockchain.lastBlock === curBlockNumber) {
-        logger.info('no new blocks to fetch', { chainId });
-        return [];
-      }
-
-      blocks = filter(blocks);
-      blocks.push(latestCheckpoint);
-
-      logger.info('got blocks for chain:', {
-        chainId,
-        blocks: blocks.map((_) => Number(_.number)),
-        latestCheckpoint: Number(latestCheckpoint.number),
-      });
-
-      if (chainId == '122') {
-        [cycleStart, cycleEnd, validators] = await Promise.all([
-          consensusContract.getCurrentCycleStartBlock().then((_) => _.toNumber()),
-          consensusContract.getCurrentCycleEndBlock().then((_) => _.toNumber()),
-          consensusContract.getValidators(),
+        // const block = await blockchain.web3.eth.getBlock(blockchain.lastBlock ? blockchain.lastBlock + 1 : 'latest')
+        const latestCheckpoint = await blockchain.web3.send('eth_getBlockByNumber', [
+          '0x' + curBlockNumber.toString(16),
+          false,
         ]);
-        logger.info('fuse consensus:', { cycleStart, cycleEnd, validators });
-      }
-      let wroteCycle = false;
+        logger.info('current checkpoint block:', { chainId, curBlockNumber });
 
-      const signedBlocksPromises = blocks.map(async (block) => {
-        let signedBlocks = [];
-        try {
-          logger.debug('before SignUtils.prepareBlock block:', { block, chainId });
-          const { rlpHeader } = SignUtils.prepareBlock(block, Number(chainId));
-          // rlpHeader,signature:{r: signature.r, vs: signature._vs },chainId:122,blockHash: block.hash,cycleEnd, validators
-          if (chainId == '122') {
-            //set validators only on change to save gas/storage
-            if (!wroteCycle && blockchain.lastBlock < cycleStart && Number(block.number) >= cycleStart) {
-              logger.info('writing fuse validators cycle:', { block: Number(block.number), cycleStart, cycleEnd });
-              wroteCycle = true;
-            } else {
-              cycleEnd = 0;
-              validators = [];
-            }
-
-            signedBlocks = await Promise.all(
-              signers.map((signer) => SignUtils.signBlock(rlpHeader, 122, signer, cycleEnd, validators)),
-            );
-          } else {
-            signedBlocks = await Promise.all(
-              signers.map((signer) => SignUtils.signBlock(rlpHeader, Number(chainId), signer, 0, [])),
-            );
-          }
-          return signedBlocks;
-        } catch (e) {
-          logger.error('failed signing block:', { message: e.message, block, chainId });
-          throw new Error('failed signing block');
+        let blocks = [];
+        if (blockchain.lastBlock && blockchain.lastBlock < curBlockNumber) {
+          logger.info('fetching missing blocks', {
+            chainId,
+            lastFetchedBlock: blockchain.lastBlock,
+            curBlockNumber,
+          });
+          blocks = await pAll(
+            range(blockchain.lastBlock + stepSize, curBlockNumber, stepSize).map(
+              (i) => () => blockchain.web3.send('eth_getBlockByNumber', [ethers.utils.hexValue(i), false]),
+            ),
+            { concurrency: 50 },
+          );
         }
-      });
-      const signedBlocks = flatten(filter(await Promise.all(signedBlocksPromises)));
+        if (blockchain.lastBlock === curBlockNumber) {
+          logger.info('no new blocks to fetch', { chainId });
+          return { signedBlocks: [], lastBlock: { [String(chainId)]: curBlockNumber } };
+        }
 
-      logger.info('got signed blocks:', signedBlocks.length, 'out of', blocks.length);
+        blocks = filter(blocks);
+        blocks.push(latestCheckpoint);
 
-      blockchain.lastBlock = curBlockNumber;
-
-      return signedBlocks;
-    } catch (e) {
-      //dont log twice
-      if (e.message !== 'failed signing block')
-        logger.error('failed fetching blocks:', {
-          message: e.message,
+        logger.info('got blocks for chain:', {
           chainId,
-          lastBlock: blockchain.lastBlock,
+          blocks: blocks.map((_) => Number(_.number)),
+          latestCheckpoint: Number(latestCheckpoint.number),
         });
-      return [];
-    }
-  });
 
-  const blocks = flatten(await Promise.all(ps)).filter((_) => _);
-  return blocks;
+        if (chainId == '122') {
+          [cycleStart, cycleEnd, validators] = await Promise.all([
+            consensusContract.getCurrentCycleStartBlock().then((_) => _.toNumber()),
+            consensusContract.getCurrentCycleEndBlock().then((_) => _.toNumber()),
+            consensusContract.getValidators(),
+          ]);
+          logger.info('fuse consensus:', { cycleStart, cycleEnd, validators });
+        }
+        let wroteCycle = false;
+
+        const signedBlocksPromises = blocks.map(async (block) => {
+          let signedBlocks = [];
+          try {
+            logger.debug('before SignUtils.prepareBlock block:', { block, chainId });
+            const { rlpHeader } = SignUtils.prepareBlock(block, Number(chainId));
+            // rlpHeader,signature:{r: signature.r, vs: signature._vs },chainId:122,blockHash: block.hash,cycleEnd, validators
+            if (chainId == '122') {
+              //set validators only on change to save gas/storage
+              if (!wroteCycle && blockchain.lastBlock < cycleStart && Number(block.number) >= cycleStart) {
+                logger.info('writing fuse validators cycle:', { block: Number(block.number), cycleStart, cycleEnd });
+                wroteCycle = true;
+              } else {
+                cycleEnd = 0;
+                validators = [];
+              }
+
+              signedBlocks = await Promise.all(
+                signers.map((signer) => SignUtils.signBlock(rlpHeader, 122, signer, cycleEnd, validators)),
+              );
+            } else {
+              signedBlocks = await Promise.all(
+                signers.map((signer) => SignUtils.signBlock(rlpHeader, Number(chainId), signer, 0, [])),
+              );
+            }
+            return signedBlocks;
+          } catch (e) {
+            logger.error('failed signing block:', { message: e.message, block, chainId });
+            throw new Error('failed signing block');
+          }
+        });
+        const signedBlocks = flatten(filter(await Promise.all(signedBlocksPromises)));
+
+        logger.info('got signed blocks:', signedBlocks.length, 'out of', blocks.length);
+
+        return { signedBlocks, lastBlock: { [String(chainId)]: curBlockNumber } };
+      } catch (e) {
+        //dont log twice
+        if (e.message !== 'failed signing block')
+          logger.error('failed fetching blocks:', {
+            message: e.message,
+            chainId,
+            lastBlock: curBlockNumber,
+          });
+        return { signedBlocks: [], lastBlock: { [String(chainId)]: blockchain.lastBlock } };
+      }
+    },
+  );
+
+  const result = await Promise.all(ps);
+  const blocks = flatten(result.map((_) => _.signedBlocks)).filter((_) => _);
+  const lastBlocks: { [chainId: string]: number } = merge({}, ...result.map((_) => _.lastBlock));
+  return { blocks, lastBlocks };
 }
 
 const _refreshRPCs = async () => {
@@ -238,11 +243,11 @@ async function emitRegistry(signers?: Array<Signer>) {
   try {
     logger.info('emitRegistry');
 
-    const blocks = await fetchNewBlocks(signers || [blockRegistryContract.signer]);
+    const { blocks, lastBlocks } = await fetchNewBlocks(signers || [blockRegistryContract.signer]);
     // const blocks : { [hash:string]: SignedBlock} = {};
     // const chainIds : {[ hash:string ]: string} = {};
 
-    logger.info('got blocks:', blocks.map((_) => `${_.chainId}: ${_.blockHash}`).join(', '));
+    logger.info('got blocks:', blocks.map((_) => `${_.chainId}: ${_.blockHash}`).join(', '), { lastBlocks });
     if (blocks.length === 0) {
       return;
     }
@@ -258,6 +263,9 @@ async function emitRegistry(signers?: Array<Signer>) {
         logger.info(`transactionHash: ${receipt.transactionHash} events: ${receipt.logs.length}`);
         logger.debug(`receipt: ${JSON.stringify(receipt)}`);
       }
+      // update last blocks written successfully
+      Object.entries(lastBlocks).forEach((kv) => (blockchains[kv[0]].lastBlock = kv[1]));
+
       if (process.env.NODE_ENV !== 'test')
         fs.writeFileSync(
           configDir + 'lastBlocks.json',
@@ -265,7 +273,7 @@ async function emitRegistry(signers?: Array<Signer>) {
         );
       return blocks;
     } catch (e) {
-      logger.error('failed adding blocks to registry:', { message: e.message, blocks });
+      logger.error('failed adding blocks to registry:', { message: e.message, blocks, lastBlocks });
       //recycle rpcs on error
       _refreshRPCs();
     }

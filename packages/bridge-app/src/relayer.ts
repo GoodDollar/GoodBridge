@@ -7,7 +7,7 @@ import { merge } from 'lodash';
 import { BridgeSDK } from './sdk';
 import { Logger } from './logger';
 import bridges from '@gooddollar/bridge-contracts/release/deployment.json';
-import version from '../package.json';
+import { version } from '../package.json';
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 
 let relayer;
@@ -170,7 +170,7 @@ export const relayerApp = async (bridges?: Array<{ [key: string]: string }>, int
   }
   const signerAddress = await signer.getAddress();
   relayer = signerAddress;
-  logger = Logger('Relayer', relayer, INDICATIVE_KEY);
+  logger = Logger(`${version} Relayer`, relayer, INDICATIVE_KEY);
 
   logger.info('starting:', { signerAddress, BLOCK_REGISTRY_ADDRESS, bridges, REGISTRY_RPC, CONFIG_DIR });
   bridges.map((_, idx) => runBridge(idx, _, signer as ethers.Signer, interval));

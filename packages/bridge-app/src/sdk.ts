@@ -61,6 +61,24 @@ export class BridgeSDK {
   getCheckpointBlockFromEvents = async (sourceChainId: number, checkpointBlockNumber: number) => {
     const f = this.registryContract.filters['BlockAdded'](null, sourceChainId, checkpointBlockNumber);
     const events = await this.registryContract.queryFilter(f, -1e6);
+    if (events.length === 0) {
+      const curBlock = await (await this.getChainRpc(sourceChainId)).getBlockNumber();
+      const nextCheckpoint = checkpointBlockNumber + this.registryBlockFrequency;
+      if (curBlock >= nextCheckpoint) {
+        this.logger.warn('getCheckpointBlockFromEvents checkpoint missing trying next one:', {
+          sourceChainId,
+          checkpointBlockNumber,
+          nextCheckpoint,
+          curBlock,
+        });
+        return this.getCheckpointBlockFromEvents(sourceChainId, nextCheckpoint);
+      }
+      this.logger.warn('getCheckpointBlockFromEvents checkpoint missing but no possible new checkpoints:', {
+        sourceChainId,
+        checkpointBlockNumber,
+        curBlock,
+      });
+    }
     // console.log('found events:', events.length, { sourceChainId, checkpointBlockNumber });
     const bestCheckpoint = maxBy(
       Object.values(
@@ -75,7 +93,7 @@ export class BridgeSDK {
       sourceChainId,
       checkpointBlockNumber,
       bestCheckpoint,
-      checkpointArgs: bestCheckpoint[0].args,
+      checkpointArgs: bestCheckpoint?.[0]?.args,
     });
     return (
       bestCheckpoint && {
@@ -110,7 +128,7 @@ export class BridgeSDK {
 
       if (getCheckpointFromEvents) {
         signedCheckPoint = await this.getCheckpointBlockFromEvents(sourceChainId, checkPointBlockNumber).catch((e) => {
-          this.logger.warn('getCheckpointBlockFromEvents', e);
+          this.logger.warn('getCheckpointBlockFromEvents', e, { sourceChainId, maxTxBlockNumber });
           return undefined;
         });
       } else {
