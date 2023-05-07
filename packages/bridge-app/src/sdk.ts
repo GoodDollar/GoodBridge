@@ -100,6 +100,7 @@ export class BridgeSDK {
         signatures: bestCheckpoint.map((_) => _.args.signature),
         cycleEnd: bestCheckpoint[0].args.cycleEnd,
         validators: bestCheckpoint[0].args.validators,
+        checkpointBlockNumber, //return the actual checkpoint number in case we couldnt find the requested one
       }
     );
   };
@@ -115,7 +116,7 @@ export class BridgeSDK {
     const sourceTxBlockHash = await targetBridgeContract.chainVerifiedBlocks(sourceChainId, maxTxBlockNumber);
     // // console.log({ sourceTxBlockHash }, txBlockNumber, this.registryBlockFrequency);
     let signedCheckPoint;
-    let checkPointBlockNumber =
+    let checkpointBlockNumber =
       maxTxBlockNumber + (this.registryBlockFrequency - (maxTxBlockNumber % this.registryBlockFrequency));
 
     //if doesnt have latest block, then fetch nearest signed checkpoint block from registry
@@ -123,30 +124,31 @@ export class BridgeSDK {
       //try to get the nearest checkpoint block from the header registry
       // // console.log('getSignedBlock checkpoint:', this.registryContract.address, {
       //   sourceChainId,
-      //   checkPointBlockNumber,
+      //   checkpointBlockNumber,
       // });
 
       if (getCheckpointFromEvents) {
-        signedCheckPoint = await this.getCheckpointBlockFromEvents(sourceChainId, checkPointBlockNumber).catch((e) => {
+        signedCheckPoint = await this.getCheckpointBlockFromEvents(sourceChainId, checkpointBlockNumber).catch((e) => {
           this.logger.warn('getCheckpointBlockFromEvents', e, { sourceChainId, maxTxBlockNumber });
           return undefined;
         });
+        checkpointBlockNumber = signedCheckPoint.checkpointBlockNumber;
       } else {
         signedCheckPoint = await this.registryContract
-          .getSignedBlock(sourceChainId, checkPointBlockNumber)
+          .getSignedBlock(sourceChainId, checkpointBlockNumber)
           .catch((e) => {
             this.logger.warn('getSignedBlock', e);
             return false;
           });
       }
-      this.logger.debug('got checkpoint block:', { checkPointBlockNumber, getCheckpointFromEvents, signedCheckPoint });
+      this.logger.debug('got checkpoint block:', { checkpointBlockNumber, getCheckpointFromEvents, signedCheckPoint });
       if (!signedCheckPoint?.signatures?.length)
-        throw new Error(`checkpoint block ${checkPointBlockNumber} does not exists yet`);
+        throw new Error(`checkpoint block ${checkpointBlockNumber} does not exists yet`);
     } else {
-      checkPointBlockNumber = maxTxBlockNumber; //since latest required block is already verified we dont need checkpoint
+      checkpointBlockNumber = maxTxBlockNumber; //since latest required block is already verified we dont need checkpoint
       this.logger.info('getBlocksToSubmit found verified checkpoint:', {
         minTxBlockNumber,
-        checkPointBlockNumber,
+        checkpointBlockNumber,
         maxTxBlockNumber,
         sourceTxBlockHash,
       });
@@ -155,7 +157,7 @@ export class BridgeSDK {
     const parentAndCheckpointBlocks = await this.getChainBlockHeaders(
       sourceChainId,
       minTxBlockNumber,
-      checkPointBlockNumber,
+      checkpointBlockNumber,
     );
 
     parentAndCheckpointBlocks.forEach((b) => this.logger.debug('getBlocksToSubmit parentAndCheckpointBlocks:', b));
@@ -169,10 +171,12 @@ export class BridgeSDK {
       validators: signedCheckPoint ? signedCheckPoint.validators : [],
     };
 
-    return { checkPointBlockNumber, signedBlock, parentAndCheckpointBlocks };
+    return { checkpointBlockNumber, signedBlock, parentAndCheckpointBlocks };
   };
 
   getChainBlockHeaders = async (sourceChainId: number, startBlock: number, endBlock: number) => {
+    this.logger.debug('getChainBlockHeaders fetching...', { sourceChainId, startBlock, endBlock });
+
     const rpc = await this.getChainRpc(sourceChainId);
     const blocks = await pAll(
       range(startBlock, endBlock + 1).map(
@@ -196,7 +200,7 @@ export class BridgeSDK {
     const minBlockReceipt = minBy(receiptProofs, (_) => Number(_.receipt.blockNumber));
     const maxBlockReceipt = maxBy(receiptProofs, (_) => Number(_.receipt.blockNumber));
 
-    const { checkPointBlockNumber, signedBlock, parentAndCheckpointBlocks } = await this.getBlocksToSubmit(
+    const { checkpointBlockNumber, signedBlock, parentAndCheckpointBlocks } = await this.getBlocksToSubmit(
       sourceChainId,
       Number(minBlockReceipt.receipt.blockNumber),
       Number(maxBlockReceipt.receipt.blockNumber),
@@ -205,7 +209,7 @@ export class BridgeSDK {
       throw new Error(`getBlocksToSubmit failed: ${e.message}`);
     });
     this.logger.debug('submitBlocksAndExecute got blocks to submit:', {
-      checkPointBlockNumber,
+      checkpointBlockNumber,
       signedBlock,
       parentAndCheckpointBlocks: parentAndCheckpointBlocks.length,
       receiptProofs,
@@ -240,7 +244,7 @@ export class BridgeSDK {
     //     parentsChain,
     //     signedBlock,
     //     sourceChainId,
-    //     checkPointBlockNumber,
+    //     checkpointBlockNumber,
     //     parentRlps,
     //     childHeader: checkpointBlock.rlpHeader,
     //     proofs: [
@@ -252,12 +256,12 @@ export class BridgeSDK {
     //     ],
     //   });
 
-    this.logger.debug('submitBlocksAndExecute data:', { signedBlock, checkPointBlockNumber, parentRlps });
+    this.logger.debug('submitBlocksAndExecute data:', { signedBlock, checkpointBlockNumber, parentRlps });
     mptProofs.forEach((proof) => this.logger.debug('submitBlocksAndExecute proof:', JSON.stringify(proof)));
 
     return targetBridgeContract
       .connect(signer)
-      .submitChainBlockParentsAndTxs(signedBlock, checkPointBlockNumber, parentRlps, mptProofs);
+      .submitChainBlockParentsAndTxs(signedBlock, checkpointBlockNumber, parentRlps, mptProofs);
   };
 
   relayTx = async (sourceChainId: number, targetChainId: number, txHash: string, signer: Signer) => {
