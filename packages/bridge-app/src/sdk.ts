@@ -95,14 +95,12 @@ export class BridgeSDK {
       bestCheckpoint,
       checkpointArgs: bestCheckpoint?.[0]?.args,
     });
-    return (
-      bestCheckpoint && {
-        signatures: bestCheckpoint.map((_) => _.args.signature),
-        cycleEnd: bestCheckpoint[0].args.cycleEnd,
-        validators: bestCheckpoint[0].args.validators,
-        checkpointBlockNumber, //return the actual checkpoint number in case we couldnt find the requested one
-      }
-    );
+    return {
+      signatures: bestCheckpoint?.map((_) => _.args.signature) || [],
+      cycleEnd: bestCheckpoint?.[0]?.args?.cycleEnd || 0,
+      validators: bestCheckpoint?.[0]?.args?.validators || [],
+      checkpointBlockNumber, //return the actual checkpoint number in case we couldnt find the requested one
+    };
   };
 
   getBlocksToSubmit = async (

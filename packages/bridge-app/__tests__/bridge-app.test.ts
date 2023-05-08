@@ -74,12 +74,13 @@ describe('block header registry', () => {
     await BridgeApp.initBlockchain(122, 'https://rpc.fuse.io');
     await BridgeApp.initBlockchain(56, 'https://bscrpc.com');
     await delay(5000);
-    const blocks = await BridgeApp.fetchNewBlocks([signer]);
+    const { blocks, lastBlocks } = await BridgeApp.fetchNewBlocks([signer]);
+    expect(Object.entries(lastBlocks).length).toEqual(2);
     expect(blocks.length).toEqual(2);
     const fuseBlock = blocks.find((_) => _.chainId === 122);
     const bscBlock = blocks.find((_) => _.chainId === 56);
     await delay(BridgeApp.stepSize * 6000); //wait for stepSize blocks
-    const nextBlocks = await BridgeApp.fetchNewBlocks([signer]);
+    const { blocks: nextBlocks } = await BridgeApp.fetchNewBlocks([signer]);
     const fuseBlock2 = nextBlocks.find((_) => _.chainId === 122);
     const bscBlock2 = nextBlocks.find((_) => _.chainId === 56);
     expect(fuseBlock2.rlpHeader).not.toEqual(fuseBlock.rlpHeader);
