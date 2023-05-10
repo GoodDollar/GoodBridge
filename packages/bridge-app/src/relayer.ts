@@ -7,7 +7,7 @@ import { merge } from 'lodash';
 import { BridgeSDK } from './sdk';
 import { Logger } from './logger';
 import bridges from '@gooddollar/bridge-contracts/release/deployment.json';
-import { version } from '../package.json';
+import { version } from './details.json';
 config({ override: true, debug: true, path: process.env.DOTENV_FILE || './.env' });
 
 let relayer;
@@ -76,24 +76,26 @@ const runBridgeSide = async (
     else hasMore = false;
 
     const txs = events.map((_) => _.transactionHash);
+    const ids = events.map((_) => _.args?.id.toString());
 
-    const relay =
-      txs.length > 0 &&
-      (await sdk
+    let result;
+    if (txs.length > 0) {
+      const relay = await sdk
         .relayTxs(Number(chainA), Number(chainB), txs, signer.connect(await sdk.getChainRpc(Number(chainB))))
         .catch((e) => {
           logger.error('relayTxs', { bridge, txs }, e.message.slice(0, 1000));
           throw e;
+        });
+
+      logger.info('relaying:', { bridge, relayHash: relay?.relayTxHash, txs: txs.length, ids });
+
+      result =
+        relay?.relayPromise &&
+        (await relay.relayPromise.catch((e) => {
+          logger.error('relayTxs promise failed', { bridge, transactionHash: relay.relayTxHash }, e.message);
+          throw e;
         }));
-
-    txs.length && logger.info('relaying:', { bridge, relayHash: relay?.relayTxHash, txs: txs.length });
-
-    const result =
-      relay?.relayPromise &&
-      (await relay.relayPromise.catch((e) => {
-        logger.error('relayTxs promise failed', { bridge, transactionHash: relay.relayTxHash }, e.message);
-        throw e;
-      }));
+    }
 
     if (lastProcessedBlock && (result?.status === 1 || txs.length === 0)) {
       lastProcessed[bridge] = lastProcessedBlock;
