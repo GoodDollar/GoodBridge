@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/bridge-app",
-  "version": "1.4.10",
+  "version": "1.5.0",
   "description": "Minimalistic bridge",
   "engines": {
     "node": ">= 16"
@@ -37,7 +37,7 @@
   },
   "scripts": {
     "start": "node dist/src/main.js",
-    "clean": "rm -fr dist && rm -fr types && ctix r",
+    "clean": "rm -fr dist && rm -fr types && ctix r && cp package.json src",
     "prebuild": "yarn clean && yarn lint && yarn build:copyabi",
     "build": "tsc -p tsconfig.json",
     "build:watch": "tsc -w -p tsconfig.json",
