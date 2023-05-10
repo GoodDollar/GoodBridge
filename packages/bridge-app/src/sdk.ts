@@ -7,7 +7,7 @@ import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
 import { abi as TokenBridgeABI } from './abi/TokenBridge.json';
 import * as SignUtils from './utils';
 import { Contract as MultiCallContract, Provider, setMulticallAddress } from 'ethers-multicall';
-
+import { TokenBridge } from '../../bridge-contracts/typechain-types';
 setMulticallAddress(122, '0x3CE6158b7278Bf6792e014FA7B4f3c6c46fe9410');
 setMulticallAddress(42220, '0xa27A0C40A0a17485c11d1f342a95c946E9523551');
 
@@ -19,7 +19,7 @@ export class BridgeSDK {
   registryContract: Contract;
   registryBlockFrequency: number;
   bridges: { [key: string]: string };
-  rpcs: Array<{ chainId: number; rpc: string }> = undefined;
+  rpcs: Array<{ chainId: number; rpc: string }>;
   logger: typeof Logger;
 
   constructor(
@@ -28,7 +28,7 @@ export class BridgeSDK {
     registryBlockFrequency = 10,
     registryRpc = 'https://rpc.fuse.io',
     multicalls: { [key: string]: string } = {},
-    rpcs = undefined,
+    rpcs,
     logger = Logger,
   ) {
     this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcBatchProvider(registryRpc));
@@ -47,15 +47,15 @@ export class BridgeSDK {
     }
 
     const blockchain = this.rpcs.find((_) => _.chainId === chainId)?.rpc;
-    const rpcs = blockchain.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
-    const randomRpc = rpcs[random(0, rpcs.length - 1)];
+    const rpcs = blockchain?.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
+    const randomRpc = rpcs?.[random(0, rpcs.length - 1)];
     return new ethers.providers.JsonRpcBatchProvider(randomRpc);
   };
 
   getBridgeContract = async (chainId: number, provider?: JsonRpcProvider) => {
     const rpc = provider ?? (await this.getChainRpc(chainId));
     const bridgeAddress = this.bridges[chainId];
-    return new ethers.Contract(bridgeAddress, TokenBridgeABI, rpc);
+    return new ethers.Contract(bridgeAddress, TokenBridgeABI, rpc) as TokenBridge;
   };
 
   getCheckpointBlockFromEvents = async (sourceChainId: number, checkpointBlockNumber: number) => {
@@ -83,8 +83,8 @@ export class BridgeSDK {
     const bestCheckpoint = maxBy(
       Object.values(
         groupBy(
-          uniqBy(events, (_) => _.args.validator),
-          (_) => _.args.payload,
+          uniqBy(events, (_) => _.args?.validator),
+          (_) => _.args?.payload,
         ),
       ),
       (_) => _.length,
@@ -96,7 +96,7 @@ export class BridgeSDK {
       checkpointArgs: bestCheckpoint?.[0]?.args,
     });
     return {
-      signatures: bestCheckpoint?.map((_) => _.args.signature) || [],
+      signatures: bestCheckpoint?.map((_) => _.args?.signature) || [],
       cycleEnd: bestCheckpoint?.[0]?.args?.cycleEnd || 0,
       validators: bestCheckpoint?.[0]?.args?.validators || [],
       checkpointBlockNumber, //return the actual checkpoint number in case we couldnt find the requested one
@@ -163,7 +163,7 @@ export class BridgeSDK {
 
     const signedBlock = {
       chainId: sourceChainId,
-      rlpHeader: checkpointBlock.rlpHeader,
+      rlpHeader: checkpointBlock?.rlpHeader || '',
       signatures: signedCheckPoint ? signedCheckPoint.signatures : [],
       cycleEnd: signedCheckPoint ? signedCheckPoint.cycleEnd : 0,
       validators: signedCheckPoint ? signedCheckPoint.validators : [],
@@ -218,7 +218,7 @@ export class BridgeSDK {
 
       return {
         blockNumber: Number(k),
-        blockHeaderRlp: txBlock.rlpHeader,
+        blockHeaderRlp: txBlock?.rlpHeader || '',
         receiptProofs: receiptProofs.map((receiptProof) => ({
           expectedRoot: receiptProof.receiptsRoot,
           expectedValue: receiptProof.receiptRlp,
@@ -259,7 +259,9 @@ export class BridgeSDK {
 
     return targetBridgeContract
       .connect(signer)
-      .submitChainBlockParentsAndTxs(signedBlock, checkpointBlockNumber, parentRlps, mptProofs);
+      .submitChainBlockParentsAndTxs(signedBlock, checkpointBlockNumber, parentRlps, mptProofs, {
+        maxPriorityFeePerGas: 0.5,
+      });
   };
 
   relayTx = async (sourceChainId: number, targetChainId: number, txHash: string, signer: Signer) => {
@@ -306,9 +308,9 @@ export class BridgeSDK {
     //TODO: need to verify latest checkpoint has enough signers according to the bridge contract requirements
     const latestCheckpointFilter = this.registryContract.filters.BlockAdded(null, sourceChainId);
     const events = await this.registryContract.queryFilter(latestCheckpointFilter, -(this.registryBlockFrequency * 10));
-    const bestBlock = maxBy(events, (_) => _.args.blockNumber);
+    const bestBlock = maxBy(events, (_) => _.args?.blockNumber);
 
-    if (bestBlock) return bestBlock.args.blockNumber.toNumber() as number;
+    if (bestBlock) return bestBlock.args?.blockNumber.toNumber() as number;
     throw new Error(`no recent checkpoint block for chain ${sourceChainId}`);
   };
 
@@ -349,14 +351,14 @@ export class BridgeSDK {
       ),
     );
 
-    const targetEvents = events.filter((_) => _.args.targetChainId.toNumber() === targetChainId);
+    const targetEvents = events.filter((_) => _.args?.targetChainId.toNumber() === targetChainId);
     const maxEvents = targetEvents.slice(0, maxRequests);
     const lastBlock = last(maxEvents)?.blockNumber || 0;
 
     //add any events from lastblock so we process all block events
     maxEvents.push(...targetEvents.slice(maxRequests).filter((_) => _.blockNumber === lastBlock));
 
-    const ids = maxEvents.map((_) => _.args.id);
+    const ids = maxEvents.map((_) => _.args?.id);
 
     const idsResult = flatten(
       await pAll(
