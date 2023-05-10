@@ -78,7 +78,7 @@ describe('relayer app', () => {
     const sourceBridge = await (await sdk.getBridgeContract(99, localNode)).connect(signer);
     await (await sourceToken.connect(sender).approve(sourceBridgeAddr, 100000)).wait();
     const bridgeTx = await (await sourceBridge.connect(sender).bridgeTo(recipient.address, 100, 100000)).wait();
-    const id = bridgeTx.events.find((_) => _.event === 'BridgeRequest').args.id;
+    const id = bridgeTx.events?.find((_) => _.event === 'BridgeRequest')?.args?.id;
     for (let i = 0; i < 10; i++) {
       await localNode.send('evm_mine', []);
     }
@@ -87,7 +87,7 @@ describe('relayer app', () => {
     await delay(5000); //wait for relayer
 
     const targetBridge = await (await sdk.getBridgeContract(100, localNode)).connect(signer);
-    const events = await targetBridge.queryFilter('ExecutedTransfer', -50);
+    const events = await targetBridge.queryFilter(targetBridge.filters.ExecutedTransfer(), -50);
 
     const executedEvent = events.find((_) => _.args.id.toString() === id.toString());
 

@@ -15,4 +15,5 @@ packages/bridge-app/distDocker
 packages/bridge-contracts/.openzeppelin
 packages/bridge-contracts/typechain-types
 packages/bridge-contracts/build
-
+packages/bridge-app/src/abi
+packages/bridge-app/types

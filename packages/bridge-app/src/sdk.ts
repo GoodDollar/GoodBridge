@@ -7,7 +7,7 @@ import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
 import { abi as TokenBridgeABI } from './abi/TokenBridge.json';
 import * as SignUtils from './utils';
 import { Contract as MultiCallContract, Provider, setMulticallAddress } from 'ethers-multicall';
-import { TokenBridge } from '../../bridge-contracts/typechain-types';
+
 setMulticallAddress(122, '0x3CE6158b7278Bf6792e014FA7B4f3c6c46fe9410');
 setMulticallAddress(42220, '0xa27A0C40A0a17485c11d1f342a95c946E9523551');
 
@@ -28,7 +28,7 @@ export class BridgeSDK {
     registryBlockFrequency = 10,
     registryRpc = 'https://rpc.fuse.io',
     multicalls: { [key: string]: string } = {},
-    rpcs,
+    rpcs = [],
     logger = Logger,
   ) {
     this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcBatchProvider(registryRpc));
@@ -40,7 +40,7 @@ export class BridgeSDK {
   }
 
   getChainRpc = async (chainId: number) => {
-    if (!this.rpcs) {
+    if (!this.rpcs.length) {
       const blockchains = await this.registryContract.getRPCs();
       blockchains.forEach((_) => (_.chainId = _.chainId.toNumber()));
       this.rpcs = blockchains;
@@ -55,7 +55,7 @@ export class BridgeSDK {
   getBridgeContract = async (chainId: number, provider?: JsonRpcProvider) => {
     const rpc = provider ?? (await this.getChainRpc(chainId));
     const bridgeAddress = this.bridges[chainId];
-    return new ethers.Contract(bridgeAddress, TokenBridgeABI, rpc) as TokenBridge;
+    return new ethers.Contract(bridgeAddress, TokenBridgeABI, rpc);
   };
 
   getCheckpointBlockFromEvents = async (sourceChainId: number, checkpointBlockNumber: number) => {
@@ -341,7 +341,7 @@ export class BridgeSDK {
         range(fetchEventsFromBlock, lastProcessedBlock + 1, STEP).map((startBlock) => () => {
           const toBlock = Math.min(startBlock + STEP, lastProcessedBlock);
           // console.log('fetching bridgerequests:', { startBlock, toBlock });
-          return bridge.queryFilter('BridgeRequest', startBlock, toBlock).catch(() => {
+          return bridge.queryFilter(bridge.filters.BridgeRequest(), startBlock, toBlock).catch(() => {
             throw new Error(
               `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock}`,
             );
@@ -385,7 +385,7 @@ export class BridgeSDK {
     // });
 
     const unexecutedIds = ids.filter((v, i) => idsResult[i] === false);
-    let validEvents = maxEvents.filter((e) => unexecutedIds.includes(e.args.id));
+    let validEvents = maxEvents.filter((e) => unexecutedIds.includes(e.args?.id));
 
     //get events only in range of 50 blocks, since otherwise relay will take too much gas to submit checkpoint blocks
     validEvents = validEvents.filter((_) => _.blockNumber <= validEvents[0].blockNumber + 50);
