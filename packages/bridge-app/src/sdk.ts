@@ -256,12 +256,10 @@ export class BridgeSDK {
 
     this.logger.debug('submitBlocksAndExecute data:', { signedBlock, checkpointBlockNumber, parentRlps });
     mptProofs.forEach((proof) => this.logger.debug('submitBlocksAndExecute proof:', JSON.stringify(proof)));
-
+    const options = targetChainId === 42220 ? { maxPriorityFeePerGas: 0.1 } : {};
     return targetBridgeContract
       .connect(signer)
-      .submitChainBlockParentsAndTxs(signedBlock, checkpointBlockNumber, parentRlps, mptProofs, {
-        maxPriorityFeePerGas: 0.5,
-      });
+      .submitChainBlockParentsAndTxs(signedBlock, checkpointBlockNumber, parentRlps, mptProofs, options);
   };
 
   relayTx = async (sourceChainId: number, targetChainId: number, txHash: string, signer: Signer) => {
