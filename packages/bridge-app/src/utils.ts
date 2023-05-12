@@ -163,6 +163,7 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
   //https://github.com/celo-org/celo-blockchain/blob/e0c433849e3e6bfe32a421fd8dc05372286ba6d3/core/types/block.go
   //https://github.com/celo-org/celo-blockchain/blob/1a239cbf64188d7c0bd49ce6ae2fe63faab691a1/core/types/istanbul.go
   if (chainId === 42220) {
+    delete header['difficulty'];
     delete header['gasLimit'];
     delete header['baseFeePerGas'];
     const istanbulExtra = ethers.utils.RLP.decode('0x' + header.extraData.slice(66)); //0x+32bytes = 66
