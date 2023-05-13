@@ -158,6 +158,7 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
     'mixHash',
     'nonce',
     'baseFeePerGas',
+    'withdrawalsRoot',
   ]);
   //special parsing for celo
   //https://github.com/celo-org/celo-blockchain/blob/e0c433849e3e6bfe32a421fd8dc05372286ba6d3/core/types/block.go
@@ -187,6 +188,7 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
   const rlpHeader = getRlpHeader(header);
   const blockHash = ethers.utils.keccak256(rlpHeader);
   if (blockHash !== block.hash) {
+    console.error({ header, block });
     throw new Error(`rlp hash doesnt match expected blockhash ${block.number}`);
   }
   return { block, blockHeader: header, rlpHeader, computedHash: blockHash };
