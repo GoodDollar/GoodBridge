@@ -139,7 +139,12 @@ export class BridgeSDK {
             return false;
           });
       }
-      this.logger.debug('got checkpoint block:', { checkpointBlockNumber, getCheckpointFromEvents, signedCheckPoint });
+      this.logger.debug('got checkpoint block:', {
+        checkpointBlockNumber,
+        getCheckpointFromEvents,
+        maxTxBlockNumber,
+        signedCheckPoint,
+      });
       if (!signedCheckPoint?.signatures?.length)
         throw new Error(`checkpoint block ${checkpointBlockNumber} does not exists yet`);
     } else {
@@ -158,7 +163,9 @@ export class BridgeSDK {
       checkpointBlockNumber,
     );
 
-    parentAndCheckpointBlocks.forEach((b) => this.logger.debug('getBlocksToSubmit parentAndCheckpointBlocks:', b));
+    parentAndCheckpointBlocks.forEach((b) =>
+      this.logger.debug('getBlocksToSubmit parentAndCheckpointBlocks:', b.block.number),
+    );
     const checkpointBlock = last(parentAndCheckpointBlocks);
 
     const signedBlock = {
@@ -339,9 +346,12 @@ export class BridgeSDK {
         range(fetchEventsFromBlock, lastProcessedBlock + 1, STEP).map((startBlock) => () => {
           const toBlock = Math.min(startBlock + STEP, lastProcessedBlock);
           // console.log('fetching bridgerequests:', { startBlock, toBlock });
-          return bridge.queryFilter(bridge.filters.BridgeRequest(), startBlock, toBlock).catch(() => {
+          return bridge.queryFilter(bridge.filters.BridgeRequest(), startBlock, toBlock).catch((e) => {
+            this.logger.warn('fetchPendingBridgeRequests queryFilter failed:', e.message, e);
             throw new Error(
-              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock}`,
+              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${
+                (bridge.provder as JsonRpcProvider).connection.url
+              }`,
             );
           });
         }),
