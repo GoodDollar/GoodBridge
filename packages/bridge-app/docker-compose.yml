@@ -1,0 +1,45 @@
+version: '3.7'
+services:
+  bridgeapp:
+    container_name: bridgeapp
+    image: 'gooddollar/bridge-app'
+    profiles: ['bridgeapp']
+    volumes:
+      - ./fusenet/config:/config
+    restart: always
+    environment:
+      DOTENV_FILE: '/config/.env'
+      LOG_LEVEL: 'info'
+    labels:
+      - 'com.centurylinklabs.watchtower.enable=true'
+
+  bridgerelay:
+    container_name: bridgerelay
+    profiles: ['bridgerelay']
+    image: 'gooddollar/bridge-app'
+    command: 'bridge/index.js relayer'
+    volumes:
+      - ./relayer:/config
+    restart: always
+    environment:
+      BLOCK_REGISTRY_ADDRESS: '0x44a1E0A83821E239F9Cef248CECc3AC5b910aeD2'
+      DOTENV_FILE: '/config/.env'
+      LOG_LEVEL: 'info'
+    labels:
+      - 'com.centurylinklabs.watchtower.enable=true'
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    profiles: ['bridgerelay', 'bridgeapp']
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_POLL_INTERVAL=10
+      - WATCHTOWER_LOG_LEVEL=debug
+    labels:
+      - 'com.centurylinklabs.watchtower.enable=true'
