@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/bridge-app",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "Minimalistic bridge",
   "engines": {
     "node": ">= 16"
