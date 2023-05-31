@@ -44,6 +44,7 @@ export class BridgeSDK {
       const blockchains = await this.registryContract.getRPCs();
       blockchains.forEach((_) => (_.chainId = _.chainId.toNumber()));
       this.rpcs = blockchains;
+      this.logger.info('settings rpcs:', blockchains);
     }
 
     const blockchain = this.rpcs.find((_) => _.chainId === chainId)?.rpc;
@@ -79,7 +80,6 @@ export class BridgeSDK {
         curBlock,
       });
     }
-    // console.log('found events:', events.length, { sourceChainId, checkpointBlockNumber });
     const bestCheckpoint = maxBy(
       Object.values(
         groupBy(
@@ -347,10 +347,17 @@ export class BridgeSDK {
           const toBlock = Math.min(startBlock + STEP, lastProcessedBlock);
           // console.log('fetching bridgerequests:', { startBlock, toBlock });
           return bridge.queryFilter(bridge.filters.BridgeRequest(), startBlock, toBlock).catch((e) => {
-            this.logger.warn('fetchPendingBridgeRequests queryFilter failed:', e.message, e);
+            this.logger.warn('fetchPendingBridgeRequests queryFilter failed:', e.message, e, {
+              checkpointBlock,
+              sourceChainId,
+              bridge: bridge.address,
+              startBlock,
+              toBlock,
+              rpc: (bridge.provider as JsonRpcProvider).connection.url,
+            });
             throw new Error(
               `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${
-                (bridge.provder as JsonRpcProvider).connection.url
+                (bridge.provider as JsonRpcProvider).connection.url
               }`,
             );
           });
@@ -400,6 +407,100 @@ export class BridgeSDK {
     const lastValidBlock = last(validEvents)?.blockNumber || 0;
 
     lastProcessedBlock = validEvents.length === 0 ? lastProcessedBlock : lastValidBlock;
+
+    return { validEvents, checkpointBlock, lastProcessedBlock, fetchEventsFromBlock };
+  };
+
+  // less strict, checks for events further back
+  fetchPendingBridgeRequests2 = async (
+    sourceChainId: number,
+    targetChainId: number,
+    fromBlock?: number,
+    maxBlocks = 10000,
+    maxRequests = 100,
+  ) => {
+    const bridge = await this.getBridgeContract(sourceChainId);
+    const targetBridge = await this.getBridgeContract(targetChainId);
+
+    const targetMulti = new MultiCallContract(targetBridge.address, [
+      'function executedRequests(uint256) view returns(bool)',
+    ]);
+    const multicallProvider = new Provider(targetBridge.provider, targetChainId);
+
+    const checkpointBlock = await this.fetchLatestCheckpointBlock(sourceChainId).catch((e) => {
+      throw new Error(`fetchLatestCheckpointBlock failed ${sourceChainId} ${e.message}`);
+    });
+    const fetchEventsFromBlock = fromBlock
+      ? Math.min(fromBlock, checkpointBlock - maxBlocks)
+      : checkpointBlock - maxBlocks;
+
+    const STEP = 5000; //currently unless maxBlocks > 5000 this doesnt have any effect
+    let lastProcessedBlock = Math.min(fetchEventsFromBlock + maxBlocks, checkpointBlock);
+
+    const events = flatten(
+      await pAll(
+        range(fetchEventsFromBlock, lastProcessedBlock + 1, STEP).map((startBlock) => () => {
+          const toBlock = Math.min(startBlock + STEP, lastProcessedBlock);
+          // console.log('fetching bridgerequests:', { startBlock, toBlock });
+          return bridge.queryFilter(bridge.filters.BridgeRequest(), startBlock, toBlock).catch((e) => {
+            this.logger.warn('fetchPendingBridgeRequests queryFilter failed:', e.message, e, {
+              checkpointBlock,
+              sourceChainId,
+              bridge: bridge.address,
+              startBlock,
+              toBlock,
+              rpc: (bridge.provider as JsonRpcProvider).connection.url,
+            });
+            throw new Error(
+              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${
+                (bridge.provider as JsonRpcProvider).connection.url
+              }`,
+            );
+          });
+        }),
+        { concurrency: 5 },
+      ),
+    );
+
+    const targetEvents = events.filter((_) => _.args?.targetChainId.toNumber() === targetChainId);
+
+    const ids = targetEvents.map((_) => _.args?.id);
+
+    const idsResult = flatten(
+      await pAll(
+        chunk(ids, 500).map((idsChunk) => () => {
+          const calls = idsChunk.map((id) => targetMulti.executedRequests(id));
+          return multicallProvider.all(calls).catch(() => {
+            throw new Error(
+              `multicallProvider failed ${calls.length} multicall=${targetMulti.address} sample ids:${idsChunk.slice(
+                0,
+                10,
+              )}`,
+            );
+          });
+        }),
+        { concurrency: 5 },
+      ),
+    );
+
+    const unexecutedIds = ids.filter((v, i) => idsResult[i] === false);
+    let validEvents = targetEvents.filter((e) => unexecutedIds.includes(e.args?.id));
+
+    //get events only in range of 50 blocks, since otherwise relay will take too much gas to submit checkpoint blocks
+    validEvents = validEvents.filter((_) => _.blockNumber <= validEvents[0].blockNumber + 50);
+    const lastValidBlock = last(validEvents)?.blockNumber || 0;
+
+    lastProcessedBlock = validEvents.length === 0 ? lastProcessedBlock : lastValidBlock;
+
+    this.logger.info('fetchPendingBridgeRequests', {
+      bridge: bridge.address,
+      checkpointBlock,
+      lastProcessedBlock,
+      fetchEventsFromBlock,
+      events: targetEvents.length,
+      unexecutedEvents: unexecutedIds.length,
+      toExecute: validEvents.length,
+    });
 
     return { validEvents, checkpointBlock, lastProcessedBlock, fetchEventsFromBlock };
   };

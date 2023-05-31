@@ -67,7 +67,7 @@ const runBridgeSide = async (
       lastProcessedBlock,
       checkpointBlock: checkpointBlock,
       fetchEventsFromBlock: fetchEventsFromBlock,
-    } = await sdk.fetchPendingBridgeRequests(Number(chainA), Number(chainB), lastProcessed[bridge]).catch((e) => {
+    } = await sdk.fetchPendingBridgeRequests2(Number(chainA), Number(chainB), lastProcessed[bridge]).catch((e) => {
       logger.error('fetchPendingBridgeRequests', { bridge }, e.message);
       throw e;
     });
