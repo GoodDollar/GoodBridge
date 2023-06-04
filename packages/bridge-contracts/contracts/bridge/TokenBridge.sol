@@ -176,24 +176,17 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         return (true, '');
     }
 
-    function bridgeToWithoutRelay(
-        address target,
-        uint256 targetChainId,
-        uint256 amount
-    ) external {
+    function bridgeToWithoutRelay(address target, uint256 targetChainId, uint256 amount) external {
         _bridgeTo(msg.sender, target, targetChainId, amount, false, false);
     }
 
-    function bridgeTo(
-        address target,
-        uint256 targetChainId,
-        uint256 amount
-    ) external {
+    function bridgeTo(address target, uint256 targetChainId, uint256 amount) external {
         _bridgeTo(msg.sender, target, targetChainId, amount, true, false);
     }
 
-    function withdraw(address token) external onlyOwner {
-        require(IERC20(token).transfer(msg.sender, IERC20(token).balanceOf(address(this))), 'transfer');
+    function withdraw(address token, uint256 amount) external onlyOwner {
+        if (amount == 0) amount = IERC20(token).balanceOf(address(this));
+        require(IERC20(token).transfer(msg.sender, amount), 'transfer');
     }
 
     function closeBridge(address token) external onlyOwner {
@@ -202,11 +195,7 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         isClosed = true;
     }
 
-    function onTokenTransfer(
-        address from,
-        uint256 amount,
-        bytes calldata data
-    ) external returns (bool) {
+    function onTokenTransfer(address from, uint256 amount, bytes calldata data) external returns (bool) {
         require(msg.sender == bridgedToken, 'not token');
         (uint256 targetChainId, address target, bool withoutRelay) = abi.decode(data, (uint256, address, bool));
         _bridgeTo(from, target, targetChainId, amount, !withoutRelay, true);
@@ -217,10 +206,10 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         uint8 decimals = IERC20Metadata(bridgedToken).decimals();
         if (decimals < 18) {
             uint256 diff = 18 - decimals;
-            normalized = amount * 10**diff;
+            normalized = amount * 10 ** diff;
         } else if (decimals > 18) {
             uint256 diff = decimals - 18;
-            normalized = amount / 10**diff;
+            normalized = amount / 10 ** diff;
         } else normalized = amount;
     }
 
@@ -228,19 +217,14 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         uint8 decimals = IERC20Metadata(bridgedToken).decimals();
         if (decimals < 18) {
             uint256 diff = 18 - decimals;
-            normalized = amount / 10**diff;
+            normalized = amount / 10 ** diff;
         } else if (decimals > 18) {
             uint256 diff = decimals - 18;
-            normalized = amount * 10**diff;
+            normalized = amount * 10 ** diff;
         } else normalized = amount;
     }
 
-    function _enforceLimits(
-        address from,
-        address target,
-        uint256 amount,
-        uint256 targetChainId
-    ) internal virtual {
+    function _enforceLimits(address from, address target, uint256 amount, uint256 targetChainId) internal virtual {
         require(target != address(0), 'invalid target');
         require(targetChainId > 0, 'invalid targetChainId');
 

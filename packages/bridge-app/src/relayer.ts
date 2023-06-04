@@ -62,6 +62,7 @@ const runBridgeSide = async (
   while (hasMore) {
     const bridge = `${chainA}_${chainB}_${bridgeContracts[chainA]}`;
 
+    logger.info('starting runBridgeSide:', { bridge });
     const {
       validEvents: events = [],
       lastProcessedBlock,
@@ -124,29 +125,32 @@ const runBridge = async (
   signer: ethers.Signer,
   interval = 60000,
 ) => {
-  const sdk = new BridgeSDK(BLOCK_REGISTRY_ADDRESS, bridge, 10, REGISTRY_RPC, {}, defaultRpcs, logger as any);
-  const chains = Object.keys(bridge);
+  try {
+    const sdk = new BridgeSDK(BLOCK_REGISTRY_ADDRESS, bridge, 10, REGISTRY_RPC, {}, defaultRpcs, logger as any);
+    const chains = Object.keys(bridge);
 
-  for (let i = 0; i < chains.length - 1; i++)
-    for (let j = i + 1; j < chains.length; j++) {
-      const chainA = chains[i];
-      const chainB = chains[j];
-      const bridgeA = `${chainA}_${chainB}_${bridge[chainA]}`;
-      const bridgeB = `${chainB}_${chainA}_${bridge[chainB]}`;
+    for (let i = 0; i < chains.length - 1; i++)
+      for (let j = i + 1; j < chains.length; j++) {
+        const chainA = chains[i];
+        const chainB = chains[j];
+        const bridgeA = `${chainA}_${chainB}_${bridge[chainA]}`;
+        const bridgeB = `${chainB}_${chainA}_${bridge[chainB]}`;
 
-      await Promise.all([
-        runBridgeSide(sdk, bridge, chainA, chainB, signer).catch((e) =>
-          logger.error('failed runBridgeSide', e.message, { bridgeA }),
-        ),
-        runBridgeSide(sdk, bridge, chainB, chainA, signer).catch((e) =>
-          logger.error('failed runBridgeSide', e.message, { bridgeB }),
-        ),
-      ]);
+        await Promise.all([
+          runBridgeSide(sdk, bridge, chainA, chainB, signer).catch((e) =>
+            logger.error('failed runBridgeSide', e.message, { bridgeA }),
+          ),
+          runBridgeSide(sdk, bridge, chainB, chainA, signer).catch((e) =>
+            logger.error('failed runBridgeSide', e.message, { bridgeB }),
+          ),
+        ]);
+      }
+
+    if (shouldRun) {
+      timeouts[idx] = setTimeout(() => runBridge(idx, bridge, signer), interval);
     }
-
-  //if one of the bridges has possibly more requests we didnt process run again immediatly, otherwise wait for interval
-  if (shouldRun) {
-    timeouts[idx] = setTimeout(() => runBridge(idx, bridge, signer), interval);
+  } catch (e) {
+    logger.error('runBridge failed! shouldnt reach this point', e.message, e);
   }
 };
 

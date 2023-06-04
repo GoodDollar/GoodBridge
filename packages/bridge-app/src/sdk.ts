@@ -417,7 +417,6 @@ export class BridgeSDK {
     targetChainId: number,
     fromBlock?: number,
     maxBlocks = 10000,
-    maxRequests = 100,
   ) => {
     const bridge = await this.getBridgeContract(sourceChainId);
     const targetBridge = await this.getBridgeContract(targetChainId);
