@@ -2,7 +2,7 @@
 import fs from 'fs';
 import * as ethers from 'ethers';
 import { Wallet, Signer } from 'ethers';
-import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
+import { JsonRpcBatchProvider, JsonRpcProvider, FallbackProvider } from '@ethersproject/providers';
 import { chunk, filter, flatten, merge, range, throttle, random } from 'lodash';
 import { config } from 'dotenv';
 import pAll from 'p-all';
@@ -30,7 +30,7 @@ export let stepSize = Number(STEP_SIZE);
 
 type ChainData = {
   lastBlock?: number;
-  web3?: JsonRpcProvider;
+  web3?: FallbackProvider;
   rpc?: string;
 };
 
@@ -81,17 +81,16 @@ function initLastBlocks(lastBlocks: Array<[string, number]>) {
   lastBlocks.forEach(([key, lastBlock]) => (blockchains[key] = { lastBlock }));
 }
 
-async function initBlockchain(chainId: number, rpc: string) {
-  logger.info('initBlockchain', { chainId, rpc });
+async function initBlockchain(chainId: number, rpcs: Array<string>) {
+  logger.info('initBlockchain', { chainId, rpcs });
 
-  ////// this is a hack for ankr, for some reason this seems to initialize it correctly otherwise the JsonRpcBatchProvider below doesnt work
-  const provider = new ethers.providers.JsonRpcProvider(rpc);
-  await provider.getBlockNumber();
-  /////
-
+  // ////// this is a hack for ankr, for some reason this seems to initialize it correctly otherwise the JsonRpcBatchProvider below doesnt work
+  // const provider = new ethers.providers.JsonRpcProvider(rpc);
+  // await provider.getBlockNumber();
+  // /////
+  const providers = rpcs.map((_) => new ethers.providers.JsonRpcProvider(_));
   blockchains[String(chainId)] = {
-    web3: new ethers.providers.JsonRpcBatchProvider(rpc),
-    rpc,
+    web3: new ethers.providers.FallbackProvider(providers, 1),
     lastBlock: blockchains[String(chainId)]?.lastBlock,
   };
 }
@@ -111,9 +110,12 @@ async function fetchNewBlocks(signers: Array<Signer>) {
       try {
         curBlockNumber = await blockchain.web3.getBlockNumber();
         curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
-
+        logger.info('current block:', { chainId, curBlockNumber });
         // const block = await blockchain.web3.eth.getBlock(blockchain.lastBlock ? blockchain.lastBlock + 1 : 'latest')
-        const latestCheckpoint = await blockchain.web3.send('eth_getBlockByNumber', [
+        const randProvider = blockchain.web3.providerConfigs[random(0, blockchain.web3.providerConfigs.length - 1)]
+          .provider as JsonRpcProvider;
+        logger.info('randProvider:', { chainId, rpc: randProvider.connection.url });
+        const latestCheckpoint = await randProvider.send('eth_getBlockByNumber', [
           '0x' + curBlockNumber.toString(16),
           false,
         ]);
@@ -127,9 +129,12 @@ async function fetchNewBlocks(signers: Array<Signer>) {
             curBlockNumber,
           });
           blocks = await pAll(
-            range(blockchain.lastBlock + stepSize, curBlockNumber, stepSize).map(
-              (i) => () => blockchain.web3.send('eth_getBlockByNumber', [ethers.utils.hexValue(i), false]),
-            ),
+            range(blockchain.lastBlock + stepSize, curBlockNumber, stepSize).map((i) => () => {
+              const randProvider = blockchain.web3.providerConfigs[
+                random(0, blockchain.web3.providerConfigs.length - 1)
+              ].provider as JsonRpcProvider;
+              return randProvider.send('eth_getBlockByNumber', [ethers.utils.hexValue(i), false]);
+            }),
             { concurrency: 50 },
           );
         }
@@ -195,10 +200,11 @@ async function fetchNewBlocks(signers: Array<Signer>) {
       } catch (e) {
         //dont log twice
         if (e.message !== 'failed signing block')
-          logger.error('failed fetching blocks:', {
+          logger.error('error fetching blocks:', {
             message: e.message,
             chainId,
             lastBlock: curBlockNumber,
+            e,
           });
         return { signedBlocks: [], lastBlock: { [String(chainId)]: blockchain.lastBlock } };
       }
@@ -215,22 +221,32 @@ const _refreshRPCs = async () => {
   try {
     const chains = await blockRegistryContract.getRPCs();
     logger.info('got registered rpcs:', chains);
-    const randRpc = chains.map(({ chainId, rpc }) => {
-      const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
-      if (chainId.toNumber() === 122 && FUSE_RPC) {
-        //on fuse use the local validator node rpc
-        rpcs.push(FUSE_RPC);
-      }
-      const randomRpc = rpcs[random(0, rpcs.length - 1)];
-      return { chainId: chainId.toNumber(), rpc: randomRpc };
-    });
-
-    logger.info('selected rpcs:', { randRpc });
     await Promise.all(
-      randRpc
-        .filter(({ chainId, rpc }) => !blockchains[chainId] || blockchains[chainId].rpc != rpc)
-        .map(({ chainId, rpc }) => initBlockchain(chainId, rpc)),
+      chains.map(({ chainId, rpc }) => {
+        const rpcs = rpc.split(',');
+        if (chainId.toNumber() === 122 && FUSE_RPC) {
+          //on fuse use the local validator node rpc
+          rpcs.push(FUSE_RPC);
+        }
+        return initBlockchain(chainId.toNumber(), rpcs);
+      }),
     );
+    // const randRpc = chains.map(({ chainId, rpc }) => {
+    //   const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
+    //   if (chainId.toNumber() === 122 && FUSE_RPC) {
+    //     //on fuse use the local validator node rpc
+    //     rpcs.push(FUSE_RPC);
+    //   }
+    //   const randomRpc = rpcs[random(0, rpcs.length - 1)];
+    //   return { chainId: chainId.toNumber(), rpc: randomRpc };
+    // });
+
+    // logger.info('selected rpcs:', { randRpc });
+    // await Promise.all(
+    //   randRpc
+    //     .filter(({ chainId, rpc }) => !blockchains[chainId] || blockchains[chainId].rpc != rpc)
+    //     .map(({ chainId, rpc }) => initBlockchain(chainId, rpc)),
+    // );
   } catch (e) {
     logger.error('failed fetching rpcs:', { message: e.message });
   }
