@@ -225,6 +225,7 @@ const _refreshRPCs = async () => {
       return { chainId: chainId.toNumber(), rpc: randomRpc };
     });
 
+    logger.info('selected rpcs:', { randRpc });
     await Promise.all(
       randRpc
         .filter(({ chainId, rpc }) => !blockchains[chainId] || blockchains[chainId].rpc != rpc)
@@ -256,7 +257,7 @@ async function emitRegistry(signers?: Array<Signer>) {
       return [];
     }
     try {
-      //write blocks in chunks of 10
+      //write blocks in chunks
       const chunks = chunk(blocks, Number(BLOCKS_CHUNK));
       for (const blocksChunk of chunks) {
         const receipt = await (await blockRegistryContract.addSignedBlocks(blocksChunk)).wait();
@@ -264,7 +265,9 @@ async function emitRegistry(signers?: Array<Signer>) {
         logger.debug(`receipt: ${JSON.stringify(receipt)}`);
       }
       // update last blocks written successfully
-      Object.entries(lastBlocks).forEach((kv) => (blockchains[kv[0]].lastBlock = kv[1]));
+      Object.entries(lastBlocks).forEach(
+        (kv) => (blockchains[kv[0]].lastBlock = Math.max(kv[1], blockchains[kv[0]].lastBlock)),
+      );
 
       if (process.env.NODE_ENV !== 'test')
         fs.writeFileSync(
