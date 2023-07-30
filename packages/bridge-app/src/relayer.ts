@@ -20,14 +20,10 @@ const defaultBridges = Object.values(bridges).map((bridge) => ({
   '42220': bridge.celoBridge,
 }));
 
-const defaultRpcs = [
-  {
-    chainId: 122,
-    rpc: 'https://rpc.fuse.io',
-  },
-  { chainId: 42220, rpc: 'https://forno.celo.org' },
-];
 const {
+  FIXED_FUSE_RPC = 'https://rpc.fuse.io',
+  FIXED_CELO_RPC = 'https://celo-tests.lavapro.xyz/mainnet/http',
+  USE_FIXED_RPCS,
   REGISTRY_RPC = 'https://rpc.fuse.io',
   BLOCK_REGISTRY_ADDRESS = (bridges['production'] || bridges['staging']).registry,
   MNEMONIC = 'test test test test test test test test test test test junk',
@@ -36,6 +32,14 @@ const {
   CONFIG_DIR = './',
   INDICATIVE_KEY,
 } = process.env;
+
+const fixedRpcs = [
+  {
+    chainId: 122,
+    rpc: FIXED_FUSE_RPC,
+  },
+  { chainId: 42220, rpc: FIXED_CELO_RPC },
+];
 
 let logger = Logger(`${version} Relayer`, '', INDICATIVE_KEY);
 
@@ -126,7 +130,15 @@ const runBridge = async (
   interval = 60000,
 ) => {
   try {
-    const sdk = new BridgeSDK(BLOCK_REGISTRY_ADDRESS, bridge, 10, REGISTRY_RPC, {}, defaultRpcs, logger as any);
+    const sdk = new BridgeSDK(
+      BLOCK_REGISTRY_ADDRESS,
+      bridge,
+      10,
+      REGISTRY_RPC,
+      {},
+      USE_FIXED_RPCS === 'true' ? fixedRpcs : [],
+      logger as any,
+    );
     const chains = Object.keys(bridge);
 
     for (let i = 0; i < chains.length - 1; i++)

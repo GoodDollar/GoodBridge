@@ -1,6 +1,6 @@
 import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
 import { Contract, ethers, Signer } from 'ethers';
-import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last, chunk, takeWhile } from 'lodash';
+import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last, chunk } from 'lodash';
 import pAll from 'p-all';
 import Logger from 'js-logger';
 import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
@@ -42,9 +42,8 @@ export class BridgeSDK {
   getChainRpc = async (chainId: number) => {
     if (!this.rpcs.length) {
       const blockchains = await this.registryContract.getRPCs();
-      blockchains.forEach((_) => (_.chainId = _.chainId.toNumber()));
-      this.rpcs = blockchains;
-      this.logger.info('settings rpcs:', blockchains);
+      this.rpcs = blockchains.map((_) => ({ rpc: _.rpc, chainId: _.chainId.toNumber() }));
+      this.logger.info('settings rpcs:', this.rpcs);
     }
 
     const blockchain = this.rpcs.find((_) => _.chainId === chainId)?.rpc;
@@ -362,7 +361,7 @@ export class BridgeSDK {
             );
           });
         }),
-        { concurrency: 5 },
+        { concurrency: 3 },
       ),
     );
 
@@ -463,7 +462,7 @@ export class BridgeSDK {
             );
           });
         }),
-        { concurrency: 5 },
+        { concurrency: 3 },
       ),
     );
 
