@@ -7,6 +7,7 @@ import 'hardhat-contract-sizer';
 import '@openzeppelin/hardhat-upgrades';
 import '@nomicfoundation/hardhat-chai-matchers';
 import '@nomiclabs/hardhat-waffle';
+import 'hardhat-deploy';
 import { HttpNetworkAccountsConfig } from 'hardhat/types';
 
 const pkey = process.env.PRIVATE_KEY;
@@ -64,6 +65,19 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 42220,
       url: 'https://forno.celo.org',
+    },
+    alfajores: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 44787,
+      url: `https://alfajores-forno.celo-testnet.org`,
+      gasPrice: 5000000000,
+    },
+    goerli: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      url: 'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+      gas: 3000000,
+      gasPrice: 2e9,
+      chainId: 5,
     },
   },
   contractSizer: {
