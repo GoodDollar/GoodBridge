@@ -45,7 +45,7 @@ abstract contract LZHandlerUpgradeable is Initializable, NonblockingLzAppUpgrade
         address _toAddress,
         uint _normalizedAmount,
         bool _useZro,
-        bytes calldata _adapterParams
+        bytes memory _adapterParams
     ) public view virtual returns (uint nativeFee, uint zroFee) {
         bytes memory payload = abi.encode(_fromAddress, _toAddress, _normalizedAmount, 0); //fake request id as 0, just for fee estimation, shouldnt make a difference
         return lzEndpoint.estimateFees(_dstChainId, address(this), payload, _useZro, _adapterParams);

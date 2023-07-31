@@ -1076,10 +1076,10 @@
     truffle-flattener "^1.4.4"
     truffle-safe-hdwallet-provider "0.0.7"
 
-"@gooddollar/goodprotocol@^2.0.7":
-  version "2.0.7"
-  resolved "https://registry.yarnpkg.com/@gooddollar/goodprotocol/-/goodprotocol-2.0.7.tgz#dd6ce80d9d1aa98232c497d35ac216f718cfedad"
-  integrity sha512-hFEwQWdKEZqTb4PtrCD6CafKJKZHgi59+U6XQn9P8pvfpDVkBHRV7a0Xmn/wl5FIs6N8hClvT1EtO/TxcoCrpA==
+"@gooddollar/goodprotocol@^2.0.4":
+  version "2.0.8"
+  resolved "https://registry.yarnpkg.com/@gooddollar/goodprotocol/-/goodprotocol-2.0.8.tgz#8d2ff6abaa110e7b01af67e16ef54d9f66851c3f"
+  integrity sha512-n/1WstT79RGffRnasKnmIgf6BMBvXFPjZBHc4X6ZWCf18txS+3jhIIxiYlh5+GumezBtU/TzIYPYxNYFrAinrQ==
   dependencies:
     "@gooddollar/goodcontracts" "^2.6.6"
     "@jsier/retrier" "^1.2.4"
@@ -1465,6 +1465,11 @@
   dependencies:
     "@openzeppelin/contracts" "3.4.2-solc-0.7"
     "@openzeppelin/contracts-upgradeable" "3.4.2-solc-0.7"
+
+"@layerzerolabs/scan-client@^0.0.6":
+  version "0.0.6"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/scan-client/-/scan-client-0.0.6.tgz#c126ddf8d30c4fb759e571661576dbba133e3ec3"
+  integrity sha512-K6Dpktj8bsPK/bE4DjgPclWn/mOZm/zm6lwRaaZvPkfPhmLQx43j5voBod9hqT2hSh26lC7ZkFAb+8aVUpPISQ==
 
 "@layerzerolabs/solidity-examples@^0.0.13":
   version "0.0.13"

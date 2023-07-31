@@ -79,7 +79,7 @@
       ]
     },
     "MessagePassingBridge_Implementation": {
-      "address": "0x457040Ee05b3BBe9Ac3C224D53Ff4584DFc8FdD7",
+      "address": "0xf738870a8063a060f59E3754C89039663bA1b027",
       "abi": [
         {
           "inputs": [
@@ -180,6 +180,22 @@
         {
           "inputs": [],
           "name": "InvalidAddressString",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "required",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "sent",
+              "type": "uint256"
+            }
+          ],
+          "name": "LZ_FEE",
           "type": "error"
         },
         {

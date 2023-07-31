@@ -71,6 +71,12 @@ const config: HardhatUserConfig = {
       chainId: 44787,
       url: `https://alfajores-forno.celo-testnet.org`,
       gasPrice: 5000000000,
+      verify: {
+        etherscan: {
+          apiUrl: 'https://alfajores.celoscan.io/api',
+          apiKey: process.env.CELOSCAN_KEY,
+        },
+      },
     },
     goerli: {
       accounts: accounts as HttpNetworkAccountsConfig,

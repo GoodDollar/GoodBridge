@@ -3,7 +3,26 @@ import { DeployFunction } from 'hardhat-deploy/types';
 import { ethers, waffle } from 'hardhat';
 import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import CtrlABI from '@gooddollar/goodprotocol/artifacts/abis/Controller.min.json';
-import { release } from 'os';
+import util from 'util';
+
+const exec = util.promisify(require('child_process').exec);
+
+const verifyContracts = async (network) => {
+  let cmd = `npx hardhat etherscan-verify --network ${network}`;
+  console.log('running...:', cmd);
+  await exec(cmd).then(({ stdout, stderr }) => {
+    console.log('Result for:', cmd);
+    console.log(stdout);
+    console.log(stderr);
+  });
+  cmd = `npx hardhat sourcify --network ${network}`;
+  console.log('running...:', cmd);
+  await exec(cmd).then(({ stdout, stderr }) => {
+    console.log('Result for:', cmd);
+    console.log(stdout);
+    console.log(stderr);
+  });
+};
 
 const chainsData = {
   hardhat: {
@@ -108,6 +127,23 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     onlyWhitelisted: false,
   };
 
+  const addAsMinter = async () => {
+    console.log('adding bridge as minter');
+    const ctrl = new ethers.Contract(Contracts[chainData.name || network.name].Controller, CtrlABI.abi, signer);
+    const encodedInput = ethers.utils.defaultAbiCoder.encode(
+      ['address', 'uint256', 'uint256', 'uint32', 'uint256', 'uint256', 'uint32', 'bool'],
+      [bridgeProxy.address, 0, 0, 5000, 0, 0, 0, false],
+    ); //function addMinter(
+    const sigHash = ethers.utils
+      .keccak256(ethers.utils.toUtf8Bytes('addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)'))
+      .slice(0, 10);
+    const encoded = ethers.utils.solidityPack(['bytes4', 'bytes'], [sigHash, encodedInput]);
+    const addMinterResult = await ctrl
+      .genericCall(chainData.minter, encoded, Contracts[chainData.name || network.name].Avatar, 0)
+      .then((_) => _.wait());
+    console.log({ addMinterResult });
+  };
+
   if (bridgeImpl.newlyDeployed || !initialized) {
     //if proxy is new then we initialize, otherwise try to upgrade?
     if (!initialized) {
@@ -126,22 +162,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       );
       console.log({ initializedTx });
       if (isTestnet && chainData.minter) {
-        console.log('adding bridge as minter');
-        const ctrl = new ethers.Contract(Contracts[chainData.name || network.name].Controller, CtrlABI.abi, signer);
-        const encodedInput = ethers.utils.defaultAbiCoder.encode(
-          ['address', 'uint256', 'uint256', 'uint32', 'uint256', 'uint256', 'uint32', 'bool'],
-          [bridgeProxy.address, 0, 0, 30, 0, 0, 0, true],
-        ); //function addMinter(
-        const sigHash = ethers.utils
-          .keccak256(ethers.utils.toUtf8Bytes('addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)'))
-          .slice(0, 10);
-        const encoded = ethers.utils.solidityPack(['bytes4', 'bytes'], [sigHash, encodedInput]);
-        const addMinterResult = await ctrl
-          .genericCall(chainData.minter, encoded, Contracts[chainData.name || network.name].Avatar, 0)
-          .then((_) => _.wait());
-        console.log({ addMinterResult });
+        await addAsMinter();
       }
     } else if (isTestnet) {
+      //testnet upgrade
       const ctrl = new ethers.Contract(Contracts[chainData.name || network.name].Controller, CtrlABI.abi, signer);
       const encoded = mpb.interface.encodeFunctionData('upgradeTo', [bridgeImpl.address]);
       const upgradeResult = await (
@@ -153,10 +177,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
   }
 
+  // helpers
   if (isTestnet) {
-    console.log('resetting fees/limits on testnet');
-    await (await mpb.setBridgeLimits(defaultLimits)).wait();
-    await (await mpb.setBridgeFees(defaultFees)).wait();
+    //     console.log('resetting fees/limits on testnet');
+    //     await (await mpb.setBridgeLimits(defaultLimits)).wait();
+    //     await (await mpb.setBridgeFees(defaultFees)).wait();
+    //     await addAsMinter();
   }
+
+  if (['localhost', 'hardhat'].includes(network.name) === false) await verifyContracts(network.name);
 };
 export default func;

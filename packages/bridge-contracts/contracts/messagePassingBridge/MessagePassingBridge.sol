@@ -60,6 +60,7 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
     error ALREADY_EXECUTED(uint256 requestId);
     error MISSING_FEE();
     error UNSUPPORTED_CHAIN(uint256 chainId);
+    error LZ_FEE(uint256 required, uint256 sent);
 
     // An event emitted when a bridge request is made
     event BridgeRequest(
@@ -143,6 +144,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
     uint256 public currentId;
 
     mapping(uint256 => uint16) public lzChainIdsMapping;
+
+    address public feeRecipient;
     /**
      * @dev Modifier that allows only the owner or guardian to call a function
      */
@@ -184,6 +187,16 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         transferOwnership(avatar);
         bridgeLimits = limits;
         bridgeFees = fees;
+        feeRecipient = nameService.getAddress('UBISCHEME');
+        if (feeRecipient == address(0)) feeRecipient = avatar;
+    }
+
+    /**
+     * @dev Function for setting the fee recipient
+     * @param recipient The fee recipient to set
+     */
+    function setFeeRecipient(address recipient) external onlyOwnerOrGuardian {
+        feeRecipient = recipient;
     }
 
     /**
@@ -386,7 +399,9 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         } else if (bridge == BridgeService.LZ) {
             uint16 chainId = _toLzChainId(targetChainId);
             if (chainId == 0) revert UNSUPPORTED_CHAIN(targetChainId);
-            _lzBridgeTo(payload, uint16(chainId), payable(from), address(0), lzAdapterParams);
+            (uint256 nativeFee, ) = estimateSendFee(chainId, from, target, normalizedAmount, false, lzAdapterParams);
+            if (nativeFee > msg.value) revert LZ_FEE(nativeFee, msg.value);
+            _lzBridgeTo(payload, chainId, payable(from), address(0), lzAdapterParams);
         }
 
         emit BridgeRequest(from, target, targetChainId, normalizedAmount, block.timestamp, bridge, requestId);
@@ -489,7 +504,11 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         //unlock on mainnet mint on other chains
         if (_chainId() == 1 || _chainId() == 5) {
             if (nativeToken().transfer(target, tokenAmount - fee) == false) revert TRANSFER();
-        } else IMinter(nameService.getAddress('GoodDollarMintBurnWrapper')).mint(target, tokenAmount);
+            if (fee > 0) nativeToken().burn(fee);
+        } else {
+            IMinter(nameService.getAddress('MINTBURN_WRAPPER')).mint(target, tokenAmount - fee);
+            if (fee > 0) IMinter(nameService.getAddress('MINTBURN_WRAPPER')).mint(feeRecipient, fee);
+        }
 
         emit ExecutedTransfer(from, target, normalizedAmount, fee, sourceChainId, bridge, id);
     }
