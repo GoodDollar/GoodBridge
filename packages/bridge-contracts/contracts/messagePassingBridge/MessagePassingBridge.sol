@@ -189,6 +189,20 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         bridgeFees = fees;
         feeRecipient = nameService.getAddress('UBISCHEME');
         if (feeRecipient == address(0)) feeRecipient = avatar;
+
+        // trust celo/eth/fuse we assume they are all deployed together at same address
+        // if they are not deployed at the same time there's a risk of a malicious actor deploying the proxy at the same address
+        // with modified malicious implementation
+        if (!TESTNET) {
+            trustedRemoteLookup[_toLzChainId(1)] = abi.encodePacked(address(this), address(this));
+            trustedRemoteLookup[_toLzChainId(122)] = abi.encodePacked(address(this), address(this));
+            trustedRemoteLookup[_toLzChainId(42220)] = abi.encodePacked(address(this), address(this));
+        }
+        // trust between test nets
+        else {
+            trustedRemoteLookup[_toLzChainId(5)] = abi.encodePacked(address(this), address(this));
+            trustedRemoteLookup[_toLzChainId(44787)] = abi.encodePacked(address(this), address(this));
+        }
     }
 
     /**
@@ -434,11 +448,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         uint256 requestId
     ) internal virtual override {
         uint256 chainId = _fromAxelarChainId(sourceChainId);
-        if (sourceAddress != address(this)) {
-            emit FalseSender(chainId, sourceAddress);
-            return;
-        }
-        _bridgeFrom(from, to, normalizedAmount, chainId, requestId, BridgeService.AXELAR);
+
+        _bridgeFrom(from, to, normalizedAmount, chainId, sourceAddress, requestId, BridgeService.AXELAR);
     }
 
     /**
@@ -460,11 +471,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         uint256 requestId
     ) internal virtual override {
         uint256 chainId = _fromLzChainId(sourceChainId);
-        if (sourceAddress != address(this)) {
-            emit FalseSender(chainId, sourceAddress);
-            return;
-        }
-        _bridgeFrom(from, to, normalizedAmount, chainId, requestId, BridgeService.LZ);
+
+        _bridgeFrom(from, to, normalizedAmount, chainId, sourceAddress, requestId, BridgeService.LZ);
     }
 
     /**
@@ -480,6 +488,7 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         address target,
         uint256 normalizedAmount,
         uint256 sourceChainId,
+        address sourceContract,
         uint256 id,
         BridgeService bridge
     ) internal {
@@ -489,6 +498,18 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
 
         if (executedRequests[id]) revert ALREADY_EXECUTED(id);
 
+        //verify that we trust the source (using lz format)
+        bytes memory trustedRemote = trustedRemoteLookup[_toLzChainId(sourceChainId)];
+        bytes memory sourceUA = abi.encodePacked(sourceContract, address(this));
+        // if will still block the message pathway from (srcChainId, srcAddress). should not receive message from untrusted remote.
+        if (
+            sourceUA.length != trustedRemote.length ||
+            trustedRemote.length == 0 ||
+            keccak256(sourceUA) != keccak256(trustedRemote)
+        ) {
+            emit FalseSender(sourceChainId, sourceContract);
+            return;
+        }
         _enforceLimits(from, target, normalizedAmount, _chainId());
         uint256 tokenAmount = BridgeHelperLibrary.normalizeFrom18ToTokenDecimals(
             normalizedAmount,

@@ -28,14 +28,6 @@ abstract contract LZHandlerUpgradeable is Initializable, NonblockingLzAppUpgrade
         // lzReceive must be called by the endpoint for security
         if (_msgSender() != address(lzEndpoint)) revert INVALID_ENDPOINT(_msgSender());
 
-        bytes memory trustedRemote = abi.encodePacked(address(this), address(this)); //we assume all bridges have same address
-        // if will still block the message pathway from (srcChainId, srcAddress). should not receive message from untrusted remote.
-        if (
-            _srcAddress.length != trustedRemote.length ||
-            trustedRemote.length == 0 ||
-            keccak256(_srcAddress) != keccak256(trustedRemote)
-        ) revert INVALID_SENDER(_srcAddress);
-
         _blockingLzReceive(_srcChainId, _srcAddress, _nonce, _payload);
     }
 
@@ -53,7 +45,7 @@ abstract contract LZHandlerUpgradeable is Initializable, NonblockingLzAppUpgrade
 
     function _nonblockingLzReceive(
         uint16 _srcChainId,
-        bytes memory /*_srcAddress*/,
+        bytes memory _srcAddress,
         uint64 _nonce,
         bytes memory _payload
     ) internal virtual override {
@@ -62,7 +54,10 @@ abstract contract LZHandlerUpgradeable is Initializable, NonblockingLzAppUpgrade
             (address, address, uint, uint)
         );
 
-        address sourceAddress = address(this); //lzreceive already validates sourceAddress
+        address sourceAddress;
+        assembly {
+            sourceAddress := mload(add(_srcAddress, 20))
+        }
 
         _lzBridgeFrom(_srcChainId, sourceAddress, _nonce, from, to, normalizedAmount, requestId);
     }
@@ -74,7 +69,6 @@ abstract contract LZHandlerUpgradeable is Initializable, NonblockingLzAppUpgrade
         address _zroPaymentAddress,
         bytes memory _adapterParams
     ) internal virtual {
-        trustedRemoteLookup[_dstChainId] = abi.encodePacked(address(this), address(this)); //make sure we are a trusted remote, tokens will be sent to same contract address on target chain
         _lzSend(_dstChainId, _payload, _refundAddress, _zroPaymentAddress, _adapterParams, msg.value);
     }
 

@@ -73,7 +73,7 @@ const config: HardhatUserConfig = {
       gasPrice: 5000000000,
       verify: {
         etherscan: {
-          apiUrl: 'https://alfajores.celoscan.io/api',
+          apiUrl: 'https://alfajores.celoscan.io',
           apiKey: process.env.CELOSCAN_KEY,
         },
       },
