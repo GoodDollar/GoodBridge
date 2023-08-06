@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
-import '@gooddollar/goodprotocol/contracts/utils/ProxyFactory1967.sol'; //imported so it is compiled and available in hardhat deploy
 import {IAxelarGateway} from '@axelar-network/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGateway.sol';
 import {IAxelarGasService} from '@axelar-network/axelar-gmp-sdk-solidity/contracts/interfaces/IAxelarGasService.sol';
 import {DAOUpgradeableContract, INameService} from '@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol';
