@@ -11,6 +11,7 @@ import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
 import './LZHandlerUpgradeable.sol';
 import './AxelarHandlerUpgradeable.sol';
 import './BridgeHelperLibrary.sol';
+import './IMessagePassingBridge.sol';
 
 interface IFaucet {
     function canTop(address) external view returns (bool);
@@ -30,14 +31,14 @@ interface IMinter {
  * @title MessagePassingBridge
  * @dev A contract for bridging assets between chains
  */
-contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, AxelarHandlerUpgradeable {
+contract MessagePassingBridge is
+    IMessagePassingBridge,
+    DAOUpgradeableContract,
+    LZHandlerUpgradeable,
+    AxelarHandlerUpgradeable
+{
     using StringToAddress for string;
     using AddressToString for address;
-
-    enum BridgeService {
-        AXELAR,
-        LZ
-    }
 
     address public immutable lzEndpoint_;
     bool public immutable TESTNET;
@@ -84,22 +85,6 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
     );
 
     event FalseSender(uint256 sourceChainId, address sourceAddress);
-
-    // A struct for storing bridge fees
-    struct BridgeFees {
-        uint256 minFee;
-        uint256 maxFee;
-        uint256 fee;
-    }
-
-    // A struct for storing bridge limits
-    struct BridgeLimits {
-        uint256 dailyLimit;
-        uint256 txLimit;
-        uint256 accountDailyLimit;
-        uint256 minAmount;
-        bool onlyWhitelisted;
-    }
 
     // A struct for storing account limits
     struct AccountLimit {
@@ -237,9 +222,9 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @dev Function for setting the faucet contract
      * @param _faucet The faucet contract to set
      */
-    function setFaucet(IFaucet _faucet) external {
+    function setFaucet(address _faucet) external {
         _onlyOwnerOrGuardian();
-        faucet = _faucet;
+        faucet = IFaucet(_faucet);
     }
 
     /**
