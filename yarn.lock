@@ -1076,10 +1076,10 @@
     truffle-flattener "^1.4.4"
     truffle-safe-hdwallet-provider "0.0.7"
 
-"@gooddollar/goodprotocol@^2.0.4":
-  version "2.0.8"
-  resolved "https://registry.yarnpkg.com/@gooddollar/goodprotocol/-/goodprotocol-2.0.8.tgz#8d2ff6abaa110e7b01af67e16ef54d9f66851c3f"
-  integrity sha512-n/1WstT79RGffRnasKnmIgf6BMBvXFPjZBHc4X6ZWCf18txS+3jhIIxiYlh5+GumezBtU/TzIYPYxNYFrAinrQ==
+"@gooddollar/goodprotocol@^2.0.7":
+  version "2.0.9"
+  resolved "https://registry.yarnpkg.com/@gooddollar/goodprotocol/-/goodprotocol-2.0.9.tgz#6f64210c48bbc027ccba014575cf98c690c31b5d"
+  integrity sha512-ykUzAIPE/qyar9KBpPFapGZ5ubT1a80FPXH8XRbJx5EuNanzcWbzN3c/SDNZnRoDm3c9h0S36NQvmEQwca5pOw==
   dependencies:
     "@gooddollar/goodcontracts" "^2.6.6"
     "@jsier/retrier" "^1.2.4"
