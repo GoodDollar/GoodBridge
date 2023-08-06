@@ -21,14 +21,18 @@ abstract contract AxelarHandlerUpgradeable is AxelarExecutable {
         gasService = IAxelarGasService(gasReceiver);
     }
 
-    function _axelarBridgeTo(bytes memory payload, string memory targetChainId) internal virtual {
+    function _axelarBridgeTo(
+        bytes memory payload,
+        string memory targetChainId,
+        address refundAddress
+    ) internal virtual {
         string memory stringAddress = address(this).toString();
         gasService.payNativeGasForContractCall{value: msg.value}(
             address(this),
             targetChainId,
             stringAddress,
             payload,
-            msg.sender
+            refundAddress
         );
         gateway.callContract(targetChainId, stringAddress, payload);
     }

@@ -194,14 +194,14 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         // if they are not deployed at the same time there's a risk of a malicious actor deploying the proxy at the same address
         // with modified malicious implementation
         if (!TESTNET) {
-            trustedRemoteLookup[_toLzChainId(1)] = abi.encodePacked(address(this), address(this));
-            trustedRemoteLookup[_toLzChainId(122)] = abi.encodePacked(address(this), address(this));
-            trustedRemoteLookup[_toLzChainId(42220)] = abi.encodePacked(address(this), address(this));
+            trustedRemoteLookup[toLzChainId(1)] = abi.encodePacked(address(this), address(this));
+            trustedRemoteLookup[toLzChainId(122)] = abi.encodePacked(address(this), address(this));
+            trustedRemoteLookup[toLzChainId(42220)] = abi.encodePacked(address(this), address(this));
         }
         // trust between test nets
         else {
-            trustedRemoteLookup[_toLzChainId(5)] = abi.encodePacked(address(this), address(this));
-            trustedRemoteLookup[_toLzChainId(44787)] = abi.encodePacked(address(this), address(this));
+            trustedRemoteLookup[toLzChainId(5)] = abi.encodePacked(address(this), address(this));
+            trustedRemoteLookup[toLzChainId(44787)] = abi.encodePacked(address(this), address(this));
         }
     }
 
@@ -310,17 +310,18 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @param data The data to decode of format (uint256 targetChainId, address target, BridgeService bridge, bytes memory lzAdapterParams)
      * @return Whether the transfer was successful or not
      */
-    function onTokenTransfer(address from, uint256 amount, bytes calldata data) external payable returns (bool) {
-        if (msg.sender != address(nativeToken())) revert WRONG_TOKEN(msg.sender);
+    //TODO: this wouldnt work as onTokenTransfer doesnt support value passing
+    // function onTokenTransfer(address from, uint256 amount, bytes calldata data) external payable returns (bool) {
+    //     if (msg.sender != address(nativeToken())) revert WRONG_TOKEN(msg.sender);
 
-        (uint256 targetChainId, address target, BridgeService bridge, bytes memory lzAdapterParams) = abi.decode(
-            data,
-            (uint256, address, BridgeService, bytes)
-        );
+    //     (uint256 targetChainId, address target, BridgeService bridge, bytes memory lzAdapterParams) = abi.decode(
+    //         data,
+    //         (uint256, address, BridgeService, bytes)
+    //     );
 
-        _bridgeTo(from, target, targetChainId, amount, true, bridge, lzAdapterParams);
-        return true;
-    }
+    //     _bridgeTo(from, target, targetChainId, amount, true, bridge, lzAdapterParams, address(0));
+    //     return true;
+    // }
 
     /**
      * @dev Enforces transfer limits and checks if the transfer is valid
@@ -349,24 +350,25 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
     }
 
     function bridgeTo(address target, uint256 targetChainId, uint256 amount, BridgeService bridge) external payable {
-        _bridgeTo(msg.sender, target, targetChainId, amount, false, bridge, '');
+        _bridgeTo(msg.sender, target, targetChainId, amount, false, bridge, '', address(0));
     }
 
-    function bridgeToWithLz(address target, uint256 targetChainId, uint256 amount) external payable {
-        _bridgeTo(msg.sender, target, targetChainId, amount, false, BridgeService.LZ, '');
-    }
-
-    function bridgeToWithLzAdapterParams(
+    function bridgeToWithLz(
         address target,
         uint256 targetChainId,
         uint256 amount,
         bytes calldata adapterParams
     ) external payable {
-        _bridgeTo(msg.sender, target, targetChainId, amount, false, BridgeService.LZ, adapterParams);
+        _bridgeTo(msg.sender, target, targetChainId, amount, false, BridgeService.LZ, adapterParams, address(0));
     }
 
-    function bridgeToWithAxelar(address target, uint256 targetChainId, uint256 amount) external payable {
-        _bridgeTo(msg.sender, target, targetChainId, amount, false, BridgeService.AXELAR, '');
+    function bridgeToWithAxelar(
+        address target,
+        uint256 targetChainId,
+        uint256 amount,
+        address gasRefundAddress
+    ) external payable {
+        _bridgeTo(msg.sender, target, targetChainId, amount, false, BridgeService.AXELAR, '', gasRefundAddress);
     }
 
     /**
@@ -376,6 +378,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @param targetChainId The chain ID of the target chain
      * @param amount The amount of tokens to bridge
      * @param isOnTokenTransfer Whether the transfer is on token transfer
+     * @param lzAdapterParams extra params for lz
+     * @param axelarGasRefundAddress gas refund address to axelar (default to msg.sender if 0)
      */
     function _bridgeTo(
         address from,
@@ -384,7 +388,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         uint256 amount,
         bool isOnTokenTransfer,
         BridgeService bridge,
-        bytes memory lzAdapterParams
+        bytes memory lzAdapterParams,
+        address axelarGasRefundAddress
     ) internal {
         if (isClosed) revert BRIDGE_LIMITS('closed');
 
@@ -407,11 +412,15 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         bytes memory payload = abi.encode(from, target, normalizedAmount, requestId);
 
         if (bridge == BridgeService.AXELAR) {
-            string memory chainId = _toAxelarChainId(targetChainId);
+            string memory chainId = toAxelarChainId(targetChainId);
             if (bytes(chainId).length == 0) revert UNSUPPORTED_CHAIN(targetChainId);
-            _axelarBridgeTo(payload, chainId);
+            _axelarBridgeTo(
+                payload,
+                chainId,
+                axelarGasRefundAddress == address(0) ? msg.sender : axelarGasRefundAddress
+            );
         } else if (bridge == BridgeService.LZ) {
-            uint16 chainId = _toLzChainId(targetChainId);
+            uint16 chainId = toLzChainId(targetChainId);
             if (chainId == 0) revert UNSUPPORTED_CHAIN(targetChainId);
             (uint256 nativeFee, ) = estimateSendFee(chainId, from, target, normalizedAmount, false, lzAdapterParams);
             if (nativeFee > msg.value) revert LZ_FEE(nativeFee, msg.value);
@@ -447,7 +456,7 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         uint256 normalizedAmount,
         uint256 requestId
     ) internal virtual override {
-        uint256 chainId = _fromAxelarChainId(sourceChainId);
+        uint256 chainId = fromAxelarChainId(sourceChainId);
 
         _bridgeFrom(from, to, normalizedAmount, chainId, sourceAddress, requestId, BridgeService.AXELAR);
     }
@@ -470,7 +479,7 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         uint256 normalizedAmount,
         uint256 requestId
     ) internal virtual override {
-        uint256 chainId = _fromLzChainId(sourceChainId);
+        uint256 chainId = fromLzChainId(sourceChainId);
 
         _bridgeFrom(from, to, normalizedAmount, chainId, sourceAddress, requestId, BridgeService.LZ);
     }
@@ -492,14 +501,14 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         uint256 id,
         BridgeService bridge
     ) internal {
-        if (_toLzChainId(sourceChainId) == 0) revert UNSUPPORTED_CHAIN(sourceChainId);
+        if (toLzChainId(sourceChainId) == 0) revert UNSUPPORTED_CHAIN(sourceChainId);
         if (disabledSourceBridges[keccak256(abi.encode(sourceChainId, bridge))])
             revert BRIDGE_LIMITS('source disabled');
 
         if (executedRequests[id]) revert ALREADY_EXECUTED(id);
 
         //verify that we trust the source (using lz format)
-        bytes memory trustedRemote = trustedRemoteLookup[_toLzChainId(sourceChainId)];
+        bytes memory trustedRemote = trustedRemoteLookup[toLzChainId(sourceChainId)];
         bytes memory sourceUA = abi.encodePacked(sourceContract, address(this));
         // if will still block the message pathway from (srcChainId, srcAddress). should not receive message from untrusted remote.
         if (
@@ -554,7 +563,7 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         }
     }
 
-    function _toLzChainId(uint256 chainId) internal pure returns (uint16 lzChainId) {
+    function toLzChainId(uint256 chainId) public pure returns (uint16 lzChainId) {
         if (chainId == 1) return 10001;
         if (chainId == 5) return 10121;
         if (chainId == 42220) return 125;
@@ -562,7 +571,7 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         if (chainId == 122) return 138;
     }
 
-    function _fromLzChainId(uint16 lzChainId) internal pure returns (uint256 chainId) {
+    function fromLzChainId(uint16 lzChainId) public pure returns (uint256 chainId) {
         if (lzChainId == 10001) return 1;
         if (lzChainId == 10121) return 5;
         if (lzChainId == 125) return 42220;
@@ -570,14 +579,14 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
         if (lzChainId == 138) return 122;
     }
 
-    function _toAxelarChainId(uint256 chainId) internal pure returns (string memory axlChainId) {
+    function toAxelarChainId(uint256 chainId) public pure returns (string memory axlChainId) {
         if (chainId == 1) return 'Ethereum';
         if (chainId == 5) return 'ethereum-2';
         if (chainId == 42220) return 'celo';
         if (chainId == 44787) return 'celo';
     }
 
-    function _fromAxelarChainId(string memory axlChainId) internal view returns (uint256 chainId) {
+    function fromAxelarChainId(string memory axlChainId) public view returns (uint256 chainId) {
         bytes32 chainHash = keccak256(bytes(axlChainId));
         if (chainHash == keccak256('Ethereum')) return 1;
         if (chainHash == keccak256('ethereum-2')) return 5;
