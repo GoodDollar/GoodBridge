@@ -146,14 +146,6 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
     mapping(uint256 => uint16) public lzChainIdsMapping;
 
     address public feeRecipient;
-    /**
-     * @dev Modifier that allows only the owner or guardian to call a function
-     */
-    modifier onlyOwnerOrGuardian() {
-        if ((guardian == msg.sender || avatar == msg.sender || owner() == msg.sender) == false)
-            revert NOT_GUARDIAN(msg.sender);
-        _;
-    }
 
     /**
      * @dev Constructor function for the AxelarBridge contract
@@ -171,6 +163,11 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
     }
 
     function _authorizeUpgrade(address impl) internal virtual override onlyOwner {}
+
+    function _onlyOwnerOrGuardian() internal view {
+        if ((guardian == msg.sender || avatar == msg.sender || owner() == msg.sender) == false)
+            revert NOT_GUARDIAN(msg.sender);
+    }
 
     /**
      * @dev Function for initializing the contract
@@ -209,7 +206,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @dev Function for setting the fee recipient
      * @param recipient The fee recipient to set
      */
-    function setFeeRecipient(address recipient) external onlyOwnerOrGuardian {
+    function setFeeRecipient(address recipient) external {
+        _onlyOwnerOrGuardian();
         feeRecipient = recipient;
     }
 
@@ -217,7 +215,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @dev Function for setting the bridge limits
      * @param limits The bridge limits to set
      */
-    function setBridgeLimits(BridgeLimits memory limits) external onlyOwnerOrGuardian {
+    function setBridgeLimits(BridgeLimits memory limits) external {
+        _onlyOwnerOrGuardian();
         bridgeLimits = limits;
     }
 
@@ -225,11 +224,13 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @dev Function for setting the bridge fees
      * @param fees The bridge fees to set
      */
-    function setBridgeFees(BridgeFees memory fees) external onlyOwnerOrGuardian {
+    function setBridgeFees(BridgeFees memory fees) external {
+        _onlyOwnerOrGuardian();
         bridgeFees = fees;
     }
 
-    function setDisabledBridges(bytes32[] memory bridgeKeys, bool[] memory disabled) external onlyOwnerOrGuardian {
+    function setDisabledBridges(bytes32[] memory bridgeKeys, bool[] memory disabled) external {
+        _onlyOwnerOrGuardian();
         for (uint256 i = 0; i < bridgeKeys.length; i++) disabledSourceBridges[bridgeKeys[i]] = disabled[i];
     }
 
@@ -237,7 +238,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @dev Function for setting the faucet contract
      * @param _faucet The faucet contract to set
      */
-    function setFaucet(IFaucet _faucet) external onlyOwnerOrGuardian {
+    function setFaucet(IFaucet _faucet) external {
+        _onlyOwnerOrGuardian();
         faucet = _faucet;
     }
 
@@ -245,7 +247,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @dev Function for setting the guardian contract
      * @param _guardian The guardian to set
      */
-    function setGuardian(address _guardian) external onlyOwnerOrGuardian {
+    function setGuardian(address _guardian) external {
+        _onlyOwnerOrGuardian();
         guardian = _guardian;
     }
 
@@ -299,7 +302,8 @@ contract MessagePassingBridge is DAOUpgradeableContract, LZHandlerUpgradeable, A
      * @dev Function for pausing the bridge
      * @param isPaused Whether to pause the bridge or not
      */
-    function pauseBridge(bool isPaused) external onlyOwnerOrGuardian {
+    function pauseBridge(bool isPaused) external {
+        _onlyOwnerOrGuardian();
         isClosed = isPaused;
     }
 
