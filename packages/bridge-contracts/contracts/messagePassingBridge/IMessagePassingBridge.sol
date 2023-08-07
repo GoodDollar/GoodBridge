@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
+interface ILayerZeroFeeEstimator {
+    function estimateSendFee(
+        uint16 _dstChainId,
+        address _fromAddress,
+        address _toAddress,
+        uint _normalizedAmount,
+        bool _useZro,
+        bytes memory _adapterParams
+    ) external view returns (uint nativeFee, uint zroFee);
+}
+
 interface IMessagePassingBridge {
     enum BridgeService {
         AXELAR,
@@ -47,15 +58,6 @@ interface IMessagePassingBridge {
     function feeRecipient() external view returns (address);
 
     function toLzChainId(uint256 chainId) external view returns (uint16 lzChainId);
-
-    function estimateSendFee(
-        uint16 _dstChainId,
-        address _fromAddress,
-        address _toAddress,
-        uint _normalizedAmount,
-        bool _useZro,
-        bytes memory _adapterParams
-    ) external view returns (uint nativeFee, uint zroFee);
 
     function setFeeRecipient(address recipient) external;
 

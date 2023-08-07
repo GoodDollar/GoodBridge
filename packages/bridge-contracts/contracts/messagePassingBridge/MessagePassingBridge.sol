@@ -582,24 +582,4 @@ contract MessagePassingBridge is
             if (TESTNET) return 44787;
             else return 42220;
     }
-
-    // Override the estimateSendFee function from the IMessagePassingBridge interface
-    function estimateSendFee(
-        uint16 targetChainId,
-        address from,
-        address target,
-        uint256 normalizedAmount,
-        bool useZro,
-        bytes calldata lzAdapterParams
-    ) public view override(IMessagePassingBridge, LZHandlerUpgradeable) returns (uint256 nativeFee, uint256 lzFee) {
-        return
-            LZHandlerUpgradeable.estimateSendFee(
-                targetChainId,
-                from,
-                target,
-                normalizedAmount,
-                useZro,
-                lzAdapterParams
-            );
-    }
 }
