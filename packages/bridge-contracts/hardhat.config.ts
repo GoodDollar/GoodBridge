@@ -42,9 +42,17 @@ const config: HardhatUserConfig = {
       chainId: 1337,
       allowUnlimitedContractSize: true,
     },
+    fork: {
+      chainId: 1,
+      url: 'https://rpc.vnet.tenderly.co/devnet/my-first-devnet/314c70f3-01f7-4a85-8d3e-6872ab00a145',
+    },
     develop: {
       chainId: 4447,
       url: 'http://localhost:8545',
+    },
+    mainnet: {
+      chainId: 1,
+      url: 'https://cloudflare-eth.com',
     },
     fuse: {
       accounts: accounts as HttpNetworkAccountsConfig,

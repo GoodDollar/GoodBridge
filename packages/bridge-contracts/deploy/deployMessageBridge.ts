@@ -82,18 +82,24 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, network } = hre;
   const signers = await ethers.getSigners();
   const signer = signers[0];
-
+  console.log('Signer:', {
+    address: signer.address,
+    balance: await signer.getBalance().then((_) => _.toString()),
+  });
   if (network.name === 'hardhat') {
     const ns = await waffle.deployMockContract(signers[0], ['function getAddress(string) returns(address)']);
     const ctrl = await waffle.deployMockContract(signers[0], ['function avatar() returns(address)']);
     await ns.mock.getAddress.withArgs('CONTROLLER').returns(ctrl.address);
+    await ns.mock.getAddress.withArgs('UBISCHEME').returns(signers[1].address);
+
     await ctrl.mock.avatar.returns(signer.address);
     chainsData[network.name].nameService = ns.address;
   }
   let isTestnet = true;
-  if (['celo', 'mainnet', 'fuse'].includes(network.name)) isTestnet = false;
+  if (['celo', 'mainnet', 'fuse', 'fork'].includes(network.name)) isTestnet = false;
 
-  const chainData = chainsData[network.name];
+  //support simulation on a fork
+  const chainData = chainsData[network.name === 'fork' ? 'mainnet' : network.name];
   console.log(chainData, network.name);
 
   const bridgeProxyDeploy = await deployments.deterministic('MessagePassingBridge', {
@@ -127,6 +133,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     onlyWhitelisted: false,
   };
 
+  //on side chains bridge needs to be able to mint
   const addAsMinter = async () => {
     console.log('adding bridge as minter');
     const ctrl = new ethers.Contract(Contracts[chainData.name || network.name].Controller, CtrlABI.abi, signer);
@@ -147,6 +154,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   if (bridgeImpl.newlyDeployed || !initialized) {
     //if proxy is new then we initialize, otherwise try to upgrade?
     if (!initialized) {
+      console.log('initializing bridge...');
       const encoded = mpb.interface.encodeFunctionData('initialize', [
         chainData.nameService,
         defaultLimits,
@@ -185,6 +193,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     //     await addAsMinter();
   }
 
-  if (['localhost', 'hardhat'].includes(network.name) === false) await verifyContracts(network.name);
+  if (['localhost', 'hardhat', 'fork'].includes(network.name) === false) await verifyContracts(network.name);
 };
 export default func;
