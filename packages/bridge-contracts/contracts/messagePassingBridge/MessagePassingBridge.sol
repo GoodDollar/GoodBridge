@@ -265,7 +265,9 @@ contract MessagePassingBridge is
 
         if (amount > bridgeLimits.txLimit) return (false, 'txLimit');
 
-        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {} else {
+        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
+            if (amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
+        } else {
             if (bridgeDailyLimit.bridged24Hours + amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
         }
 

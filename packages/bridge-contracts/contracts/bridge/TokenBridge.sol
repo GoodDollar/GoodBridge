@@ -151,6 +151,14 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
 
         if (amount < bridgeLimits.minAmount) return (false, 'minAmount');
 
+        if (amount > bridgeLimits.txLimit) return (false, 'txLimit');
+
+        if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
+            IIdentity id = IIdentity(nameService.getAddress('IDENTITY'));
+            if (address(id) != address(0))
+                if (id.isWhitelisted(from) == false) return (false, 'not whitelisted');
+        }
+
         uint256 account24hours = accountsDailyLimit[from].bridged24Hours;
         if (accountsDailyLimit[from].lastTransferReset < block.timestamp - 1 days) {
             account24hours = amount;
@@ -158,18 +166,12 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
             account24hours += amount;
         }
 
-        if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
-            IIdentity id = IIdentity(nameService.getAddress('IDENTITY'));
-            if (address(id) != address(0))
-                if (id.isWhitelisted(from) == false) return (false, 'not whitelisted');
+        // account limit only makes sense if we are using whitelisted, otherwise it is easy to by pass
+        if (account24hours > bridgeLimits.accountDailyLimit) return (false, 'accountDailyLimit');
 
-            // account limit only makes sense if we are using whitelisted, otherwise it is easy to by pass
-            if (account24hours > bridgeLimits.accountDailyLimit) return (false, 'accountDailyLimit');
-        }
-
-        if (amount > bridgeLimits.txLimit) return (false, 'txLimit');
-
-        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {} else {
+        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
+            if (amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
+        } else {
             if (bridgeDailyLimit.bridged24Hours + amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
         }
 
