@@ -165,7 +165,6 @@ contract MessagePassingBridge is
         setDAO(nameService);
         __LZHandlerUpgradeable_init(lzEndpoint_);
         guardian = msg.sender;
-        transferOwnership(avatar);
         bridgeLimits = limits;
         bridgeFees = fees;
         feeRecipient = nameService.getAddress('UBISCHEME');
@@ -174,13 +173,12 @@ contract MessagePassingBridge is
         // trust celo/eth/fuse we assume they are all deployed together at same address
         // if they are not deployed at the same time there's a risk of a malicious actor deploying the proxy at the same address
         // with modified malicious implementation
-        if (!TESTNET) {
-            trustedRemoteLookup[toLzChainId(1)] = abi.encodePacked(address(this), address(this));
-            trustedRemoteLookup[toLzChainId(122)] = abi.encodePacked(address(this), address(this));
-            trustedRemoteLookup[toLzChainId(42220)] = abi.encodePacked(address(this), address(this));
-        }
+        trustedRemoteLookup[toLzChainId(1)] = abi.encodePacked(address(this), address(this));
+        trustedRemoteLookup[toLzChainId(122)] = abi.encodePacked(address(this), address(this));
+        trustedRemoteLookup[toLzChainId(42220)] = abi.encodePacked(address(this), address(this));
+
         // trust between test nets
-        else {
+        if (TESTNET) {
             trustedRemoteLookup[toLzChainId(5)] = abi.encodePacked(address(this), address(this));
             trustedRemoteLookup[toLzChainId(44787)] = abi.encodePacked(address(this), address(this));
         }
@@ -279,7 +277,8 @@ contract MessagePassingBridge is
      * @param token The address of the token to withdraw
      * @param amount The amount to withdraw
      */
-    function withdraw(address token, uint256 amount) external onlyOwner {
+    function withdraw(address token, uint256 amount) external {
+        _onlyAvatar();
         if (amount == 0) amount = IERC20(token).balanceOf(address(this));
         IERC20(token).transfer(msg.sender, amount);
     }
@@ -410,6 +409,9 @@ contract MessagePassingBridge is
                 axelarGasRefundAddress == address(0) ? msg.sender : axelarGasRefundAddress
             );
         } else if (bridge == BridgeService.LZ) {
+            if (lzAdapterParams.length == 0) {
+                lzAdapterParams = abi.encodePacked(uint16(1), uint256(400000)); //default 400k gas estimate for bridge tx https://layerzero.gitbook.io/docs/evm-guides/advanced/relayer-adapter-parameters
+            }
             uint16 chainId = toLzChainId(targetChainId);
             if (chainId == 0) revert UNSUPPORTED_CHAIN(targetChainId);
             (uint256 nativeFee, ) = estimateSendFee(chainId, from, target, normalizedAmount, false, lzAdapterParams);
@@ -554,7 +556,7 @@ contract MessagePassingBridge is
     }
 
     function toLzChainId(uint256 chainId) public pure returns (uint16 lzChainId) {
-        if (chainId == 1) return 10001;
+        if (chainId == 1) return 101;
         if (chainId == 5) return 10121;
         if (chainId == 42220) return 125;
         if (chainId == 44787) return 10125;
@@ -562,7 +564,7 @@ contract MessagePassingBridge is
     }
 
     function fromLzChainId(uint16 lzChainId) public pure returns (uint256 chainId) {
-        if (lzChainId == 10001) return 1;
+        if (lzChainId == 101) return 1;
         if (lzChainId == 10121) return 5;
         if (lzChainId == 125) return 42220;
         if (lzChainId == 10125) return 44787;

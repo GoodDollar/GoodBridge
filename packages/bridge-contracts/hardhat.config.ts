@@ -9,6 +9,9 @@ import '@nomicfoundation/hardhat-chai-matchers';
 import '@nomiclabs/hardhat-waffle';
 import 'hardhat-deploy';
 import { HttpNetworkAccountsConfig } from 'hardhat/types';
+import { configDotenv } from 'dotenv';
+
+configDotenv();
 
 const pkey = process.env.PRIVATE_KEY;
 const mnemonic = process.env.MNEMONIC;
@@ -59,6 +62,11 @@ const config: HardhatUserConfig = {
       chainId: 122,
       url: 'https://fuse-rpc.gateway.pokt.network',
     },
+    fuse_testnet: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 122,
+      url: 'https://fuse-rpc.gateway.pokt.network',
+    },
     staging: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 122,
@@ -73,6 +81,23 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 42220,
       url: 'https://forno.celo.org',
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api.celoscan.io',
+          apiKey: process.env.CELOSCAN_KEY,
+        },
+      },
+    },
+    celo_testnet: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 42220,
+      url: 'https://forno.celo.org',
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api.celoscan.io',
+          apiKey: process.env.CELOSCAN_KEY,
+        },
+      },
     },
     alfajores: {
       accounts: accounts as HttpNetworkAccountsConfig,
@@ -92,6 +117,11 @@ const config: HardhatUserConfig = {
       gas: 3000000,
       gasPrice: 2e9,
       chainId: 5,
+    },
+  },
+  verify: {
+    etherscan: {
+      apiKey: process.env.ETHERSCAN_KEY,
     },
   },
   contractSizer: {
