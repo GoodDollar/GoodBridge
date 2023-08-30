@@ -1,6 +1,6 @@
 import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
 import { Contract, ethers, Signer } from 'ethers';
-import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last, chunk } from 'lodash';
+import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last, chunk, takeWhile } from 'lodash';
 import pAll from 'p-all';
 import Logger from 'js-logger';
 import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
@@ -425,6 +425,14 @@ export class BridgeSDK {
   ) => {
     const bridge = await this.getBridgeContract(sourceChainId);
     const targetBridge = await this.getBridgeContract(targetChainId);
+    const targetToken = new ethers.Contract(
+      await targetBridge.bridgedToken(),
+      ['function balanceOf(address account) view returns(uint256)', 'function decimals() view returns(uint8)'],
+      targetBridge.provider,
+    );
+    const targetBridgeBalance = await targetBridge.normalizeFromTokenTo18Decimals(
+      await targetToken.balanceOf(targetBridge.address),
+    );
 
     const targetMulti = new MultiCallContract(targetBridge.address, [
       'function executedRequests(uint256) view returns(bool)',
@@ -492,12 +500,19 @@ export class BridgeSDK {
 
     //get events only in range of 50 blocks, since otherwise relay will take too much gas to submit checkpoint blocks
     validEvents = validEvents.filter((_) => _.blockNumber <= validEvents[0].blockNumber + 50);
+    let total = ethers.constants.Zero;
+    validEvents = takeWhile(validEvents, (e) => {
+      total = total.add(e.args?.amount || 0);
+      return total.lte(targetBridgeBalance);
+    });
     const lastValidBlock = last(validEvents)?.blockNumber || 0;
 
     lastProcessedBlock = validEvents.length === 0 ? lastProcessedBlock : lastValidBlock;
 
     this.logger.info('fetchPendingBridgeRequests', {
       bridge: bridge.address,
+      totalBridgedValue: total.toString(),
+      targetBridgeBalance: targetBridgeBalance.toString(),
       checkpointBlock,
       lastProcessedBlock,
       fetchEventsFromBlock,
