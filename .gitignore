@@ -1,8 +1,7 @@
 **/node_modules
 **/.yarn/cache
+**/.DS_STORE
 packages/**/dist
-packages/bridge-contracts/typechain-types/@openzeppelin
-packages/bridge-contracts/typechain-types/factories
 packages/bridge-app/.yarn/install-state.gz
 packages/bridge-contracts/.yarn/install-state.gz
 .yarn/releases/yarn-stable-temp.cjs
@@ -17,3 +16,5 @@ packages/bridge-contracts/typechain-types
 packages/bridge-contracts/build
 packages/bridge-app/src/abi
 packages/bridge-app/types
+packages/bridge-contracts/deployments
+packages/bridge-contracts/scripts/checkStatus.ts

@@ -2068,7 +2068,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0x65D30A7194dc6d5175d8E311669008371A2e5CaF",
+          "address": "0xc20Bb060833F0C05a30312A744DDA654c0FCD281",
           "abi": [
             {
               "inputs": [
@@ -2623,6 +2623,38 @@
                   "internalType": "uint256",
                   "name": "bridged24Hours",
                   "type": "uint256"
+                }
+              ],
+              "stateMutability": "view",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "id",
+                  "type": "uint256"
+                }
+              ],
+              "name": "approveRequest",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "",
+                  "type": "uint256"
+                }
+              ],
+              "name": "approvedRequests",
+              "outputs": [
+                {
+                  "internalType": "bool",
+                  "name": "",
+                  "type": "bool"
                 }
               ],
               "stateMutability": "view",
@@ -6042,7 +6074,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0xB17D313657d8c7056B297e992488c58E919a4A42",
+          "address": "0x3e9804948DB8E998094F0cCed9842a3F5A2CF878",
           "abi": [
             {
               "inputs": [
@@ -6597,6 +6629,38 @@
                   "internalType": "uint256",
                   "name": "bridged24Hours",
                   "type": "uint256"
+                }
+              ],
+              "stateMutability": "view",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "id",
+                  "type": "uint256"
+                }
+              ],
+              "name": "approveRequest",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "",
+                  "type": "uint256"
+                }
+              ],
+              "name": "approvedRequests",
+              "outputs": [
+                {
+                  "internalType": "bool",
+                  "name": "",
+                  "type": "bool"
                 }
               ],
               "stateMutability": "view",

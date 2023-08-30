@@ -6,6 +6,7 @@ import 'hardhat-gas-reporter';
 import 'hardhat-contract-sizer';
 import '@openzeppelin/hardhat-upgrades';
 import '@nomicfoundation/hardhat-chai-matchers';
+import '@nomicfoundation/hardhat-verify';
 import '@nomiclabs/hardhat-waffle';
 import 'hardhat-deploy';
 import { HttpNetworkAccountsConfig } from 'hardhat/types';
@@ -123,6 +124,22 @@ const config: HardhatUserConfig = {
     etherscan: {
       apiKey: process.env.ETHERSCAN_KEY,
     },
+  },
+  etherscan: {
+    apiKey: {
+      goerli: process.env.ETHERSCAN_KEY || '',
+      celo: process.env.CELOSCAN_KEY || '',
+    },
+    customChains: [
+      {
+        chainId: 42220,
+        network: 'celo',
+        urls: {
+          apiURL: 'https://api.celoscan.io/api',
+          browserURL: 'https://celoscan.io',
+        },
+      },
+    ],
   },
   contractSizer: {
     runOnCompile: true,

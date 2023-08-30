@@ -18,6 +18,18 @@ interface IMessagePassingBridge {
         LZ
     }
 
+    // A struct for storing account limits
+    struct AccountLimit {
+        uint256 lastTransferReset;
+        uint256 bridged24Hours;
+    }
+
+    // A struct for storing bridge daily limits
+    struct BridgeDailyLimit {
+        uint256 lastTransferReset;
+        uint256 bridged24Hours;
+    }
+
     // A struct for storing bridge fees
     struct BridgeFees {
         uint256 minFee;

@@ -19,10 +19,6 @@ interface IFaucet {
     function topWallet(address) external;
 }
 
-interface IIdentity {
-    function isWhitelisted(address) external view returns (bool);
-}
-
 interface IMinter {
     function mint(address to, uint256 amount) external returns (bool);
 }
@@ -86,18 +82,6 @@ contract MessagePassingBridge is
 
     event FalseSender(uint256 sourceChainId, address sourceAddress);
 
-    // A struct for storing account limits
-    struct AccountLimit {
-        uint256 lastTransferReset;
-        uint256 bridged24Hours;
-    }
-
-    // A struct for storing bridge daily limits
-    struct BridgeDailyLimit {
-        uint256 lastTransferReset;
-        uint256 bridged24Hours;
-    }
-
     address public guardian;
 
     // A mapping for executed requests
@@ -130,6 +114,9 @@ contract MessagePassingBridge is
     mapping(uint256 => uint16) public lzChainIdsMapping;
 
     address public feeRecipient;
+
+    // A mapping for approved requests above limits
+    mapping(uint256 => bool) public approvedRequests;
 
     /**
      * @dev Constructor function for the AxelarBridge contract
@@ -185,6 +172,15 @@ contract MessagePassingBridge is
     }
 
     /**
+     * @dev Function for approving requests above limits
+     * @param id The bridgerequest id
+     */
+    function approveRequest(uint256 id) external {
+        _onlyOwnerOrGuardian();
+        approvedRequests[id] = true;
+    }
+
+    /**
      * @dev Function for setting the fee recipient
      * @param recipient The fee recipient to set
      */
@@ -235,44 +231,6 @@ contract MessagePassingBridge is
     }
 
     /**
-     * @dev Function for checking if a bridge is possible
-     * @param from The address of the sender
-     * @param amount The amount to bridge
-     * @return isWithinLimit Whether the bridge is within the limit
-     * @return error The error message, if any
-     */
-    function canBridge(address from, uint256 amount) public view returns (bool isWithinLimit, string memory error) {
-        if (isClosed) return (false, 'closed');
-
-        if (amount < bridgeLimits.minAmount) return (false, 'minAmount');
-
-        uint256 account24hours = accountsDailyLimit[from].bridged24Hours;
-        if (accountsDailyLimit[from].lastTransferReset < block.timestamp - 1 days) {
-            account24hours = amount;
-        } else {
-            account24hours += amount;
-        }
-
-        if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
-            IIdentity id = IIdentity(nameService.getAddress('IDENTITY'));
-            if (address(id) != address(0))
-                if (id.isWhitelisted(from) == false) return (false, 'not whitelisted');
-        }
-
-        if (account24hours > bridgeLimits.accountDailyLimit) return (false, 'accountDailyLimit');
-
-        if (amount > bridgeLimits.txLimit) return (false, 'txLimit');
-
-        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
-            if (amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
-        } else {
-            if (bridgeDailyLimit.bridged24Hours + amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
-        }
-
-        return (true, '');
-    }
-
-    /**
      * @dev Function for withdrawing tokens
      * @param token The address of the token to withdraw
      * @param amount The amount to withdraw
@@ -290,6 +248,19 @@ contract MessagePassingBridge is
     function pauseBridge(bool isPaused) external {
         _onlyOwnerOrGuardian();
         isClosed = isPaused;
+    }
+
+    function canBridge(address from, uint256 amount) public view returns (bool isWithinLimit, string memory error) {
+        return
+            BridgeHelperLibrary.canBridge(
+                bridgeLimits,
+                accountsDailyLimit[from],
+                bridgeDailyLimit,
+                nameService,
+                isClosed,
+                from,
+                amount
+            );
     }
 
     /**
@@ -339,7 +310,7 @@ contract MessagePassingBridge is
     }
 
     function bridgeTo(address target, uint256 targetChainId, uint256 amount, BridgeService bridge) external payable {
-        _bridgeTo(msg.sender, target, targetChainId, amount, false, bridge, '', address(0));
+        _bridgeTo(msg.sender, target, targetChainId, amount, bridge, '', address(0));
     }
 
     function bridgeToWithLz(
@@ -348,7 +319,7 @@ contract MessagePassingBridge is
         uint256 amount,
         bytes calldata adapterParams
     ) external payable {
-        _bridgeTo(msg.sender, target, targetChainId, amount, false, BridgeService.LZ, adapterParams, address(0));
+        _bridgeTo(msg.sender, target, targetChainId, amount, BridgeService.LZ, adapterParams, address(0));
     }
 
     function bridgeToWithAxelar(
@@ -357,7 +328,7 @@ contract MessagePassingBridge is
         uint256 amount,
         address gasRefundAddress
     ) external payable {
-        _bridgeTo(msg.sender, target, targetChainId, amount, false, BridgeService.AXELAR, '', gasRefundAddress);
+        _bridgeTo(msg.sender, target, targetChainId, amount, BridgeService.AXELAR, '', gasRefundAddress);
     }
 
     /**
@@ -366,7 +337,6 @@ contract MessagePassingBridge is
      * @param target The address to bridge tokens to
      * @param targetChainId The chain ID of the target chain
      * @param amount The amount of tokens to bridge
-     * @param isOnTokenTransfer Whether the transfer is on token transfer
      * @param lzAdapterParams extra params for lz
      * @param axelarGasRefundAddress gas refund address to axelar (default to msg.sender if 0)
      */
@@ -375,23 +345,16 @@ contract MessagePassingBridge is
         address target,
         uint256 targetChainId,
         uint256 amount,
-        bool isOnTokenTransfer,
         BridgeService bridge,
         bytes memory lzAdapterParams,
         address axelarGasRefundAddress
     ) internal {
         if (isClosed) revert BRIDGE_LIMITS('closed');
 
-        if (isOnTokenTransfer == false) {
-            // lock on mainnet, burn on other chains
-            if (_chainId() == 1 || _chainId() == 5) {
-                if (nativeToken().transferFrom(from, address(this), amount) == false) revert TRANSFER_FROM();
-            } else nativeToken().burnFrom(from, amount);
-        }
-        //ontokentransfer we already have the tokens, so burn them
-        else {
-            if (_chainId() != 1 && _chainId() != 5) nativeToken().burn(amount);
-        }
+        // lock on mainnet, burn on other chains
+        if (_chainId() == 1 || _chainId() == 5) {
+            if (nativeToken().transferFrom(from, address(this), amount) == false) revert TRANSFER_FROM();
+        } else nativeToken().burnFrom(from, amount);
 
         uint256 normalizedAmount = BridgeHelperLibrary.normalizeFromTokenTo18Decimals(amount, nativeToken().decimals()); //on bridge request we normalize amount from source chain decimals to 18 decimals
 
@@ -511,7 +474,10 @@ contract MessagePassingBridge is
             emit FalseSender(sourceChainId, sourceContract);
             return;
         }
-        _enforceLimits(from, target, normalizedAmount, _chainId());
+
+        //skip limits for manually approved/stuck TXs
+        if (approvedRequests[id] == false) _enforceLimits(from, target, normalizedAmount, _chainId());
+
         uint256 tokenAmount = BridgeHelperLibrary.normalizeFrom18ToTokenDecimals(
             normalizedAmount,
             nativeToken().decimals()

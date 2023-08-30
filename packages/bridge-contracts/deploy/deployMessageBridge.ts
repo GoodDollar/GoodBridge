@@ -1,26 +1,23 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { DeployFunction } from 'hardhat-deploy/types';
-import { ethers, waffle } from 'hardhat';
+import hre, { ethers, waffle, upgrades } from 'hardhat';
 import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import CtrlABI from '@gooddollar/goodprotocol/artifacts/abis/Controller.min.json';
 import util from 'util';
-
+import { getImplementationAddress } from '@openzeppelin/upgrades-core';
 const exec = util.promisify(require('child_process').exec);
 
-const verifyContracts = async (network) => {
-  let cmd = `npx hardhat etherscan-verify --network ${network}`;
-  console.log('running...:', cmd);
-  await exec(cmd).then(({ stdout, stderr }) => {
-    console.log('Result for:', cmd);
-    console.log(stdout);
-    console.log(stderr);
-  });
-  cmd = `npx hardhat sourcify --network ${network}`;
-  console.log('running...:', cmd);
-  await exec(cmd).then(({ stdout, stderr }) => {
-    console.log('Result for:', cmd);
-    console.log(stdout);
-    console.log(stderr);
+const verifyContracts = async (chainData, mpbImplAddress, helperAddress, isTestnet) => {
+  await hre.run('etherscan-verify');
+  await hre.run('sourcify');
+
+  //bug in hardhat-deploy not able to verify with libraries on etherscan
+  await hre.run('verify:verify', {
+    address: mpbImplAddress,
+    constructorArguments: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, isTestnet],
+    libraries: {
+      BridgeHelperLibrary: helperAddress,
+    },
   });
 };
 
@@ -34,12 +31,14 @@ const chainsData = {
     oneToken: ethers.constants.WeiPerEther,
   },
   goerli: {
+    name: 'goerli',
     axlGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
     axlGas: '0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6',
     lzEndpoint: '0xbfD2135BFfbb0B5378b56643c2Df8a87552Bfa23',
     nameService: Contracts['goerli']?.NameService,
     minter: Contracts['goerli']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
+    zkLightClient: '0x55d193eF196Be455c9c178b0984d7F9cE750CCb4',
   },
   alfajores: {
     axlGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
@@ -57,6 +56,7 @@ const chainsData = {
     nameService: Contracts['production-mainnet']?.NameService,
     minter: Contracts['production-mainnet']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.BigNumber.from(100),
+    zkLightClient: '0x394ee343625B83B5778d6F42d35142bdf26dBAcD',
   },
   celo: {
     name: 'production-celo',
@@ -66,6 +66,17 @@ const chainsData = {
     nameService: Contracts['production-celo']?.NameService,
     minter: Contracts['production-celo']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
+    zkLightClient: '0x1F45c453a91179a32b97623736dF09A552BC4f7f',
+  },
+  celo_testnet: {
+    name: 'development-celo',
+    axlGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+    axlGas: '0x2d5d7d31F671F86C782533cc367F14109a082712',
+    lzEndpoint: '0x3A73033C0b1407574C76BdBAc67f126f6b4a9AA9',
+    nameService: Contracts['development-celo']?.NameService,
+    minter: Contracts['development-celo']?.GoodDollarMintBurnWrapper,
+    oneToken: ethers.constants.WeiPerEther,
+    zkLightClient: '0x1F45c453a91179a32b97623736dF09A552BC4f7f',
   },
   fuse: {
     name: 'production',
@@ -74,6 +85,15 @@ const chainsData = {
     lzEndpoint: '0x9740FF91F1985D8d2B71494aE1A2f723bb3Ed9E4',
     nameService: Contracts['production']?.NameService,
     minter: Contracts['production']?.GoodDollarMintBurnWrapper,
+    oneToken: ethers.BigNumber.from(100),
+  },
+  fuse_testnet: {
+    name: 'fuse',
+    axlGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+    axlGas: '0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6',
+    lzEndpoint: '0x9740FF91F1985D8d2B71494aE1A2f723bb3Ed9E4',
+    nameService: Contracts['fuse']?.NameService,
+    minter: Contracts['fuse']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.BigNumber.from(100),
   },
 };
@@ -105,9 +125,19 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const bridgeProxyDeploy = await deployments.deterministic('MessagePassingBridge', {
     contract: 'ERC1967Proxy',
     from: signer.address,
-    salt: ethers.utils.keccak256(ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge'))),
+    salt: ethers.utils.keccak256(
+      ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge' + isTestnet ? 'Testnet' : '')),
+    ),
     log: true,
   });
+
+  const bridgeHelperLibrary = await deployments.deterministic('BridgeHelperLibrary', {
+    contract: 'BridgeHelperLibrary',
+    from: signer.address,
+    log: true,
+  });
+
+  console.log('BridgeHelperLibrary', bridgeHelperLibrary.address);
   const bridgeProxy = await bridgeProxyDeploy.deploy();
 
   const bridgeImpl = await deployments.deploy('MessagePassingBridge_Implementation', {
@@ -116,6 +146,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     deterministicDeployment: true,
     log: true,
     args: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, isTestnet],
+    libraries: { BridgeHelperLibrary: bridgeHelperLibrary.address },
   }); //as unknown as MessagePassingBridge;
 
   const mpb = await ethers.getContractAt('MessagePassingBridge', bridgeProxy.address);
@@ -151,7 +182,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log({ addMinterResult });
   };
 
-  if (bridgeImpl.newlyDeployed || !initialized) {
+  const isUpgraded =
+    initialized && (await getImplementationAddress(ethers.provider, mpb.address)) === bridgeImpl.address;
+  if (!isUpgraded || bridgeImpl.newlyDeployed || !initialized) {
     //if proxy is new then we initialize, otherwise try to upgrade?
     if (!initialized) {
       console.log('initializing bridge...');
@@ -173,26 +206,74 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         await addAsMinter();
       }
     } else if (isTestnet) {
+      console.log('upgrading testnet contract...');
       //testnet upgrade
-      const ctrl = new ethers.Contract(Contracts[chainData.name || network.name].Controller, CtrlABI.abi, signer);
-      const encoded = mpb.interface.encodeFunctionData('upgradeTo', [bridgeImpl.address]);
-      const upgradeResult = await (
-        await ctrl.genericCall(bridgeProxy.address, encoded, Contracts[chainData.name || network.name].Avatar, 0)
-      ).wait();
+      let upgradeResult;
+      const canUpgrade = await mpb.callStatic
+        .upgradeTo(bridgeImpl.address)
+        .then((_) => true)
+        .catch((_) => false);
+      if (canUpgrade) {
+        upgradeResult = await mpb.upgradeTo(bridgeImpl.address).then((_) => _.wait());
+      } else {
+        const ctrl = new ethers.Contract(Contracts[chainData.name || network.name].Controller, CtrlABI.abi, signer);
+        const encoded = mpb.interface.encodeFunctionData('upgradeTo', [bridgeImpl.address]);
+        upgradeResult = await (
+          await ctrl.genericCall(bridgeProxy.address, encoded, Contracts[chainData.name || network.name].Avatar, 0)
+        ).wait();
+      }
       console.log({ upgradeResult });
     } else {
       console.log('upgrade of bridge not supported here... need to be done via DAO');
     }
   }
 
+  const setLzZKOracle = async () => {
+    if (chainData.zkLightClient) {
+      await mpb
+        .setConfig(1, 101, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
+        .then((_) => _.wait()); //eth
+      await mpb
+        .setConfig(1, 10121, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
+        .then((_) => _.wait()); //goerli
+      await mpb
+        .setConfig(1, 125, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
+        .then((_) => _.wait()); // celo
+    }
+  };
+
   // helpers
   if (isTestnet) {
+    // const ctrl = new ethers.Contract(Contracts[chainData.name || network.name].Controller, CtrlABI.abi, signer);
+    // const encoded = mpb.interface.encodeFunctionData('transferOwnership', [signer.address]);
+    // const txResult = await (
+    //   await ctrl.genericCall(bridgeProxy.address, encoded, Contracts[chainData.name || network.name].Avatar, 0)
+    // ).wait();
+    // await mpb
+    //   .setTrustedRemoteAddress(10001, ethers.utils.solidityPack(['address', 'address'], [mpb.address, mpb.address]))
+    //   .then((_) => _.wait());
+    // await mpb
+    //   .setTrustedRemoteAddress(125, ethers.utils.solidityPack(['address', 'address'], [mpb.address, mpb.address]))
+    //   .then((_) => _.wait());
+    // await mpb
+    //   .setTrustedRemoteAddress(138, ethers.utils.solidityPack(['address', 'address'], [mpb.address, mpb.address]))
+    //   .then((_) => _.wait());
     //     console.log('resetting fees/limits on testnet');
     //     await (await mpb.setBridgeLimits(defaultLimits)).wait();
     //     await (await mpb.setBridgeFees(defaultFees)).wait();
-    //     await addAsMinter();
+    // await addAsMinter();
   }
 
-  if (['localhost', 'hardhat', 'fork'].includes(network.name) === false) await verifyContracts(network.name);
+  if ((await mpb.owner()) === signer.address) {
+    console.log('setting zklightclient...');
+    await setLzZKOracle();
+    if (isTestnet === false) {
+      console.log('transfering ownerhsip to DAO...');
+      await mpb.transferOwnership(await mpb.avatar()).then((_) => _.wait());
+    }
+  }
+
+  if (['localhost', 'hardhat', 'fork'].includes(network.name) === false)
+    await verifyContracts(chainData, mpb.address, bridgeHelperLibrary.address, isTestnet);
 };
 export default func;
