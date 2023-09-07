@@ -108,13 +108,14 @@ async function fetchNewBlocks(signers: Array<Signer>) {
       let validators = [];
       let curBlockNumber = -1;
       try {
-        curBlockNumber = await blockchain.web3.getBlockNumber();
-        curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
-        logger.info('current block:', { chainId, curBlockNumber });
         // const block = await blockchain.web3.eth.getBlock(blockchain.lastBlock ? blockchain.lastBlock + 1 : 'latest')
         const randProvider = blockchain.web3.providerConfigs[random(0, blockchain.web3.providerConfigs.length - 1)]
           .provider as JsonRpcProvider;
         logger.info('randProvider:', { chainId, rpc: randProvider.connection.url });
+        curBlockNumber = await randProvider.getBlockNumber();
+        curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
+        logger.info('current block:', { chainId, curBlockNumber });
+
         const latestCheckpoint = await randProvider.send('eth_getBlockByNumber', [
           '0x' + curBlockNumber.toString(16),
           false,

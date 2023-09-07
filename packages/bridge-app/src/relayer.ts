@@ -22,7 +22,7 @@ const defaultBridges = Object.values(bridges).map((bridge) => ({
 
 const {
   FIXED_FUSE_RPC = 'https://rpc.fuse.io',
-  FIXED_CELO_RPC = 'https://celo-tests.lavapro.xyz/mainnet/http',
+  FIXED_CELO_RPC = 'https://forno.celo.org',
   USE_FIXED_RPCS,
   REGISTRY_RPC = 'https://rpc.fuse.io',
   BLOCK_REGISTRY_ADDRESS = (bridges['production'] || bridges['staging']).registry,
