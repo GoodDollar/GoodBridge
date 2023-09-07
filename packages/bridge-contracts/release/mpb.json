@@ -2068,7 +2068,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0xc20Bb060833F0C05a30312A744DDA654c0FCD281",
+          "address": "0x85547c4D24a27DD20A7BafD673203aA441e0670c",
           "abi": [
             {
               "inputs": [
@@ -6074,7 +6074,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0x3e9804948DB8E998094F0cCed9842a3F5A2CF878",
+          "address": "0xB5C35cfca86d4fe8fD955D4fD9baC33F9B5AEF09",
           "abi": [
             {
               "inputs": [

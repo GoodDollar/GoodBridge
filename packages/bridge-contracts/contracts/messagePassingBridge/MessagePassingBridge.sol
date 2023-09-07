@@ -492,7 +492,8 @@ contract MessagePassingBridge is
         //unlock on mainnet mint on other chains
         if (_chainId() == 1 || _chainId() == 5) {
             if (nativeToken().transfer(target, tokenAmount - fee) == false) revert TRANSFER();
-            if (fee > 0) nativeToken().burn(fee);
+            if (fee > 0 && feeRecipient == address(0)) nativeToken().burn(fee);
+            else if (fee > 0) nativeToken().transfer(feeRecipient, fee);
         } else {
             IMinter(nameService.getAddress('MINTBURN_WRAPPER')).mint(target, tokenAmount - fee);
             if (fee > 0) IMinter(nameService.getAddress('MINTBURN_WRAPPER')).mint(feeRecipient, fee);

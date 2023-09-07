@@ -8,10 +8,13 @@ import { getImplementationAddress } from '@openzeppelin/upgrades-core';
 const exec = util.promisify(require('child_process').exec);
 
 const verifyContracts = async (chainData, mpbImplAddress, helperAddress, isTestnet) => {
+  console.log('verifying on etherscan...');
   await hre.run('etherscan-verify');
+  console.log('verifying on sourcify...');
   await hre.run('sourcify');
 
   //bug in hardhat-deploy not able to verify with libraries on etherscan
+  console.log('verifying on impl+library on etherscan...');
   await hre.run('verify:verify', {
     address: mpbImplAddress,
     constructorArguments: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, isTestnet],
@@ -155,12 +158,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     .then((_) => _ !== ethers.constants.AddressZero)
     .catch((_) => false);
 
-  const defaultFees = { maxFee: chainData.oneToken.mul(1e6), minFee: chainData.oneToken.mul(10), fee: 10 }; //maxFee = txLimit, minFee= 10G$ to cover some gas fees, fee 0.15% to cover multichain 0.1% + gas fees
+  const defaultFees = { maxFee: chainData.oneToken.mul(1e6), minFee: chainData.oneToken.mul(10), fee: 10 }; //maxFee = 1M G$, minFee= 10G$, fee 0.1% 10 in bps
   const defaultLimits = {
-    dailyLimit: chainData.oneToken.mul(5e8),
-    txLimit: chainData.oneToken.mul(2.5e8),
-    accountDailyLimit: chainData.oneToken.mul(3e8),
-    minAmount: chainData.oneToken.mul(1),
+    dailyLimit: ['production-mainnet', 'goerli'].includes(chainData.name)
+      ? chainData.oneToken.mul(300e6)
+      : ethers.constants.MaxUint256, //unlimited incoming on sidechains
+    txLimit: chainData.oneToken.mul(300e6),
+    accountDailyLimit: chainData.oneToken.mul(300e6),
+    minAmount: chainData.oneToken.mul(10),
     onlyWhitelisted: false,
   };
 
@@ -267,6 +272,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   if ((await mpb.owner()) === signer.address) {
     console.log('setting zklightclient...');
     await setLzZKOracle();
+    if (['production-mainnet', 'goerli'].includes(chainData.name)) {
+      console.log('setting fee recipient to null');
+      await mpb.setFeeRecipient(ethers.constants.AddressZero);
+    }
     if (isTestnet === false) {
       console.log('transfering ownerhsip to DAO...');
       await mpb.transferOwnership(await mpb.avatar()).then((_) => _.wait());
