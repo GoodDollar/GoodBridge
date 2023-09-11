@@ -17,6 +17,9 @@ abstract contract AxelarHandlerUpgradeable is AxelarExecutable {
     // An interface for the gas service contract
     IAxelarGasService public immutable gasService;
 
+    //Gap array
+    uint256[50] _gap;
+
     constructor(address gateway, address gasReceiver) AxelarExecutable(gateway) {
         gasService = IAxelarGasService(gasReceiver);
     }

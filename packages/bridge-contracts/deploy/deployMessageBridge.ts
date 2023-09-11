@@ -140,6 +140,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
   });
 
+  await bridgeHelperLibrary.deploy();
   console.log('BridgeHelperLibrary', bridgeHelperLibrary.address);
   const bridgeProxy = await bridgeProxyDeploy.deploy();
 

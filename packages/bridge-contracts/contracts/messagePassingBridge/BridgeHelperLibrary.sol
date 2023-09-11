@@ -37,7 +37,7 @@ library BridgeHelperLibrary {
         } else if (decimals > 18) {
             uint256 diff = decimals - 18;
             normalized = amount * 10 ** diff;
-        } else normalized = amount;
+        }
     }
 
     /**
