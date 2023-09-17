@@ -505,9 +505,9 @@ export class BridgeSDK {
       total = total.add(e.args?.amount || 0);
       return total.lte(targetBridgeBalance);
     });
-    const lastValidBlock = last(validEvents)?.blockNumber || 0;
+    const lastValidBlock = last(validEvents)?.blockNumber - 1 || 0;
 
-    lastProcessedBlock = validEvents.length === 0 ? lastProcessedBlock : lastValidBlock;
+    lastProcessedBlock = unexecutedIds.length === 0 ? lastProcessedBlock : lastValidBlock;
 
     this.logger.info('fetchPendingBridgeRequests', {
       bridge: bridge.address,
