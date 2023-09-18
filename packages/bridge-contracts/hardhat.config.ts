@@ -20,8 +20,7 @@ const mnemonic = process.env.MNEMONIC;
 let accounts: unknown = 'remote';
 if (pkey) {
   accounts = [pkey];
-}
-if (mnemonic) {
+} else if (mnemonic) {
   accounts = { mnemonic };
 }
 
@@ -55,6 +54,7 @@ const config: HardhatUserConfig = {
       url: 'http://localhost:8545',
     },
     mainnet: {
+      accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 1,
       url: 'https://cloudflare-eth.com',
     },
@@ -128,6 +128,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       goerli: process.env.ETHERSCAN_KEY || '',
+      mainnet: process.env.ETHERSCAN_KEY || '',
       celo: process.env.CELOSCAN_KEY || '',
     },
     customChains: [

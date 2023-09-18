@@ -123,14 +123,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   //support simulation on a fork
   const chainData = chainsData[network.name === 'fork' ? 'mainnet' : network.name];
-  console.log(chainData, network.name);
+  console.log(chainData, network.name, { isTestnet });
 
+  const proxySalt = ethers.utils.keccak256(
+    ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge' + (isTestnet ? 'Testnet' : 'V1'))),
+  );
   const bridgeProxyDeploy = await deployments.deterministic('MessagePassingBridge', {
     contract: 'ERC1967Proxy',
     from: signer.address,
-    salt: ethers.utils.keccak256(
-      ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge' + isTestnet ? 'Testnet' : '')),
-    ),
+    salt: proxySalt,
     log: true,
   });
 
@@ -287,6 +288,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   if (['localhost', 'hardhat', 'fork'].includes(network.name) === false)
-    await verifyContracts(chainData, mpb.address, bridgeHelperLibrary.address, isTestnet);
+    await verifyContracts(chainData, bridgeImpl.address, bridgeHelperLibrary.address, isTestnet);
 };
 export default func;
