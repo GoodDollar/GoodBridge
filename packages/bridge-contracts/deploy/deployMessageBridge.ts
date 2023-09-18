@@ -236,15 +236,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   const setLzZKOracle = async () => {
     if (chainData.zkLightClient) {
-      await mpb
-        .setConfig(1, 101, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
-        .then((_) => _.wait()); //eth
-      await mpb
-        .setConfig(1, 10121, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
-        .then((_) => _.wait()); //goerli
-      await mpb
-        .setConfig(1, 125, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
-        .then((_) => _.wait()); // celo
+      if (network.config.chainId != 1)
+        await mpb
+          .setConfig(0, 101, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
+          .then((_) => _.wait()); //eth
+      if (isTestnet)
+        await mpb
+          .setConfig(0, 10121, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
+          .then((_) => _.wait()); //goerli
+      if (network.config.chainId != 42220)
+        await mpb
+          .setConfig(0, 125, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
+          .then((_) => _.wait()); // celo
     }
   };
 
