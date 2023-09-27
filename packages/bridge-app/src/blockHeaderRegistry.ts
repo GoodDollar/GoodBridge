@@ -3,7 +3,7 @@ import fs from 'fs';
 import * as ethers from 'ethers';
 import { Wallet, Signer } from 'ethers';
 import { JsonRpcBatchProvider, JsonRpcProvider, FallbackProvider } from '@ethersproject/providers';
-import { chunk, filter, flatten, merge, range, throttle, random } from 'lodash';
+import { chunk, filter, flatten, merge, range, throttle, random, shuffle } from 'lodash';
 import { config } from 'dotenv';
 import pAll from 'p-all';
 import * as SignUtils from './utils';
@@ -89,6 +89,7 @@ async function initBlockchain(chainId: number, rpcs: Array<string>) {
   // await provider.getBlockNumber();
   // /////
   const providers = rpcs.map((_) => new ethers.providers.JsonRpcProvider(_));
+
   blockchains[String(chainId)] = {
     web3: new ethers.providers.FallbackProvider(providers, 1),
     lastBlock: blockchains[String(chainId)]?.lastBlock,
@@ -108,9 +109,12 @@ async function fetchNewBlocks(signers: Array<Signer>) {
       let validators = [];
       let curBlockNumber = -1;
       try {
+        const randProvider = shuffle(blockchain.web3.providerConfigs)[0].provider as JsonRpcProvider;
+        curBlockNumber = await randProvider.getBlockNumber();
+        curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
+        logger.info('current block:', { chainId, curBlockNumber });
         // const block = await blockchain.web3.eth.getBlock(blockchain.lastBlock ? blockchain.lastBlock + 1 : 'latest')
-        const randProvider = blockchain.web3.providerConfigs[random(0, blockchain.web3.providerConfigs.length - 1)]
-          .provider as JsonRpcProvider;
+
         logger.info('randProvider:', { chainId, rpc: randProvider.connection.url });
         curBlockNumber = await randProvider.getBlockNumber();
         curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
@@ -131,9 +135,6 @@ async function fetchNewBlocks(signers: Array<Signer>) {
           });
           blocks = await pAll(
             range(blockchain.lastBlock + stepSize, curBlockNumber, stepSize).map((i) => () => {
-              const randProvider = blockchain.web3.providerConfigs[
-                random(0, blockchain.web3.providerConfigs.length - 1)
-              ].provider as JsonRpcProvider;
               return randProvider.send('eth_getBlockByNumber', [ethers.utils.hexValue(i), false]);
             }),
             { concurrency: 50 },
