@@ -228,7 +228,9 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
   const blockHeader = prepareBlock(rpcBlock, chainId);
   const withReceiptType = !!blockHeader.blockHeader.baseFeePerGas || [42220].includes(chainId);
   let blockReceipt;
-  if (chainId === 42220) {
+
+  // for blocks before 1.8 fork on celo fetch also "blockReceipt"
+  if (chainId === 42220 && blockHeader.blockHeader.sha3Uncles === undefined) {
     blockReceipt = provider.send('eth_getBlockReceipt', [targetReceipt.blockHash]);
   }
   const receipts = (

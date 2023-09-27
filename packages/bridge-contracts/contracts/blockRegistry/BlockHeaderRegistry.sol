@@ -98,11 +98,7 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
         bytes signature
     );
 
-    function initialize(
-        address _voting,
-        address _consensus,
-        bool _isEventsOnly
-    ) public initializer {
+    function initialize(address _voting, address _consensus, bool _isEventsOnly) public initializer {
         voting = _voting;
         consensus = _consensus;
         isEventsOnly = _isEventsOnly;
@@ -279,7 +275,7 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
     function parseRLPBlockNumber(bytes calldata rlpHeader, uint256 chainId) public pure returns (uint256 blockNumber) {
         RLPReader.RLPItem[] memory ls = rlpHeader.toRlpItem().toList();
 
-        uint256 blocknumberSlot = chainId == 42220 ? 6 : 8;
+        uint256 blocknumberSlot = chainId == 42220 && ls.length != 16 ? 6 : 8; //16 is the new celo block header after 1.8 fork
         blockNumber = ls[blocknumberSlot].toUint();
     }
 }

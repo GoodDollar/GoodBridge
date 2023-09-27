@@ -51,6 +51,14 @@ describe('block merkle patricia tree tests', () => {
       );
       expect(proof).toBeTruthy();
     });
+    it('generate receipt proof for celo after fork', async () => {
+      const proof = await SigUtils.receiptProof(
+        '0xa31152574444d2b437abd0a952e6c964a1069ffd3bf5a6094b4e4febf6efbdc2',
+        new ethers.providers.JsonRpcProvider('https://forno.celo.org'),
+        42220,
+      );
+      expect(proof).toBeTruthy();
+    });
   });
 
   describe('parses rlpheaders', () => {

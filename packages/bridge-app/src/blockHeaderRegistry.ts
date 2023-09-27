@@ -110,15 +110,11 @@ async function fetchNewBlocks(signers: Array<Signer>) {
       let curBlockNumber = -1;
       try {
         const randProvider = shuffle(blockchain.web3.providerConfigs)[0].provider as JsonRpcProvider;
-        curBlockNumber = await randProvider.getBlockNumber();
-        curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
-        logger.info('current block:', { chainId, curBlockNumber });
-        // const block = await blockchain.web3.eth.getBlock(blockchain.lastBlock ? blockchain.lastBlock + 1 : 'latest')
-
         logger.info('randProvider:', { chainId, rpc: randProvider.connection.url });
         curBlockNumber = await randProvider.getBlockNumber();
         curBlockNumber = curBlockNumber - (curBlockNumber % stepSize);
         logger.info('current block:', { chainId, curBlockNumber });
+        // const block = await blockchain.web3.eth.getBlock(blockchain.lastBlock ? blockchain.lastBlock + 1 : 'latest')
 
         const latestCheckpoint = await randProvider.send('eth_getBlockByNumber', [
           '0x' + curBlockNumber.toString(16),
@@ -225,7 +221,7 @@ const _refreshRPCs = async () => {
     logger.info('got registered rpcs:', chains);
     await Promise.all(
       chains.map(({ chainId, rpc }) => {
-        const rpcs = rpc.split(',');
+        const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false);
         if (chainId.toNumber() === 122 && FUSE_RPC) {
           //on fuse use the local validator node rpc
           rpcs.push(FUSE_RPC);
@@ -233,6 +229,7 @@ const _refreshRPCs = async () => {
         return initBlockchain(chainId.toNumber(), rpcs);
       }),
     );
+
     // const randRpc = chains.map(({ chainId, rpc }) => {
     //   const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
     //   if (chainId.toNumber() === 122 && FUSE_RPC) {
