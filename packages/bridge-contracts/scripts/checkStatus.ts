@@ -26,8 +26,13 @@ const checkStaleRequests = async () => {
     const bRequests = bridgeBRequests.map((e) => e.args?.[6].toString());
     const bExecuted = bridgeBExecuted.map((e) => e.args?.[7].toString());
 
-    const fuseNotExecuted = difference(aRequests, bExecuted);
-    const celoNotExecuted = difference(bRequests, aExecuted);
+    const fuseNotExecuted = difference(aRequests, bExecuted).map(
+      (id) => bridgeARequests.find((_) => _.args?.[6].toString() == id)?.transactionHash,
+    );
+    const celoNotExecuted = difference(bRequests, aExecuted).map(
+      (id) => bridgeBRequests.find((_) => _.args?.[6].toString() == id)?.transactionHash,
+    );
+
     console.log('found on fuse:', bridge.fuseBridge, { aRequests, aExecuted, fuseNotExecuted });
     console.log('found requests celo:', bridge.celoBridge, { bRequests, bExecuted, celoNotExecuted });
     if (celoNotExecuted.length || fuseNotExecuted.length) {
