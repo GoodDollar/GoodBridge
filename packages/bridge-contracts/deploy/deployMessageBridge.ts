@@ -163,11 +163,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const defaultFees = { maxFee: chainData.oneToken.mul(1e6), minFee: chainData.oneToken.mul(10), fee: 10 }; //maxFee = 1M G$, minFee= 10G$, fee 0.1% 10 in bps
   const defaultLimits = {
     dailyLimit: ['production-mainnet', 'goerli'].includes(chainData.name)
-      ? chainData.oneToken.mul(300e6)
+      ? ethers.constants.WeiPerEther.mul(300e6)
       : ethers.constants.MaxUint256, //unlimited incoming on sidechains
-    txLimit: chainData.oneToken.mul(300e6),
-    accountDailyLimit: chainData.oneToken.mul(300e6),
-    minAmount: chainData.oneToken.mul(10),
+    txLimit: ethers.constants.WeiPerEther.mul(300e6),
+    accountDailyLimit: ethers.constants.WeiPerEther.mul(300e6),
+    minAmount: ethers.constants.WeiPerEther.mul(10),
     onlyWhitelisted: false,
   };
 
