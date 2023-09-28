@@ -18,8 +18,10 @@ const checkStaleRequests = async () => {
     const bridgeB = new ethers.Contract(bridge.celoBridge, TokenBridgeABI, celoRpc);
     const bridgeARequests = await bridgeA.queryFilter(bridgeA.filters.BridgeRequest(), blocksAgo, -60);
     const bridgeAExecuted = await bridgeA.queryFilter(bridgeA.filters.ExecutedTransfer(), blocksAgo);
+    bridgeAExecuted.push(...(await bridgeA.queryFilter(bridgeA.filters.ExecutedTransfer(), blocksAgo * 2, blocksAgo)));
     const bridgeBRequests = await bridgeB.queryFilter(bridgeB.filters.BridgeRequest(), blocksAgo, -60);
     const bridgeBExecuted = await bridgeB.queryFilter(bridgeB.filters.ExecutedTransfer(), blocksAgo);
+    bridgeBExecuted.push(...(await bridgeB.queryFilter(bridgeB.filters.ExecutedTransfer(), blocksAgo * 2, blocksAgo)));
 
     const aRequests = bridgeARequests.map((e) => e.args?.[6].toString());
     const aExecuted = bridgeAExecuted.map((e) => e.args?.[7].toString());
@@ -33,8 +35,16 @@ const checkStaleRequests = async () => {
       (id) => bridgeBRequests.find((_) => _.args?.[6].toString() == id)?.transactionHash,
     );
 
-    console.log('found on fuse:', bridge.fuseBridge, { aRequests, aExecuted, fuseNotExecuted });
-    console.log('found requests celo:', bridge.celoBridge, { bRequests, bExecuted, celoNotExecuted });
+    console.log('found on fuse:', bridge.fuseBridge, {
+      aRequests,
+      aExecuted,
+      fuseNotExecuted,
+    });
+    console.log('found requests celo:', bridge.celoBridge, {
+      bRequests,
+      bExecuted,
+      celoNotExecuted,
+    });
     if (celoNotExecuted.length || fuseNotExecuted.length) {
       await handleError(bridge, celoNotExecuted, fuseNotExecuted);
     }
@@ -105,4 +115,4 @@ const checkFees = async () => {
 
 checkStaleRequests();
 
-checkFees();
+// checkFees();

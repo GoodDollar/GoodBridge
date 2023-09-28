@@ -10,7 +10,7 @@ logger.setLevel(Log.DEBUG);
 
 jest.setTimeout(120000);
 const txs = [
-  '0x380fe9ee630e49b8b0cfc87776a2e6067e529dea520ea8be25f726453f06eb69',
+  '0xa31152574444d2b437abd0a952e6c964a1069ffd3bf5a6094b4e4febf6efbdc2',
   '0xca329a227977145452005b439a29ce8d6d41e1b72b0b6eac3645697ad65d81c3',
 ];
 describe('run a tx relay manually', () => {

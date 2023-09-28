@@ -61,7 +61,8 @@ library RLPParser {
         it.next();
         it.next(); // pos 3
 
-        if (chainId != 42220) it.next(); //pos 4
+        //handle celo 1.8 hardfork that now matches regular blocks structure (numItems>10)
+        if (chainId != 42220 || it.item.numItems() > 10) it.next(); //pos 4
 
         receiptsRoot = bytes32(it.next().toUint()); //pos 4 or 5
     }
