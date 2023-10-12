@@ -1,6 +1,6 @@
 {
   "name": "@gooddollar/bridge-contracts",
-  "version": "1.0.14-beta.7",
+  "version": "1.0.15",
   "description": "",
   "main": "index.js",
   "scripts": {
