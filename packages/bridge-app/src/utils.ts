@@ -256,7 +256,10 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
     }),
   );
 
-  const [, , stack] = await promisfy(tree.findPath, tree)(encode(targetReceipt.transactionIndex));
+  const receiptProof = (await promisfy(Tree.prove)(tree, encode(targetReceipt.transactionIndex))).map(
+    (_) => '0x' + _.toString('hex'),
+  );
+
   const receiptsRoot = '0x' + tree.root.toString('hex');
   if (receiptsRoot !== blockHeader.block.receiptsRoot) {
     console.error(receipts, {
@@ -269,7 +272,7 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
     receipt: targetReceipt,
     receiptsRoot,
     headerRlp: blockHeader.rlpHeader,
-    receiptProof: Proof.fromStack(stack).raw.map((_) => '0x' + encode(_).toString('hex')),
+    receiptProof,
     txIndex: targetReceipt.transactionIndex,
     receiptRlp:
       '0x' +
