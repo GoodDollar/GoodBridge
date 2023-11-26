@@ -74,11 +74,10 @@ library MPT {
         else return false;
     }
 
-    function verifyTrieProofLeafOrExtension(RLPReader.Iterator memory dec, MerkleProof memory data)
-        internal
-        pure
-        returns (bool)
-    {
+    function verifyTrieProofLeafOrExtension(
+        RLPReader.Iterator memory dec,
+        MerkleProof memory data
+    ) internal pure returns (bool) {
         bytes memory nodekey = dec.next().toBytes();
         bytes memory nodevalue = dec.next().toBytes();
         uint256 prefix;
@@ -104,22 +103,7 @@ library MPT {
                 if (keccak256(actualKey) == keccak256(restKey)) return true;
                 if (keccak256(expandKeyOdd(actualKey)) == keccak256(restKey)) return true;
             }
-        } else if (prefix == 0) {
-            // extension even
-            uint256 extensionLength = nodekey.length - 1;
-            bytes memory shared_nibbles = sliceTransform(nodekey, 1, extensionLength, false);
-            bytes memory restKey = sliceTransform(data.key, data.keyIndex, extensionLength, false);
-            if (
-                keccak256(shared_nibbles) == keccak256(restKey) ||
-                keccak256(expandKeyEven(shared_nibbles)) == keccak256(restKey)
-            ) {
-                data.expectedRoot = b2b32(nodevalue);
-                data.keyIndex += extensionLength;
-                data.proofIndex += 1;
-                return verifyTrieProof(data);
-            }
-        } else if (prefix == 1) {
-            // extension odd
+        } else if (prefix == 0 || prefix == 1) {
             uint256 extensionLength = nodekey.length;
             bytes memory shared_nibbles = sliceTransform(nodekey, 0, extensionLength, true);
             bytes memory restKey = sliceTransform(data.key, data.keyIndex, extensionLength, false);

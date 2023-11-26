@@ -47,7 +47,7 @@
     "ethers": "^5.*",
     "hardhat": "^2.12.2",
     "hardhat-contract-sizer": "^2.6.1",
-    "hardhat-deploy": "^0.11.34",
+    "hardhat-deploy": "^0.11.44",
     "hardhat-gas-reporter": "^1.0.9",
     "merkle-patricia-tree": "^2.*",
     "prettier": "^2.5.1",

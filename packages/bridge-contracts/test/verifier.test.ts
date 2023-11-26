@@ -40,7 +40,7 @@ describe('Parser/MPT Verifier', () => {
     }
   });
 
-  it.only('should parse celo receipt after 1.8 fork', async () => {
+  it('should parse celo receipt after 1.8 fork', async () => {
     const receipt = await celoRpc.getTransactionReceipt(
       '0xa4ebf1da90dea53f0b1432c34caa1e9c2e5ec2ae94edb0911ccf967e6546eeb8',
     );
@@ -118,6 +118,30 @@ describe('Parser/MPT Verifier', () => {
   it('should verify celo receipt inclusion', async () => {
     const proof = await SignUtils.receiptProof(
       '0x67b389bc4640211455cfc7234fec76ce7cd90198b594a427b7935bda17bd940d',
+      celoRpc,
+      42220,
+    );
+
+    const expectedRoot = proof.receiptsRoot;
+
+    const receiptRlp = proof.receiptRlp;
+    const path = proof.receiptProof;
+    const mptproof = {
+      expectedRoot,
+      expectedValue: receiptRlp,
+      proof: path,
+      key: SignUtils.index2key(proof.txIndex, path.length),
+      keyIndex: 0,
+      proofIndex: 0,
+    };
+    console.log('key indexes:', mptproof.key);
+    const isVerified = await verifier.verifyReceipt(mptproof);
+    expect(isVerified).to.be.true;
+  });
+
+  it('should verify celo receipt inclusion extension even', async () => {
+    const proof = await SignUtils.receiptProof(
+      '0xd9402a712a1d7c42329c467b524f03ada2cb7cf3041c2aa2e4cdcc73dc83acf5',
       celoRpc,
       42220,
     );

@@ -4,15 +4,13 @@ import '../utils/MPT.sol';
 import '../utils/RLPParser.sol';
 
 contract VerifierTest {
-    function verifyReceipt(MPT.MerkleProof calldata proof) external view returns (bool ok) {
+    function verifyReceipt(MPT.MerkleProof calldata proof) external pure returns (bool ok) {
         return MPT.verifyTrieProof(proof);
     }
 
-    function parseReceipt(bytes calldata receiptRlp)
-        external
-        view
-        returns (RLPParser.TransactionReceipt memory receipt)
-    {
+    function parseReceipt(
+        bytes calldata receiptRlp
+    ) external pure returns (RLPParser.TransactionReceipt memory receipt) {
         return RLPParser.toReceipt(receiptRlp);
     }
 }
