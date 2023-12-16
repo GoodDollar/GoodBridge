@@ -2,10 +2,9 @@ import * as ethers from 'ethers';
 import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
 import { flatten, pick } from 'lodash';
 import { JsonRpcBatchProvider } from '@ethersproject/providers';
-import Tree from 'merkle-patricia-tree';
-import { Receipt, Proof } from 'eth-object';
+import { BaseTrie as Tree } from 'merkle-patricia-tree';
+import { Receipt } from 'eth-object';
 import { encode } from 'eth-util-lite';
-import { promisfy } from 'promisfy';
 import * as RLP from 'rlp';
 
 export interface BlockHeader {
@@ -252,11 +251,11 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
       if (withReceiptType && siblingReceipt.type && siblingReceipt.type != '0x0') {
         serializedReceipt = Buffer.concat([Buffer.from([siblingReceipt.type]), serializedReceipt]);
       }
-      return promisfy(tree.put, tree)(siblingPath, serializedReceipt);
+      return tree.put(siblingPath, serializedReceipt);
     }),
   );
 
-  const receiptProof = (await promisfy(Tree.prove)(tree, encode(targetReceipt.transactionIndex))).map(
+  const receiptProof = (await Tree.createProof(tree, encode(targetReceipt.transactionIndex))).map(
     (_) => '0x' + _.toString('hex'),
   );
 

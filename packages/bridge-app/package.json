@@ -57,6 +57,7 @@
     "ethers-multicall": "^0.2.3",
     "js-logger": "^1.6.1",
     "lodash": "^4.17.21",
+    "merkle-patricia-tree": "^4.2.4",
     "node-fetch": "2",
     "p-all": "3.0.0"
   }
