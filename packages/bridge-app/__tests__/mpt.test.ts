@@ -28,7 +28,7 @@ describe('block merkle patricia tree tests', () => {
     it('generate receipt proof for ethereum', async () => {
       const proof = await SigUtils.receiptProof(
         '0xdd6682473931f1c94757199390fcffdf1daf876ff8eb8eeb24afc038e125e876',
-        new ethers.providers.JsonRpcProvider('https://eth-rpc.gateway.pokt.network'),
+        new ethers.providers.JsonRpcProvider('https://cloudflare-eth.com'),
         1,
       );
       expect(proof).toBeTruthy();
@@ -54,6 +54,14 @@ describe('block merkle patricia tree tests', () => {
     it('generate receipt proof for celo after fork', async () => {
       const proof = await SigUtils.receiptProof(
         '0xa31152574444d2b437abd0a952e6c964a1069ffd3bf5a6094b4e4febf6efbdc2',
+        new ethers.providers.JsonRpcProvider('https://forno.celo.org'),
+        42220,
+      );
+      expect(proof).toBeTruthy();
+    });
+    it('generate receipt proof for celo epoch block 22982400', async () => {
+      const proof = await SigUtils.receiptProof(
+        '0x26f0c56acbd2f903c12fb3431e0b832c071c1173256f4f64fedd920ee363897a',
         new ethers.providers.JsonRpcProvider('https://forno.celo.org'),
         42220,
       );

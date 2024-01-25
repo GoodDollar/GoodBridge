@@ -229,19 +229,26 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
   let blockReceipt;
 
   // for blocks before 1.8 fork on celo fetch also "blockReceipt"
-  if (chainId === 42220 && blockHeader.blockHeader.sha3Uncles === undefined) {
+  if (chainId === 42220) {
     blockReceipt = provider.send('eth_getBlockReceipt', [targetReceipt.blockHash]);
   }
   const receipts = (
     await Promise.all(
-      rpcBlock.transactions
-        .map(async (siblingTxHash) => {
-          return provider.send('eth_getTransactionReceipt', [siblingTxHash]);
-        })
-        .concat(blockReceipt),
+      rpcBlock.transactions.map(async (siblingTxHash) => {
+        return provider.send('eth_getTransactionReceipt', [siblingTxHash]);
+      }),
     )
   ).filter((_) => _);
 
+  if (chainId === 42220) {
+    blockReceipt = await blockReceipt;
+
+    // for blocks pre 1.8 or epoch blocks post 1.8 on celo we need to add the blockreceipt, currently identify by non empty logs. but not sure this is correct
+    // sha3uncles identifies pre 1.8 blocks
+    if (chainId === 42220 && (blockHeader.blockHeader.sha3Uncles === undefined || blockReceipt.logs.length > 0)) {
+      receipts.push(blockReceipt);
+    }
+  }
   const tree = new Tree();
 
   await Promise.all(
