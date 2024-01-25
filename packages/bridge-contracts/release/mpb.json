@@ -10685,7 +10685,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0xd0a3Fad8D7887f8264414DDd3290Ed1782Fb4658",
+          "address": "0x691dE730D97d545c141D13ED5e9c12b7cB384a73",
           "abi": [
             {
               "inputs": [
@@ -12170,6 +12170,19 @@
                 }
               ],
               "stateMutability": "view",
+              "type": "function"
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "id",
+                  "type": "uint256"
+                }
+              ],
+              "name": "preventRequest",
+              "outputs": [],
+              "stateMutability": "nonpayable",
               "type": "function"
             },
             {

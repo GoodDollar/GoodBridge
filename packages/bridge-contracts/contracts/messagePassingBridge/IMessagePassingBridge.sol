@@ -104,4 +104,6 @@ interface IMessagePassingBridge {
         uint256 amount,
         address gasRefundAddress
     ) external payable;
+
+    function executedRequests(uint256 id) external view returns (bool);
 }

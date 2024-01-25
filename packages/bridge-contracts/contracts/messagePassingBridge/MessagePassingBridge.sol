@@ -181,6 +181,15 @@ contract MessagePassingBridge is
     }
 
     /**
+     * @dev Function for prevent a request by marking it as executed
+     * @param id The bridgerequest id
+     */
+    function preventRequest(uint256 id) external {
+        _onlyOwnerOrGuardian();
+        executedRequests[id] = true;
+    }
+
+    /**
      * @dev Function for setting the fee recipient
      * @param recipient The fee recipient to set
      */
@@ -355,7 +364,6 @@ contract MessagePassingBridge is
         if (_chainId() == 1 || _chainId() == 5) {
             if (nativeToken().transferFrom(from, address(this), amount) == false) revert TRANSFER_FROM();
         } else nativeToken().burnFrom(from, amount);
-
         uint256 normalizedAmount = BridgeHelperLibrary.normalizeFromTokenTo18Decimals(amount, nativeToken().decimals()); //on bridge request we normalize amount from source chain decimals to 18 decimals
 
         if (msg.value == 0) revert MISSING_FEE();
@@ -376,9 +384,12 @@ contract MessagePassingBridge is
                 lzAdapterParams = abi.encodePacked(uint16(1), uint256(400000)); //default 400k gas estimate for bridge tx https://layerzero.gitbook.io/docs/evm-guides/advanced/relayer-adapter-parameters
             }
             uint16 chainId = toLzChainId(targetChainId);
+
             if (chainId == 0) revert UNSUPPORTED_CHAIN(targetChainId);
             (uint256 nativeFee, ) = estimateSendFee(chainId, from, target, normalizedAmount, false, lzAdapterParams);
+
             if (nativeFee > msg.value) revert LZ_FEE(nativeFee, msg.value);
+
             _lzBridgeTo(payload, chainId, payable(from), address(0), lzAdapterParams);
         }
 
