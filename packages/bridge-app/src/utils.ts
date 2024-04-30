@@ -243,9 +243,9 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
   if (chainId === 42220) {
     blockReceipt = await blockReceipt;
 
-    // for blocks pre 1.8 or epoch blocks post 1.8 on celo we need to add the blockreceipt, currently identify by non empty logs. but not sure this is correct
-    // sha3uncles identifies pre 1.8 blocks
-    if (chainId === 42220 && (blockHeader.blockHeader.sha3Uncles === undefined || blockReceipt.logs.length > 0)) {
+    // for blocks pre 1.8 or epoch blocks post 1.8 on celo we need to add the blockreceipt, currently identify by non empty logs.
+    // https://github.com/celo-org/celo-blockchain/discussions/2231#discussioncomment-8254998
+    if (blockReceipt.logs.length !== 0) {
       receipts.push(blockReceipt);
     }
   }
