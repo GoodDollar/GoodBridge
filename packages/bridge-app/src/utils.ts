@@ -207,12 +207,8 @@ export const index2key = (index, proofLength) => {
   const key = [...new Array(encoded.length / 2).keys()].map((i) => parseInt(encoded[i * 2] + encoded[i * 2 + 1], 16));
 
   key.forEach((val) => {
-    if (actualkey.length + 1 === proofLength) {
-      actualkey.push(val);
-    } else {
-      actualkey.push(Math.floor(val / 16));
-      actualkey.push(val % 16);
-    }
+    actualkey.push(Math.floor(val / 16));
+    actualkey.push(val % 16);
   });
   return '0x' + actualkey.map((v) => v.toString(16).padStart(2, '0')).join('');
 };

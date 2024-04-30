@@ -97,6 +97,29 @@ describe('Parser/MPT Verifier', () => {
     expect(isVerified).to.be.true;
   });
 
+  it('should verify edge case of last tx in block', async () => {
+    const proof = await SignUtils.receiptProof(
+      '0x5b77e45c0085c3c4a2242736098838b948ef335f2805a726a95e6b5e2bc59c72',
+      new ethers.providers.JsonRpcProvider('https://forno.celo.org'),
+      42220,
+    );
+
+    const expectedRoot = proof.receiptsRoot;
+
+    const receiptRlp = proof.receiptRlp;
+    const path = proof.receiptProof;
+    const mptproof = {
+      expectedRoot,
+      expectedValue: receiptRlp,
+      proof: path,
+      key: SignUtils.index2key(proof.txIndex, path.length),
+      keyIndex: 0,
+      proofIndex: 0,
+    };
+    const isVerified = await verifier.verifyReceipt(mptproof);
+    expect(isVerified).to.be.true;
+  });
+
   it('should verify ethereum receipt inclusion', async () => {
     const proof = ethProof;
     const expectedRoot = proof.receiptsRoot;

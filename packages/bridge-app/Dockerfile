@@ -1,4 +1,4 @@
-FROM gcr.io/distroless/nodejs:16
+FROM gcr.io/distroless/nodejs18-debian12
 WORKDIR /app
 COPY ./distDocker ./bridge
 
