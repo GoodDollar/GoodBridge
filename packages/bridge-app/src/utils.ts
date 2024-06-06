@@ -1,7 +1,7 @@
 import * as ethers from 'ethers';
 import { abi as RegistryABI } from './abi/BlockHeaderRegistry.json';
 import { flatten, pick } from 'lodash';
-import { JsonRpcBatchProvider } from '@ethersproject/providers';
+import { JsonRpcProvider } from '@ethersproject/providers';
 import { BaseTrie as Tree } from 'merkle-patricia-tree';
 import { Receipt } from 'eth-object';
 import { encode } from 'eth-util-lite';
@@ -30,7 +30,7 @@ export interface BlockHeader {
   transactions: string[];
 }
 
-const rpcs: { [chainId: string]: JsonRpcBatchProvider } = {};
+const rpcs: { [chainId: string]: JsonRpcProvider } = {};
 
 export function getRlpHeader(web3Header: Partial<BlockHeader>) {
   const rlpBytes = flatten(
@@ -127,7 +127,7 @@ export const getRegistryContract = (address: string, signer: ethers.Signer) => {
 // transactionsRoot: "0xd443bc42f99dbfdd1f8a54be2c863ecd7c2f12e24252aa47e4fa33eed418aa2b"
 // uncles: []
 export const getBlockchainHeader = async (blockTag: string, chainId: number, rpc: string) => {
-  const web3 = rpcs[String(chainId)] || new JsonRpcBatchProvider(rpc);
+  const web3 = rpcs[String(chainId)] || new JsonRpcProvider(rpc);
   rpcs[String(chainId)] = web3;
   const block = await web3.send('eth_getBlockByNumber', [
     blockTag === 'latest' ? 'latest' : '0x' + Number(blockTag).toString(16),

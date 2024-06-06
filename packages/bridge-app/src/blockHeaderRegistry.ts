@@ -2,8 +2,8 @@
 import fs from 'fs';
 import * as ethers from 'ethers';
 import { Wallet, Signer } from 'ethers';
-import { JsonRpcBatchProvider, JsonRpcProvider, FallbackProvider } from '@ethersproject/providers';
-import { chunk, filter, flatten, merge, range, throttle, random, shuffle } from 'lodash';
+import { JsonRpcProvider, FallbackProvider } from '@ethersproject/providers';
+import { chunk, filter, flatten, merge, range, throttle, shuffle } from 'lodash';
 import { config } from 'dotenv';
 import pAll from 'p-all';
 import * as SignUtils from './utils';
@@ -55,7 +55,7 @@ function setStepSize(step: number) {
 
 async function initBlockRegistryContract(signer: Wallet, registry: string, consensus: string, registryRpc: string) {
   logger.info(`initBlockRegistryContract`, registry);
-  const rpc = new JsonRpcBatchProvider(registryRpc);
+  const rpc = new JsonRpcProvider(registryRpc);
   signer = signer.connect(rpc);
   blockRegistryContract = SignUtils.getRegistryContract(registry, signer);
   consensusContract = new ethers.Contract(consensus, ConsensusABI.abi, rpc);

@@ -17,10 +17,12 @@ async function main() {
   // const voting = "0x4c889f137232E827c00710752E86840805A70484"
   const voting = await ethers.getSigners().then((_) => _[0].address);
   console.log({ voting });
-  const rf = await ethers.getContractFactory('BlockHeaderRegistry');
   console.log('deploying registery');
   if (deployed) {
-    await upgrades.upgradeProxy(deployed, rf, { kind: 'uups' });
+    const upgrade = await ethers.deployContract("BlockHeaderRegistry")
+    const cur = await ethers.getContractAt("BlockHeaderRegistry", deployed)
+    console.log("deployed upgrade", upgrade.address);
+    await cur.upgradeTo(upgrade.address, { gasLimit: 10000000, gasPrice: 11e9 })
   } else {
     const registery = await upgrades.deployProxy(rf, [voting, '0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79', true], {
       kind: 'uups',
@@ -29,9 +31,9 @@ async function main() {
 
     console.log('adding blockchains');
 
-    await (await registery.addBlockchain(122, 'https://rpc.fuse.io,https://fuse-rpc.gateway.pokt.network')).wait();
+    await (await registery.addBlockchain(122, 'https://rpc.fuse.io')).wait();
     await (
-      await registery.addBlockchain(42220, 'https://forno.celo.org,https://celo-hackathon.lavanet.xyz/celo/http')
+      await registery.addBlockchain(42220, 'https://forno.celo.org')
     ).wait();
   }
 }

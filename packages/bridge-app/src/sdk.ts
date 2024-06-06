@@ -1,4 +1,4 @@
-import { JsonRpcBatchProvider, JsonRpcProvider } from '@ethersproject/providers';
+import { JsonRpcProvider } from '@ethersproject/providers';
 import { Contract, ethers, Signer } from 'ethers';
 import { flatten, minBy, pick, random, range, uniqBy, groupBy, maxBy, last, chunk, takeWhile } from 'lodash';
 import pAll from 'p-all';
@@ -31,7 +31,7 @@ export class BridgeSDK {
     rpcs = [],
     logger = Logger,
   ) {
-    this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcBatchProvider(registryRpc));
+    this.registryContract = new ethers.Contract(registryAddress, RegistryABI, new JsonRpcProvider(registryRpc));
     this.registryBlockFrequency = registryBlockFrequency;
     this.bridges = { ...DEFAULT_BRIDGES, ...bridges };
     Object.entries(multicalls).map((pair) => setMulticallAddress(Number(pair[0]), pair[1]));
@@ -49,7 +49,7 @@ export class BridgeSDK {
     const blockchain = this.rpcs.find((_) => _.chainId === chainId)?.rpc;
     const rpcs = blockchain?.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
     const randomRpc = rpcs?.[random(0, rpcs.length - 1)];
-    return new ethers.providers.JsonRpcBatchProvider(randomRpc);
+    return new ethers.providers.JsonRpcProvider(randomRpc);
   };
 
   getBridgeContract = async (chainId: number, provider?: JsonRpcProvider) => {
@@ -355,8 +355,7 @@ export class BridgeSDK {
               rpc: (bridge.provider as JsonRpcProvider).connection.url,
             });
             throw new Error(
-              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${
-                (bridge.provider as JsonRpcProvider).connection.url
+              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${(bridge.provider as JsonRpcProvider).connection.url
               }`,
             );
           });
@@ -464,8 +463,7 @@ export class BridgeSDK {
               rpc: (bridge.provider as JsonRpcProvider).connection.url,
             });
             throw new Error(
-              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${
-                (bridge.provider as JsonRpcProvider).connection.url
+              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${(bridge.provider as JsonRpcProvider).connection.url
               }`,
             );
           });
