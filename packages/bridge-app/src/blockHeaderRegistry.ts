@@ -217,18 +217,21 @@ async function fetchNewBlocks(signers: Array<Signer>) {
 
 const _refreshRPCs = async () => {
   try {
-    const chains = await blockRegistryContract.getRPCs();
-    logger.info('got registered rpcs:', chains);
-    await Promise.all(
-      chains.map(({ chainId, rpc }) => {
-        const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false);
-        if (chainId.toNumber() === 122 && FUSE_RPC) {
-          //on fuse use the local validator node rpc
-          rpcs.push(FUSE_RPC);
-        }
-        return initBlockchain(chainId.toNumber(), rpcs);
-      }),
-    );
+    await initBlockchain(122, ['https://rpc.fuse.io', 'https://fuse.liquify.com']);
+    await initBlockchain(42220, ['https://forno.celo.org', 'https://celo.drpc.org']);
+
+    // const chains = await blockRegistryContract.getRPCs();
+    // logger.info('got registered rpcs:', chains);
+    // await Promise.all(
+    //   chains.map(({ chainId, rpc }) => {
+    //     const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false);
+    //     if (chainId.toNumber() === 122 && FUSE_RPC) {
+    //       //on fuse use the local validator node rpc
+    //       rpcs.push(FUSE_RPC);
+    //     }
+    //     return initBlockchain(chainId.toNumber(), rpcs);
+    //   }),
+    // );
 
     // const randRpc = chains.map(({ chainId, rpc }) => {
     //   const rpcs = rpc.split(',').filter((_) => _.includes('ankr') === false); //currently removing ankr not behaving right with batchprovider
@@ -293,12 +296,12 @@ async function emitRegistry(signers?: Array<Signer>) {
     } catch (e) {
       logger.error('failed adding blocks to registry:', { message: e.message, blocks, lastBlocks });
       //recycle rpcs on error
-      _refreshRPCs();
+      refreshRPCs();
     }
   } catch (e) {
     logger.error('failed emitRegistry', { message: e.message });
     //recycle rpcs on error
-    _refreshRPCs();
+    refreshRPCs();
   }
 }
 
