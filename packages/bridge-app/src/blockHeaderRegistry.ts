@@ -294,7 +294,7 @@ async function emitRegistry(signers?: Array<Signer>) {
         );
       return blocks;
     } catch (e) {
-      logger.error('failed adding blocks to registry:', { message: e.message, blocks, lastBlocks });
+      logger.error('failed adding blocks to registry:', { message: e.message, blocks: blocks.length, lastBlocks });
       //recycle rpcs on error
       refreshRPCs();
     }
