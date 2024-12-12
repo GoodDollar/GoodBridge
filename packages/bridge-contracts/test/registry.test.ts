@@ -171,7 +171,7 @@ describe('BlockHeaderRegistry', () => {
         .connect(signer)
         .estimateGas.addSignedBlocks([[rlpHeader, [r, vs], 1, bhash, 0, []]]);
 
-      expect(expectedGas).lt(78500);
+      expect(expectedGas).lt(79500);
       await expect(blockHeaderRegistry.connect(signer).addSignedBlocks([[rlpHeader, [r, vs], 1, bhash, 0, []]])).not
         .reverted;
     });

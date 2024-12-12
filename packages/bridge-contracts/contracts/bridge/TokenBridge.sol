@@ -17,11 +17,11 @@ interface IFaucet {
 }
 
 interface INameService {
-    function getAddress(string memory) external returns (address);
+    function getAddress(string memory) external view returns (address);
 }
 
 interface IIdentity {
-    function isWhitelisted(address) external returns (bool);
+    function isWhitelisted(address) external view returns (bool);
 }
 
 contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
@@ -146,7 +146,7 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         for (uint256 i = 0; i < bridges.length; i++) sourceBridgeToBlockstart[bridges[i]] = blockstart[i];
     }
 
-    function canBridge(address from, uint256 amount) public returns (bool isWithinLimit, string memory error) {
+    function canBridge(address from, uint256 amount) public view returns (bool isWithinLimit, string memory error) {
         if (isClosed) return (false, 'closed');
 
         if (amount < bridgeLimits.minAmount) return (false, 'minAmount');

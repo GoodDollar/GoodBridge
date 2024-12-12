@@ -278,7 +278,9 @@ async function emitRegistry(signers?: Array<Signer>) {
       //write blocks in chunks
       const chunks = chunk(blocks, Number(BLOCKS_CHUNK));
       for (const blocksChunk of chunks) {
-        const receipt = await (await blockRegistryContract.addSignedBlocks(blocksChunk)).wait();
+        const receipt = await (
+          await blockRegistryContract.addSignedBlocks(blocksChunk, { maxFeePerGas: 10e9, maxPriorityFeePerGas: 1e9 })
+        ).wait();
         logger.info(`transactionHash: ${receipt.transactionHash} events: ${receipt.logs.length}`);
         logger.debug(`receipt: ${JSON.stringify(receipt)}`);
       }

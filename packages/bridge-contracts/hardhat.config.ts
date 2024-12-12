@@ -42,7 +42,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      chainId: 1337,
+      chainId: Number(process.env.FORK_CHAIN_ID) ?? 1337,
       allowUnlimitedContractSize: true,
     },
     fork: {
@@ -120,6 +120,9 @@ const config: HardhatUserConfig = {
       chainId: 5,
     },
   },
+  sourcify: {
+    enabled: true,
+  },
   verify: {
     etherscan: {
       apiKey: process.env.ETHERSCAN_KEY,
@@ -130,6 +133,7 @@ const config: HardhatUserConfig = {
       goerli: process.env.ETHERSCAN_KEY || '',
       mainnet: process.env.ETHERSCAN_KEY || '',
       celo: process.env.CELOSCAN_KEY || '',
+      fuse: 'x',
     },
     customChains: [
       {
@@ -138,6 +142,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: 'https://api.celoscan.io/api',
           browserURL: 'https://celoscan.io',
+        },
+      },
+      {
+        chainId: 122,
+        network: 'fuse',
+        urls: {
+          apiURL: '',
+          browserURL: 'https://explorer.celo.org',
         },
       },
     ],

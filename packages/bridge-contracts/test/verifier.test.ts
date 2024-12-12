@@ -5,15 +5,15 @@ import * as SignUtils from '../../bridge-app/src/utils';
 
 describe('Parser/MPT Verifier', () => {
   let verifier;
-  const fuseRpc = new ethers.providers.JsonRpcProvider('https://rpc.fuse.io');
-  const ethRpc = new ethers.providers.JsonRpcProvider('https://cloudflare-eth.com/v1/mainnet');
+  const fuseRpc = new ethers.providers.JsonRpcProvider('https://explorer-node.fuse.io/');
+  const ethRpc = new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/eth');
   const celoRpc = new ethers.providers.JsonRpcBatchProvider('https://forno.celo.org');
   let fuseProof, ethProof, celoProof;
   before(async () => {
     verifier = await (await ethers.getContractFactory('VerifierTest')).deploy();
     fuseProof = await SignUtils.receiptProof(
       '0x8770fb92888d3ff30dfc96040a9371872737318c81e6ca1cb2b0e88ad981e627',
-      new ethers.providers.JsonRpcBatchProvider('https://rpc.fuse.io'),
+      new ethers.providers.JsonRpcBatchProvider('https://explorer-node.fuse.io/'),
       122,
     );
     ethProof = await SignUtils.receiptProof(

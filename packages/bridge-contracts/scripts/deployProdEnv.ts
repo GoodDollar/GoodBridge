@@ -19,10 +19,10 @@ async function main() {
   console.log({ voting });
   console.log('deploying registery');
   if (deployed) {
-    const upgrade = await ethers.deployContract("BlockHeaderRegistry")
-    const cur = await ethers.getContractAt("BlockHeaderRegistry", deployed)
-    console.log("deployed upgrade", upgrade.address);
-    await cur.upgradeTo(upgrade.address, { gasLimit: 10000000, gasPrice: 11e9 })
+    const upgrade = await ethers.deployContract('BlockHeaderRegistry');
+    const cur = await ethers.getContractAt('BlockHeaderRegistry', deployed);
+    console.log('deployed upgrade', upgrade.address);
+    await cur.upgradeTo(upgrade.address, { gasLimit: 10000000, gasPrice: 11e9 });
   } else {
     const registery = await upgrades.deployProxy(rf, [voting, '0x3014ca10b91cb3D0AD85fEf7A3Cb95BCAc9c0f79', true], {
       kind: 'uups',
@@ -32,9 +32,7 @@ async function main() {
     console.log('adding blockchains');
 
     await (await registery.addBlockchain(122, 'https://rpc.fuse.io')).wait();
-    await (
-      await registery.addBlockchain(42220, 'https://forno.celo.org')
-    ).wait();
+    await (await registery.addBlockchain(42220, 'https://forno.celo.org')).wait();
   }
 }
 
@@ -166,14 +164,39 @@ const deployBridge = async () => {
   await fse.writeJSON('release/deployment.json', release);
 };
 
+let env = 'fuse';
+const upgradeBridge = async (impl: string) => {
+  if (env === 'production') {
+    return console.log('needs to run via defender relayer');
+  }
+  const signer = await ethers.getSigner();
+  const deployed = release[env][network.name + 'Bridge'];
+  console.log({ deployed, signer: signer.address });
+  if (!deployed) console.log('existing bridge not found');
+
+  const cur = await ethers.getContractAt('TokenBridge', deployed);
+  const upgrade = impl ? { address: impl } : await ethers.deployContract('TokenBridge');
+  console.log('deployed upgrade', upgrade.address);
+  const tx = await (await cur.upgradeTo(upgrade.address, { gasLimit: 10000000, gasPrice: 11e9 })).wait();
+  console.log('upgrade done:', tx.transactionHash);
+};
+
 const runPrompt = async () => {
   prompt.start();
-  console.log('which deploy? registry/bridge');
+  console.log('which deploy? registry/bridge/upgrade');
   const { deploy } = await prompt.get(['deploy']);
 
+  console.log('which env? fuse/staging/production');
+
+  const { env: contractsEnv } = await prompt.get(['env']);
+  env = contractsEnv;
   try {
     if (deploy === 'registry') await main();
     else if (deploy === 'bridge') await deployBridge();
+    else if (deploy === 'upgrade') {
+      const { implementation } = await prompt.get(['implementation']);
+      await upgradeBridge(implementation);
+    }
     process.exit(0);
   } catch (error) {
     console.error(error);

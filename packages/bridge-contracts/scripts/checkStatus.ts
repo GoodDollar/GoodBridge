@@ -10,8 +10,8 @@ const TokenBridgeABI = [
 const fuseRpc = new ethers.providers.JsonRpcProvider('https://rpc.fuse.io');
 const celoRpc = new ethers.providers.JsonRpcProvider('https://forno.celo.org');
 
-const handleError = async (bridge, celoNotExecuted, fuseNotExecuted) => {};
-const blocksAgo = -50000;
+const handleError = async (bridge, celoNotExecuted, fuseNotExecuted) => { };
+const blocksAgo = -150000;
 const checkStaleRequests = async () => {
   const ps = Object.values(bridges).map(async (bridge) => {
     const bridgeA = new ethers.Contract(bridge.fuseBridge, TokenBridgeABI, fuseRpc);

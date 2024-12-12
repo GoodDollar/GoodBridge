@@ -262,7 +262,10 @@ export class BridgeSDK {
 
     this.logger.debug('submitBlocksAndExecute data:', { signedBlock, checkpointBlockNumber, parentRlps });
     mptProofs.forEach((proof) => this.logger.debug('submitBlocksAndExecute proof:', JSON.stringify(proof)));
-    const options = targetChainId === 42220 ? { maxPriorityFeePerGas: 1e8 } : {};
+    const options =
+      targetChainId === 42220
+        ? { maxFeePerGas: 5e9, maxPriorityFeePerGas: 1e8 }
+        : { maxFeePerGas: 10e9, maxPriorityFeePerGas: 1e9 };
     return targetBridgeContract
       .connect(signer)
       .submitChainBlockParentsAndTxs(signedBlock, checkpointBlockNumber, parentRlps, mptProofs, options);
