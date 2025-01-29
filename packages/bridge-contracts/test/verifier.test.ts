@@ -8,6 +8,7 @@ describe('Parser/MPT Verifier', () => {
   const fuseRpc = new ethers.providers.JsonRpcProvider('https://explorer-node.fuse.io/');
   const ethRpc = new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/eth');
   const celoRpc = new ethers.providers.JsonRpcBatchProvider('https://forno.celo.org');
+  const alfajoresRpc = new ethers.providers.JsonRpcBatchProvider('https://alfajores-forno.celo-testnet.org');
   let fuseProof, ethProof, celoProof;
   before(async () => {
     verifier = await (await ethers.getContractFactory('VerifierTest')).deploy();
@@ -49,6 +50,29 @@ describe('Parser/MPT Verifier', () => {
       '0xa4ebf1da90dea53f0b1432c34caa1e9c2e5ec2ae94edb0911ccf967e6546eeb8',
       celoRpc,
       42220,
+    );
+
+    const parsedReceipt = await verifier.parseReceipt(proof.receiptRlp);
+
+    expect(parsedReceipt.logsBloom).eq(receipt.logsBloom);
+    expect(parsedReceipt.status).eq(receipt.status);
+    expect(parsedReceipt.gasUsed.toNumber()).eq(receipt.cumulativeGasUsed.toNumber());
+    for (const log in parsedReceipt.logs) {
+      expect(parsedReceipt.logs[log].contractAddress).eq(receipt.logs[log].address);
+      expect(parsedReceipt.logs[log].data).eq(receipt.logs[log].data);
+      expect(parsedReceipt.logs[log].topics).eql(receipt.logs[log].topics);
+    }
+  });
+
+  it('should parse alfajores L2 receipt', async () => {
+    const receipt = await alfajoresRpc.getTransactionReceipt(
+      '0x3f5c02c2184915db9a238583f05f0c8e6033438c0423ab0cd55846f05df93409',
+    );
+
+    const proof = await SignUtils.receiptProof(
+      '0x3f5c02c2184915db9a238583f05f0c8e6033438c0423ab0cd55846f05df93409',
+      alfajoresRpc,
+      44787,
     );
 
     const parsedReceipt = await verifier.parseReceipt(proof.receiptRlp);
@@ -157,7 +181,7 @@ describe('Parser/MPT Verifier', () => {
       keyIndex: 0,
       proofIndex: 0,
     };
-    console.log('key indexes:', mptproof.key);
+    // console.log('key indexes:', mptproof.key);
     const isVerified = await verifier.verifyReceipt(mptproof);
     expect(isVerified).to.be.true;
   });
@@ -190,6 +214,29 @@ describe('Parser/MPT Verifier', () => {
       '0xa31152574444d2b437abd0a952e6c964a1069ffd3bf5a6094b4e4febf6efbdc2',
       celoRpc,
       42220,
+    );
+
+    const expectedRoot = proof.receiptsRoot;
+
+    const receiptRlp = proof.receiptRlp;
+    const path = proof.receiptProof;
+    const mptproof = {
+      expectedRoot,
+      expectedValue: receiptRlp,
+      proof: path,
+      key: SignUtils.index2key(proof.txIndex, path.length),
+      keyIndex: 0,
+      proofIndex: 0,
+    };
+    const isVerified = await verifier.verifyReceipt(mptproof);
+    expect(isVerified).to.be.true;
+  });
+
+  it('should verify alfajores L2 receipt inclusion ', async () => {
+    const proof = await SignUtils.receiptProof(
+      '0x2e060ef10dafc8a0c47776e0d9d61d45b5c5c5f86f82955d07bb0788948b16e3',
+      alfajoresRpc,
+      44787,
     );
 
     const expectedRoot = proof.receiptsRoot;

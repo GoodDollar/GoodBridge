@@ -300,10 +300,6 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
       const receipt = siblingReceipt;
 
       const encodedReceipt = encodeReceiptRLPV2(receipt, withReceiptType);
-      const encodedReceipt1 = encodeReceiptRLP(receipt, withReceiptType);
-      if (encodedReceipt.toString('hex') !== encodedReceipt1.toString('hex')) {
-        console.log(receipt, index);
-      }
       // Insert into the trie with the transaction index as the key
       return tree.put(encode(index), encodedReceipt);
     }),
