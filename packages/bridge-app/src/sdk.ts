@@ -265,7 +265,7 @@ export class BridgeSDK {
     const options =
       targetChainId === 42220
         ? { maxFeePerGas: 5e9, maxPriorityFeePerGas: 1e8 }
-        : { maxFeePerGas: 10e9, maxPriorityFeePerGas: 1e9 };
+        : { maxFeePerGas: 15e9, maxPriorityFeePerGas: 1e9 };
     return targetBridgeContract
       .connect(signer)
       .submitChainBlockParentsAndTxs(signedBlock, checkpointBlockNumber, parentRlps, mptProofs, options);
@@ -358,7 +358,8 @@ export class BridgeSDK {
               rpc: (bridge.provider as JsonRpcProvider).connection.url,
             });
             throw new Error(
-              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${(bridge.provider as JsonRpcProvider).connection.url
+              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${
+                (bridge.provider as JsonRpcProvider).connection.url
               }`,
             );
           });
@@ -466,7 +467,8 @@ export class BridgeSDK {
               rpc: (bridge.provider as JsonRpcProvider).connection.url,
             });
             throw new Error(
-              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${(bridge.provider as JsonRpcProvider).connection.url
+              `queryFilter BridgeRequest failed ${sourceChainId} startBlock=${startBlock} toBlock=${toBlock} rpc:${
+                (bridge.provider as JsonRpcProvider).connection.url
               }`,
             );
           });
