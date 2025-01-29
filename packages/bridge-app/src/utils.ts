@@ -158,6 +158,9 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
     'nonce',
     'baseFeePerGas',
     'withdrawalsRoot',
+    'blobGasUsed',
+    'excessBlobGas',
+    'parentBeaconBlockRoot',
   ]);
   //special parsing for celo
   //https://github.com/celo-org/celo-blockchain/blob/e0c433849e3e6bfe32a421fd8dc05372286ba6d3/core/types/block.go
@@ -213,6 +216,50 @@ export const index2key = (index, proofLength) => {
   return '0x' + actualkey.map((v) => v.toString(16).padStart(2, '0')).join('');
 };
 
+export const encodeReceiptRLP = (receipt: any, withReceiptType: boolean) => {
+  let serializedReceipt = Receipt.fromRpc(receipt).serialize();
+  if (withReceiptType && receipt.type && receipt.type != '0x0') {
+    serializedReceipt = Buffer.concat([Buffer.from([receipt.type]), serializedReceipt]);
+  }
+  return serializedReceipt;
+};
+
+export const encodeReceiptRLPV2 = (receipt: any, withReceiptType: boolean) => {
+  let encodedReceipt;
+  if (receipt.type === '0x7e' && receipt.depositReceiptVersion) {
+    encodedReceipt = encode([
+      receipt.status === '0x1' ? 1 : 0, // Status (1 = success, 0 = failure)
+      receipt.cumulativeGasUsed === '0x0' ? 0 : receipt.cumulativeGasUsed, // Gas used
+      receipt.logsBloom, // Logs bloom filter
+      receipt.logs.map((log) => [
+        // Logs
+        log.address,
+        log.topics,
+        log.data,
+      ]),
+      receipt.depositNonce,
+      receipt.depositReceiptVersion,
+    ]);
+  } else {
+    // Encode the receipt
+    encodedReceipt = encode([
+      receipt.status === '0x1' ? 1 : 0,
+      receipt.cumulativeGasUsed === '0x0' ? 0 : receipt.cumulativeGasUsed, // Gas used
+      receipt.logsBloom, // Logs bloom filter
+      receipt.logs.map((log) => [
+        // Logs
+        log.address,
+        log.topics,
+        log.data,
+      ]),
+    ]);
+  }
+  if (withReceiptType && receipt.type && receipt.type != '0x0')
+    encodedReceipt = Buffer.concat([Buffer.from([receipt.type]), encodedReceipt]);
+
+  return encodedReceipt;
+};
+
 export const receiptProof = async (txHash: string, provider: ethers.providers.JsonRpcProvider, chainId: number) => {
   const targetReceipt = await provider.send('eth_getTransactionReceipt', [txHash]);
   if (!targetReceipt) {
@@ -228,6 +275,7 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
   if (chainId === 42220) {
     blockReceipt = provider.send('eth_getBlockReceipt', [targetReceipt.blockHash]);
   }
+
   const receipts = (
     await Promise.all(
       rpcBlock.transactions.map(async (siblingTxHash) => {
@@ -249,12 +297,15 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
 
   await Promise.all(
     receipts.map((siblingReceipt, index) => {
-      const siblingPath = encode(index);
-      let serializedReceipt = Receipt.fromRpc(siblingReceipt).serialize();
-      if (withReceiptType && siblingReceipt.type && siblingReceipt.type != '0x0') {
-        serializedReceipt = Buffer.concat([Buffer.from([siblingReceipt.type]), serializedReceipt]);
+      const receipt = siblingReceipt;
+
+      const encodedReceipt = encodeReceiptRLPV2(receipt, withReceiptType);
+      const encodedReceipt1 = encodeReceiptRLP(receipt, withReceiptType);
+      if (encodedReceipt.toString('hex') !== encodedReceipt1.toString('hex')) {
+        console.log(receipt, index);
       }
-      return tree.put(siblingPath, serializedReceipt);
+      // Insert into the trie with the transaction index as the key
+      return tree.put(encode(index), encodedReceipt);
     }),
   );
 
