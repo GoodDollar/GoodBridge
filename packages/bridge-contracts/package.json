@@ -18,7 +18,8 @@
     "contracts",
     "artifacts/contracts",
     "typechain-types",
-    "release"
+    "release",
+    "deployments"
   ],
   "devDependencies": {
     "@axelar-network/axelar-gmp-sdk-solidity": "^3.6.1",
