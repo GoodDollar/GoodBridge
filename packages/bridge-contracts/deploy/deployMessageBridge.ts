@@ -17,7 +17,13 @@ const verifyContracts = async (chainData, mpbImplAddress, helperAddress, isTestn
   console.log('verifying on impl+library on etherscan...');
   await hre.run('verify:verify', {
     address: mpbImplAddress,
-    constructorArguments: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, isTestnet],
+    constructorArguments: [
+      chainData.axlGateway,
+      chainData.axlGas,
+      chainData.lzEndpoint,
+      isTestnet,
+      chainData.homeChainId,
+    ],
     libraries: {
       BridgeHelperLibrary: helperAddress,
     },
@@ -32,6 +38,7 @@ const chainsData = {
     nameService: Contracts['hardhat']?.NameService,
     minter: Contracts['hadhat']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
+    homeChainId: 31337,
   },
   goerli: {
     name: 'goerli',
@@ -42,6 +49,7 @@ const chainsData = {
     minter: Contracts['goerli']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
     zkLightClient: '0x55d193eF196Be455c9c178b0984d7F9cE750CCb4',
+    homeChainId: 5,
   },
   alfajores: {
     axlGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
@@ -50,6 +58,7 @@ const chainsData = {
     nameService: Contracts['alfajores']?.NameService,
     minter: Contracts['alfajores']?.GoodDollarMintBurnWrapper || '0x69d9c8d240e282a4ec0058cf0ac4e9d8ac7a11ac',
     oneToken: ethers.constants.WeiPerEther,
+    homeChainId: 5,
   },
   mainnet: {
     name: 'production-mainnet',
@@ -60,6 +69,7 @@ const chainsData = {
     minter: Contracts['production-mainnet']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.BigNumber.from(100),
     zkLightClient: '0x394ee343625B83B5778d6F42d35142bdf26dBAcD',
+    homeChainId: 42220,
   },
   celo: {
     name: 'production-celo',
@@ -70,6 +80,7 @@ const chainsData = {
     minter: Contracts['production-celo']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
     zkLightClient: '0x1F45c453a91179a32b97623736dF09A552BC4f7f',
+    homeChainId: 42220,
   },
   celo_testnet: {
     name: 'development-celo',
@@ -80,6 +91,7 @@ const chainsData = {
     minter: Contracts['development-celo']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
     zkLightClient: '0x1F45c453a91179a32b97623736dF09A552BC4f7f',
+    homeChainId: 42220,
   },
   fuse: {
     name: 'production',
@@ -89,6 +101,7 @@ const chainsData = {
     nameService: Contracts['production']?.NameService,
     minter: Contracts['production']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.BigNumber.from(100),
+    homeChainId: 42220,
   },
   fuse_testnet: {
     name: 'fuse',
@@ -98,6 +111,7 @@ const chainsData = {
     nameService: Contracts['fuse']?.NameService,
     minter: Contracts['fuse']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.BigNumber.from(100),
+    homeChainId: 42220,
   },
 };
 
@@ -150,7 +164,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     from: signer.address,
     deterministicDeployment: true,
     log: true,
-    args: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, isTestnet],
+    args: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, isTestnet, chainData.homeChainId],
     libraries: { BridgeHelperLibrary: bridgeHelperLibrary.address },
   }); //as unknown as MessagePassingBridge;
 
@@ -175,17 +189,20 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const addAsMinter = async () => {
     console.log('adding bridge as minter');
     const ctrl = new ethers.Contract(Contracts[chainData.name || network.name].Controller, CtrlABI.abi, signer);
-    const encodedInput = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'uint256', 'uint256', 'uint32', 'uint256', 'uint256', 'uint32', 'bool'],
-      [bridgeProxy.address, 0, 0, 5000, 0, 0, 0, false],
-    ); //function addMinter(
-    const sigHash = ethers.utils
-      .keccak256(ethers.utils.toUtf8Bytes('addMinter(address,uint256,uint256,uint32,uint256,uint256,uint32,bool)'))
-      .slice(0, 10);
-    const encoded = ethers.utils.solidityPack(['bytes4', 'bytes'], [sigHash, encodedInput]);
-    const addMinterResult = await ctrl
-      .genericCall(chainData.minter, encoded, Contracts[chainData.name || network.name].Avatar, 0)
-      .then((_) => _.wait());
+    console.log(
+      'controller:',
+      ctrl.address,
+      'signer:',
+      signer.address,
+      'avatar:',
+      Contracts[chainData.name || network.name].Avatar,
+    );
+    const addMinterResult = await ctrl.registerScheme(
+      bridgeProxy.address,
+      ethers.constants.HashZero,
+      '0x00000001',
+      Contracts[chainData.name || network.name].Avatar,
+    );
     console.log({ addMinterResult });
   };
 
@@ -209,7 +226,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         encoded,
       );
       console.log({ initializedTx });
-      if (isTestnet && chainData.minter) {
+      if (isTestnet) {
         await addAsMinter();
       }
     } else if (isTestnet) {

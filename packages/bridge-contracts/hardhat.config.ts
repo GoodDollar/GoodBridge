@@ -48,7 +48,8 @@ const config: HardhatUserConfig = {
     mainnet: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 1,
-      url: 'https://cloudflare-eth.com',
+      url: 'https://rpc.ankr.com/eth',
+      gasPrice: 5e9,
     },
     fuse: {
       accounts: accounts as HttpNetworkAccountsConfig,

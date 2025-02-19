@@ -34,6 +34,7 @@ contract MessagePassingBridge is
 
     address public immutable lzEndpoint_;
     bool public immutable TESTNET;
+    uint32 public immutable HOME_CHAIN_ID;
 
     // // A constant for the guardian role
     // bytes32 public constant GUARDIAN_ROLE = keccak256('GUARDIAN_ROLE');
@@ -123,10 +124,12 @@ contract MessagePassingBridge is
         address axlGateway,
         address axlGasReceiver,
         address lzEndpoint,
-        bool isTestnet
+        bool isTestnet,
+        uint32 homeChainId
     ) AxelarHandlerUpgradeable(axlGateway, axlGasReceiver) {
         lzEndpoint_ = lzEndpoint;
         TESTNET = isTestnet;
+        HOME_CHAIN_ID = homeChainId;
     }
 
     function _authorizeUpgrade(address impl) internal virtual override onlyOwner {}
@@ -357,7 +360,7 @@ contract MessagePassingBridge is
         if (isClosed) revert BRIDGE_LIMITS('closed');
 
         // lock on celo, burn on other chains
-        if (_chainId() == 42220 || _chainId() == 44787) {
+        if (_chainId() == HOME_CHAIN_ID) {
             if (nativeToken().transferFrom(from, address(this), amount) == false) revert TRANSFER_FROM();
         } else nativeToken().burnFrom(from, amount);
         uint256 normalizedAmount = BridgeHelperLibrary.normalizeFromTokenTo18Decimals(amount, nativeToken().decimals()); //on bridge request we normalize amount from source chain decimals to 18 decimals
@@ -497,7 +500,7 @@ contract MessagePassingBridge is
         _topGas(target);
 
         //unlock on celo mint on other chains
-        if (_chainId() == 42220 || _chainId() == 44787) {
+        if (_chainId() == HOME_CHAIN_ID) {
             if (nativeToken().transfer(target, tokenAmount - fee) == false) revert TRANSFER();
             if (fee > 0 && feeRecipient == address(0)) nativeToken().burn(fee);
             else if (fee > 0) nativeToken().transfer(feeRecipient, fee);
