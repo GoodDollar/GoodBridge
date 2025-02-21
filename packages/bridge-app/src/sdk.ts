@@ -265,7 +265,7 @@ export class BridgeSDK {
     const options =
       targetChainId === 42220
         ? { maxFeePerGas: 5e9, maxPriorityFeePerGas: 1e8 }
-        : { maxFeePerGas: 15e9, maxPriorityFeePerGas: 1e9 };
+        : { maxFeePerGas: 25e9, maxPriorityFeePerGas: 1e9 };
     return targetBridgeContract
       .connect(signer)
       .submitChainBlockParentsAndTxs(signedBlock, checkpointBlockNumber, parentRlps, mptProofs, options);
