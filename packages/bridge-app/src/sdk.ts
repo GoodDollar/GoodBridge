@@ -317,7 +317,7 @@ export class BridgeSDK {
     const latestCheckpointFilter = this.registryContract.filters.BlockAdded(null, sourceChainId);
     const events = await this.registryContract.queryFilter(
       latestCheckpointFilter,
-      -(this.registryBlockFrequency * 1000),
+      -(this.registryBlockFrequency * 100),
     );
     const bestBlock = maxBy(events, (_) => _.args?.blockNumber);
 
