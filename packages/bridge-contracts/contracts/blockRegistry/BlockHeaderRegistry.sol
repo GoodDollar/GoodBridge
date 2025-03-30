@@ -275,7 +275,7 @@ contract BlockHeaderRegistry is Initializable, UUPSUpgradeable {
     function parseRLPBlockNumber(bytes calldata rlpHeader, uint256 chainId) public pure returns (uint256 blockNumber) {
         RLPReader.RLPItem[] memory ls = rlpHeader.toRlpItem().toList();
 
-        uint256 blocknumberSlot = chainId == 42220 && ls.length != 16 ? 6 : 8; //16 is the new celo block header after 1.8 fork
+        uint256 blocknumberSlot = chainId == 42220 && ls.length < 16 ? 6 : 8; //16 is the new celo block header after 1.8 fork
         blockNumber = ls[blocknumberSlot].toUint();
     }
 }
