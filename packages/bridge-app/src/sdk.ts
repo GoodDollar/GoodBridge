@@ -315,7 +315,10 @@ export class BridgeSDK {
     /// get the latest added block as checkpoint
     //TODO: need to verify latest checkpoint has enough signers according to the bridge contract requirements
     const latestCheckpointFilter = this.registryContract.filters.BlockAdded(null, sourceChainId);
-    const events = await this.registryContract.queryFilter(latestCheckpointFilter, -(this.registryBlockFrequency * 10));
+    const events = await this.registryContract.queryFilter(
+      latestCheckpointFilter,
+      -(this.registryBlockFrequency * 1000),
+    );
     const bestBlock = maxBy(events, (_) => _.args?.blockNumber);
 
     if (bestBlock) return bestBlock.args?.blockNumber.toNumber() as number;
