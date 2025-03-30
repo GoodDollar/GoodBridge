@@ -165,7 +165,9 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
   //special parsing for celo
   //https://github.com/celo-org/celo-blockchain/blob/e0c433849e3e6bfe32a421fd8dc05372286ba6d3/core/types/block.go
   //https://github.com/celo-org/celo-blockchain/blob/1a239cbf64188d7c0bd49ce6ae2fe63faab691a1/core/types/istanbul.go
-  if (chainId === 42220) {
+
+  //TODO: TEMPORARY DISABLED
+  if (chainId === 42221 && header.number < 31056500) {
     // check for header before 1.8 hardfork
     if (header.sha3Uncles === undefined) {
       header = pick(header, [
@@ -224,7 +226,7 @@ export const encodeReceiptRLP = (receipt: any, withReceiptType: boolean) => {
   return serializedReceipt;
 };
 
-export const encodeReceiptRLPV2 = (receipt: any, withReceiptType: boolean) => {
+export const encodeReceiptRLPV2 = (receipt: any, withReceiptType: boolean, baseFee = '0x0') => {
   let encodedReceipt;
   if (receipt.type === '0x7e' && receipt.depositReceiptVersion) {
     encodedReceipt = encode([
@@ -240,6 +242,19 @@ export const encodeReceiptRLPV2 = (receipt: any, withReceiptType: boolean) => {
       receipt.depositNonce,
       receipt.depositReceiptVersion,
     ]);
+  } else if (receipt.type === '0x7b') {
+    encodedReceipt = encode([
+      receipt.status === '0x1' ? 1 : 0,
+      receipt.cumulativeGasUsed === '0x0' ? 0 : receipt.cumulativeGasUsed, // Gas used
+      receipt.logsBloom, // Logs bloom filter
+      receipt.logs.map((log) => [
+        // Logs
+        log.address,
+        log.topics,
+        log.data,
+      ]),
+      baseFee,
+    ]);
   } else {
     // Encode the receipt
     encodedReceipt = encode([
@@ -254,9 +269,9 @@ export const encodeReceiptRLPV2 = (receipt: any, withReceiptType: boolean) => {
       ]),
     ]);
   }
-  if (withReceiptType && receipt.type && receipt.type != '0x0')
+  if (withReceiptType && receipt.type && receipt.type != '0x0') {
     encodedReceipt = Buffer.concat([Buffer.from([receipt.type]), encodedReceipt]);
-
+  }
   return encodedReceipt;
 };
 
@@ -272,7 +287,8 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
   let blockReceipt;
 
   // for blocks before 1.8 fork on celo fetch also "blockReceipt"
-  if (chainId === 42220) {
+  //TODO: TEMPORARY DISABLED
+  if (chainId === 42221 && rpcBlock.number < 31056500) {
     blockReceipt = provider.send('eth_getBlockReceipt', [targetReceipt.blockHash]);
   }
 
@@ -284,7 +300,8 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
     )
   ).filter((_) => _);
 
-  if (chainId === 42220) {
+  //TODO: TEMPORARY DISABLED
+  if (chainId === 42221 && rpcBlock.number < 31056500) {
     blockReceipt = await blockReceipt;
 
     // for blocks pre 1.8 or epoch blocks post 1.8 on celo we need to add the blockreceipt, currently identify by non empty logs.
@@ -296,10 +313,15 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
   const tree = new Tree();
 
   await Promise.all(
-    receipts.map((siblingReceipt, index) => {
+    receipts.map(async (siblingReceipt, index) => {
       const receipt = siblingReceipt;
 
-      const encodedReceipt = encodeReceiptRLPV2(receipt, withReceiptType);
+      let baseFee = 0;
+      if (receipt.type === '0x7b') {
+        const cip64tx = await provider.send('eth_getTransactionByHash', [txHash]);
+        baseFee = Number(receipt.effectiveGasPrice) - Number(cip64tx.maxPriorityFeePerGas);
+      }
+      const encodedReceipt = encodeReceiptRLPV2(receipt, withReceiptType, '0x' + baseFee.toString(16));
       // Insert into the trie with the transaction index as the key
       return tree.put(encode(index), encodedReceipt);
     }),
@@ -310,6 +332,7 @@ export const receiptProof = async (txHash: string, provider: ethers.providers.Js
   );
 
   const receiptsRoot = '0x' + tree.root.toString('hex');
+
   if (receiptsRoot !== blockHeader.block.receiptsRoot) {
     console.error(receipts, {
       receiptsRoot,

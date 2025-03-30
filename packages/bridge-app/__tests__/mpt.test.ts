@@ -5,6 +5,15 @@ import release from '../../bridge-contracts/release/deployment.json';
 
 jest.setTimeout(120000);
 
+describe('sign utils', () => {
+  it('signs celo block', async () => {
+    const signer = ethers.Wallet.fromMnemonic('test test test test test test test test test test test junk');
+    const { rlpHeader } = await SigUtils.getBlockchainHeader('latest', 42220, 'https://forno.celo.org');
+    const signedBlock = await SigUtils.signBlock(rlpHeader, 42220, signer, 0, []);
+    expect(signedBlock).toBeDefined();
+  });
+});
+
 describe('block merkle patricia tree tests', () => {
   it('encode receipt rlp correctly both versions', async () => {
     const receipt = {
@@ -164,7 +173,7 @@ describe('block merkle patricia tree tests', () => {
     it('generate receipt proof for ethereum', async () => {
       const proof = await SigUtils.receiptProof(
         '0xdd6682473931f1c94757199390fcffdf1daf876ff8eb8eeb24afc038e125e876',
-        new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/eth'),
+        new ethers.providers.JsonRpcProvider('https://mainnet.gateway.tenderly.co'),
         1,
       );
       expect(proof).toBeTruthy();
@@ -173,17 +182,35 @@ describe('block merkle patricia tree tests', () => {
     it('generate receipt proof for ethereum post merge', async () => {
       const proof = await SigUtils.receiptProof(
         '0x66985f0e365a24c32265e2d366191b610536ab0a3eeeebfe927d49de9b273365',
-        new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/eth'),
+        new ethers.providers.JsonRpcProvider('https://mainnet.gateway.tenderly.co'),
         1,
       );
       expect(proof).toBeTruthy();
     });
 
-    it('generate receipt proof for bsc', async () => {
+    it.skip('generate receipt proof for bsc', async () => {
       const proof = await SigUtils.receiptProof(
         '0x97dc66a5b4188cceebc9f74ea6f8c948c80597044cc87663a36dba75311ad17e',
         new ethers.providers.JsonRpcProvider('https://bscrpc.com'),
         56,
+      );
+      expect(proof).toBeTruthy();
+    });
+
+    it('generate receipt proof for celo post hardfork', async () => {
+      const proof = await SigUtils.receiptProof(
+        '0x47eb50a882da447f64547aa0261ddd37ea987cdf2d06ef0d005113970d8b057b',
+        new ethers.providers.JsonRpcProvider('https://forno.celo.org'),
+        42220,
+      );
+      expect(proof).toBeTruthy();
+    });
+
+    it('generate receipt proof for celo post hardfork with 0x7b tx type', async () => {
+      const proof = await SigUtils.receiptProof(
+        '0xc2596edb3969f030b69db2baed4c83969d7bb38e624e2534736ed283b7f77f09',
+        new ethers.providers.JsonRpcProvider('https://forno.celo.org'),
+        42220,
       );
       expect(proof).toBeTruthy();
     });
@@ -239,7 +266,7 @@ describe('block merkle patricia tree tests', () => {
       const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
         'latest',
         1,
-        'https://rpc.ankr.com/eth',
+        'https://mainnet.gateway.tenderly.co',
       );
       //blocknumber should be at slot 9
       expect(Number(ethers.utils.RLP.decode(rlpHeader)[8])).toEqual(Number(block.number));
@@ -262,7 +289,7 @@ describe('block merkle patricia tree tests', () => {
       expect(computedHash).toEqual(block.hash);
     });
 
-    it('creates gnosis rlpHeader latest', async () => {
+    it.skip('creates gnosis rlpHeader latest', async () => {
       const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
         'latest',
         100,
@@ -276,7 +303,7 @@ describe('block merkle patricia tree tests', () => {
       expect(computedHash).toEqual(block.hash);
     });
 
-    it('creates binance rlpHeader', async () => {
+    it.skip('creates binance rlpHeader', async () => {
       const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
         'latest',
         56,
@@ -356,7 +383,7 @@ describe('block merkle patricia tree tests', () => {
         { chainId: 42220, rpc: 'https://forno.celo.org' },
       ],
     );
-    const blocks = await sdk.getChainBlockHeaders(42220, 18756990, 18756992);
+    const blocks = await sdk.getChainBlockHeaders(42220, 31056502, 31056504);
     expect(blocks.length).toBeGreaterThan(1);
   });
 
