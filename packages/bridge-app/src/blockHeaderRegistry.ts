@@ -217,8 +217,8 @@ async function fetchNewBlocks(signers: Array<Signer>) {
 
 const _refreshRPCs = async () => {
   try {
-    await initBlockchain(122, ['https://rpc.fuse.io', 'https://fuse.liquify.com']);
-    await initBlockchain(42220, ['https://forno.celo.org', 'https://celo.drpc.org']);
+    await initBlockchain(122, ['https://rpc.fuse.io']);
+    await initBlockchain(42220, ['https://forno.celo.org']);
 
     // const chains = await blockRegistryContract.getRPCs();
     // logger.info('got registered rpcs:', chains);
