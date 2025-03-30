@@ -123,6 +123,7 @@ async function fetchNewBlocks(signers: Array<Signer>) {
         logger.info('current checkpoint block:', { chainId, curBlockNumber });
 
         let blocks = [];
+        const fetchUntil = Math.min(curBlockNumber, blockchain.lastBlock + stepSize * 1000);
         if (blockchain.lastBlock && blockchain.lastBlock < curBlockNumber) {
           logger.info('fetching missing blocks', {
             chainId,
@@ -130,7 +131,7 @@ async function fetchNewBlocks(signers: Array<Signer>) {
             curBlockNumber,
           });
           blocks = await pAll(
-            range(blockchain.lastBlock + stepSize, curBlockNumber, stepSize).map((i) => () => {
+            range(blockchain.lastBlock + stepSize, fetchUntil, stepSize).map((i) => () => {
               return randProvider.send('eth_getBlockByNumber', [ethers.utils.hexValue(i), false]);
             }),
             { concurrency: 50 },
@@ -142,11 +143,14 @@ async function fetchNewBlocks(signers: Array<Signer>) {
         }
 
         blocks = filter(blocks);
-        blocks.push(latestCheckpoint);
+        if (fetchUntil >= curBlockNumber) {
+          blocks.push(latestCheckpoint);
+        }
 
         logger.info('got blocks for chain:', {
           chainId,
           blocks: blocks.map((_) => Number(_.number)),
+          fetchUntil,
           latestCheckpoint: Number(latestCheckpoint.number),
         });
 
@@ -194,7 +198,7 @@ async function fetchNewBlocks(signers: Array<Signer>) {
 
         logger.info('got signed blocks:', signedBlocks.length, 'out of', blocks.length);
 
-        return { signedBlocks, lastBlock: { [String(chainId)]: curBlockNumber } };
+        return { signedBlocks, lastBlock: { [String(chainId)]: fetchUntil } };
       } catch (e) {
         //dont log twice
         if (e.message !== 'failed signing block')
