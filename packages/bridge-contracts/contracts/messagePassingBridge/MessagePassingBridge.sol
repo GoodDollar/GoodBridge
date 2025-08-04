@@ -33,7 +33,6 @@ contract MessagePassingBridge is
     using AddressToString for address;
 
     address public immutable lzEndpoint_;
-    bool public immutable TESTNET;
     uint32 public immutable HOME_CHAIN_ID;
 
     // // A constant for the guardian role
@@ -115,6 +114,8 @@ contract MessagePassingBridge is
     // A mapping for approved requests above limits
     mapping(uint256 => bool) public approvedRequests;
 
+    mapping(uint16 => uint256) public lzChainToIdsMapping;
+
     /**
      * @dev Constructor function for the AxelarBridge contract
      * @param axlGateway The address of the gateway contract
@@ -124,11 +125,9 @@ contract MessagePassingBridge is
         address axlGateway,
         address axlGasReceiver,
         address lzEndpoint,
-        bool isTestnet,
         uint32 homeChainId
     ) AxelarHandlerUpgradeable(axlGateway, axlGasReceiver) {
         lzEndpoint_ = lzEndpoint;
-        TESTNET = isTestnet;
         HOME_CHAIN_ID = homeChainId;
     }
 
@@ -159,15 +158,33 @@ contract MessagePassingBridge is
         // trust celo/eth/fuse we assume they are all deployed together at same address
         // if they are not deployed at the same time there's a risk of a malicious actor deploying the proxy at the same address
         // with modified malicious implementation
-        trustedRemoteLookup[toLzChainId(1)] = abi.encodePacked(address(this), address(this));
-        trustedRemoteLookup[toLzChainId(122)] = abi.encodePacked(address(this), address(this));
-        trustedRemoteLookup[toLzChainId(42220)] = abi.encodePacked(address(this), address(this));
+        addLzChainSupport(101, 1, address(this)); // eth
+        addLzChainSupport(125, 42220, address(this)); // celo
+        addLzChainSupport(138, 122, address(this)); // fuse
+        addLzChainSupport(365, 50, address(this)); // xdc
+    }
 
-        // trust between test nets
-        if (TESTNET) {
-            trustedRemoteLookup[toLzChainId(5)] = abi.encodePacked(address(this), address(this));
-            trustedRemoteLookup[toLzChainId(44787)] = abi.encodePacked(address(this), address(this));
-        }
+    function upgrade() public reinitializer(2) {
+        _addLzChainSupport(101, 1, address(this)); // eth
+        _addLzChainSupport(125, 42220, address(this)); // celo
+        _addLzChainSupport(138, 122, address(this)); // fuse
+        _addLzChainSupport(365, 50, address(this)); // xdc
+    }
+
+    /**
+     *
+     * @dev function for adding lz chaind support
+     */
+    function addLzChainSupport(uint16 lzChainId, uint256 chainId, address remote) public {
+        _onlyOwnerOrGuardian();
+        _addLzChainSupport(lzChainId, chainId, remote);
+    }
+
+    function _addLzChainSupport(uint16 lzChainId, uint256 chainId, address remote) internal {
+        if (lzChainToIdsMapping[lzChainId] != 0) revert AlreadyInitialized();
+        lzChainToIdsMapping[lzChainId] = chainId;
+        lzChainIdsMapping[chainId] = lzChainId;
+        trustedRemoteLookup[lzChainId] = abi.encodePacked(remote, address(this));
     }
 
     /**
@@ -532,20 +549,12 @@ contract MessagePassingBridge is
         }
     }
 
-    function toLzChainId(uint256 chainId) public pure returns (uint16 lzChainId) {
-        if (chainId == 1) return 101;
-        if (chainId == 5) return 10121;
-        if (chainId == 42220) return 125;
-        if (chainId == 44787) return 10125;
-        if (chainId == 122) return 138;
+    function toLzChainId(uint256 chainId) public view returns (uint16 lzChainId) {
+        return lzChainIdsMapping[chainId];
     }
 
-    function fromLzChainId(uint16 lzChainId) public pure returns (uint256 chainId) {
-        if (lzChainId == 101) return 1;
-        if (lzChainId == 10121) return 5;
-        if (lzChainId == 125) return 42220;
-        if (lzChainId == 10125) return 44787;
-        if (lzChainId == 138) return 122;
+    function fromLzChainId(uint16 lzChainId) public view returns (uint256 chainId) {
+        return lzChainToIdsMapping[lzChainId];
     }
 
     function toAxelarChainId(uint256 chainId) public pure returns (string memory axlChainId) {
@@ -555,12 +564,10 @@ contract MessagePassingBridge is
         if (chainId == 44787) return 'celo';
     }
 
-    function fromAxelarChainId(string memory axlChainId) public view returns (uint256 chainId) {
+    function fromAxelarChainId(string memory axlChainId) public pure returns (uint256 chainId) {
         bytes32 chainHash = keccak256(bytes(axlChainId));
         if (chainHash == keccak256('Ethereum')) return 1;
         if (chainHash == keccak256('ethereum-2')) return 5;
-        if (chainHash == keccak256('celo'))
-            if (TESTNET) return 44787;
-            else return 42220;
+        if (chainHash == keccak256('celo')) return 42220;
     }
 }
