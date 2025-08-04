@@ -24,7 +24,7 @@
   "devDependencies": {
     "@axelar-network/axelar-gmp-sdk-solidity": "^3.6.1",
     "@axelar-network/axelarjs-sdk": "^0.13.6",
-    "@gooddollar/goodprotocol": "^2.0.15",
+    "@gooddollar/goodprotocol": "2.0.34-beta.0",
     "@layerzerolabs/scan-client": "^0.0.6",
     "@layerzerolabs/solidity-examples": "^0.0.13",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.5",
@@ -46,7 +46,7 @@
     "eth-proof": "^2.1.6",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.*",
-    "hardhat": "^2.12.2",
+    "hardhat": "2.*",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-deploy": "^0.11.44",
     "hardhat-gas-reporter": "^1.0.9",

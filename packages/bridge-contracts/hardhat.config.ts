@@ -86,12 +86,12 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 42220,
       url: 'https://forno.celo.org',
-      verify: {
-        etherscan: {
-          apiUrl: 'https://api.celoscan.io',
-          apiKey: process.env.CELOSCAN_KEY,
-        },
-      },
+    },
+    xdc_testnet: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 50,
+      url: 'https://rpc.xdc.network',
+      // url: 'http://localhost:8545',
     },
     alfajores: {
       accounts: accounts as HttpNetworkAccountsConfig,
