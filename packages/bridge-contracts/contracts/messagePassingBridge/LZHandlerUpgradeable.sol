@@ -40,7 +40,14 @@ abstract contract LZHandlerUpgradeable is Initializable, NonblockingLzAppUpgrade
         bytes memory _adapterParams
     ) public view virtual returns (uint nativeFee, uint zroFee) {
         bytes memory payload = abi.encode(_fromAddress, _toAddress, _normalizedAmount, 0); //fake request id as 0, just for fee estimation, shouldnt make a difference
-        return lzEndpoint.estimateFees(_dstChainId, address(this), payload, _useZro, _adapterParams);
+        try lzEndpoint.estimateFees(_dstChainId, address(this), payload, _useZro, _adapterParams) returns (
+            uint nativeFee,
+            uint zroFee
+        ) {
+            return (nativeFee, zroFee);
+        } catch {
+            return (0, 0);
+        }
     }
 
     function _nonblockingLzReceive(
