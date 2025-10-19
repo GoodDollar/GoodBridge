@@ -405,7 +405,6 @@ contract MessagePassingBridge is
             (uint256 nativeFee, ) = estimateSendFee(chainId, from, target, normalizedAmount, false, lzAdapterParams);
 
             if (nativeFee > msg.value) revert LZ_FEE(nativeFee, msg.value);
-
             _lzBridgeTo(payload, chainId, payable(from), address(0), lzAdapterParams);
         }
 
@@ -438,6 +437,8 @@ contract MessagePassingBridge is
         uint256 normalizedAmount,
         uint256 requestId
     ) internal virtual override {
+        //since we can't set axelar gateway to 0x0 we use address(1) as a flag for not set
+        if (address(gateway) == address(1)) revert BRIDGE_LIMITS('axelar gateway not set');
         uint256 chainId = fromAxelarChainId(sourceChainId);
 
         _bridgeFrom(from, to, normalizedAmount, chainId, sourceAddress, requestId, BridgeService.AXELAR);
