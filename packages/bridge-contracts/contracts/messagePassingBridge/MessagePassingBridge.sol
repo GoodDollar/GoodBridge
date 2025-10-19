@@ -376,10 +376,12 @@ contract MessagePassingBridge is
     ) internal {
         if (isClosed) revert BRIDGE_LIMITS('closed');
 
-        // lock on celo, burn on other chains
-        if (_chainId() == HOME_CHAIN_ID) {
-            if (nativeToken().transferFrom(from, address(this), amount) == false) revert TRANSFER_FROM();
-        } else nativeToken().burnFrom(from, amount);
+        // if (_chainId() == HOME_CHAIN_ID) {
+        //     if (nativeToken().transferFrom(from, address(this), amount) == false) revert TRANSFER_FROM();
+        // } else {}
+
+        // burn/mint on all chains
+        nativeToken().burnFrom(from, amount);
         uint256 normalizedAmount = BridgeHelperLibrary.normalizeFromTokenTo18Decimals(amount, nativeToken().decimals()); //on bridge request we normalize amount from source chain decimals to 18 decimals
 
         if (msg.value == 0) revert MISSING_FEE();
@@ -517,15 +519,16 @@ contract MessagePassingBridge is
         executedRequests[id] = true;
         _topGas(target);
 
-        //unlock on celo mint on other chains
-        if (_chainId() == HOME_CHAIN_ID) {
-            if (nativeToken().transfer(target, tokenAmount - fee) == false) revert TRANSFER();
-            if (fee > 0 && feeRecipient == address(0)) nativeToken().burn(fee);
-            else if (fee > 0) nativeToken().transfer(feeRecipient, fee);
-        } else {
-            dao.mintTokens(tokenAmount - fee, target, avatar);
-            if (fee > 0) dao.mintTokens(fee, feeRecipient, avatar);
-        }
+        // if (_chainId() == HOME_CHAIN_ID) {
+        //     if (nativeToken().transfer(target, tokenAmount - fee) == false) revert TRANSFER();
+        //     if (fee > 0 && feeRecipient == address(0)) nativeToken().burn(fee);
+        //     else if (fee > 0) nativeToken().transfer(feeRecipient, fee);
+        // } else {
+        // }
+
+        //burn/mint on all chains
+        dao.mintTokens(tokenAmount - fee, target, avatar);
+        if (fee > 0) dao.mintTokens(fee, feeRecipient, avatar);
 
         emit ExecutedTransfer(from, target, normalizedAmount, fee, sourceChainId, bridge, id);
     }
