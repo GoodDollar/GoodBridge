@@ -7,14 +7,15 @@ import util from 'util';
 import { getImplementationAddress } from '@openzeppelin/upgrades-core';
 const exec = util.promisify(require('child_process').exec);
 
-const verifyContracts = async (chainData, mpbImplAddress, helperAddress) => {
-  console.log('verifying on etherscan...');
-  await hre.run('etherscan-verify');
-  console.log('verifying on sourcify...');
-  await hre.run('sourcify');
-
+const verifyContracts = async (chainData, mpbImplAddress, helperAddress, proxyAddress) => {
   //bug in hardhat-deploy not able to verify with libraries on etherscan
   console.log('verifying on impl+library on etherscan...');
+  await hre.run('verify:verify', {
+    address: proxyAddress,
+  });
+  await hre.run('verify:verify', {
+    address: helperAddress,
+  });
   await hre.run('verify:verify', {
     address: mpbImplAddress,
     constructorArguments: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, chainData.homeChainId],
@@ -22,6 +23,10 @@ const verifyContracts = async (chainData, mpbImplAddress, helperAddress) => {
       BridgeHelperLibrary: helperAddress,
     },
   });
+
+  console.log('verifying on sourcify...');
+  const sourcify = hre.run('sourcify');
+  await sourcify;
 };
 
 const chainsData = {
@@ -91,8 +96,8 @@ const chainsData = {
   },
   xdc_testnet: {
     name: 'development-xdc',
-    axlGateway: ethers.constants.AddressZero,
-    axlGas: ethers.constants.AddressZero,
+    axlGateway: '0x0000000000000000000000000000000000000001',
+    axlGas: '0x0000000000000000000000000000000000000001',
     lzEndpoint: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
     nameService: Contracts['development-xdc']?.NameService,
     oneToken: ethers.constants.WeiPerEther,
@@ -146,6 +151,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log('BridgeHelperLibrary', bridgeHelperLibrary.address);
   const bridgeProxy = await bridgeProxyDeploy.deploy();
 
+  console.log('MessagePassingBridge proxy', bridgeProxy.address);
   const bridgeImpl = await deployments.deploy('MessagePassingBridge_Implementation', {
     contract: 'MessagePassingBridge',
     from: signer.address,
@@ -154,6 +160,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     args: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, chainData.homeChainId],
     libraries: { BridgeHelperLibrary: bridgeHelperLibrary.address },
   }); //as unknown as MessagePassingBridge;
+  console.log('MessagePassingBridge implementation', bridgeImpl.address);
 
   const mpb = await ethers.getContractAt('MessagePassingBridge', bridgeProxy.address);
   const initialized = await mpb
@@ -248,10 +255,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
           .then((_) => _.wait()); //eth
         console.log('set zkLightClient for eth target');
       }
-      if (isTestnet)
-        await mpb
-          .setConfig(0, 10121, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
-          .then((_) => _.wait()); //goerli
       if (network.config.chainId != 42220) {
         await mpb
           .setConfig(0, 125, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
@@ -296,6 +299,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   if (['localhost', 'hardhat', 'fork'].includes(network.name) === false)
-    await verifyContracts(chainData, bridgeImpl.address, bridgeHelperLibrary.address);
+    await verifyContracts(chainData, bridgeImpl.address, bridgeHelperLibrary.address, bridgeProxy.address);
 };
 export default func;
