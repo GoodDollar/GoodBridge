@@ -5,6 +5,7 @@ import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import CtrlABI from '@gooddollar/goodprotocol/artifacts/abis/Controller.min.json';
 import util from 'util';
 import { getImplementationAddress } from '@openzeppelin/upgrades-core';
+import { MessagePassingBridge } from '../typechain-types';
 const exec = util.promisify(require('child_process').exec);
 
 const verifyContracts = async (chainData, mpbImplAddress, helperAddress, proxyAddress) => {
@@ -128,6 +129,17 @@ const chainsData = {
   },
 };
 
+const simulateUpgrade = async (mpb: MessagePassingBridge, impl: string) => {
+  const owner = await mpb.owner();
+  const signer = await ethers.getImpersonatedSigner(owner);
+  console.log('got owner signer:', signer.address);
+  const upgradeResult = await (
+    await mpb.connect(signer).upgradeToAndCall(impl, mpb.interface.encodeFunctionData('upgrade', []))
+  ).wait();
+  console.log('xdc:', await mpb.lzChainIdsMapping(50));
+  console.log({ upgradeResult });
+};
+
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, network } = hre;
   const signers = await ethers.getSigners();
@@ -151,7 +163,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   //support simulation on a fork
-  const chainData = chainsData[network.name === 'fork' ? 'mainnet' : network.name];
+  const chainData = chainsData[network.name === 'localhost' ? 'celo' : network.name];
 
   const proxySalt = ethers.utils.keccak256(
     ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge' + (isTestnet ? 'Testnet' : 'V1'))),
@@ -186,6 +198,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log('MessagePassingBridge implementation', bridgeImpl.address);
 
   const mpb = await ethers.getContractAt('MessagePassingBridge', bridgeProxy.address);
+  // await simulateUpgrade(mpb as unknown as MessagePassingBridge, bridgeImpl.address);
+  // return;
   const initialized = await mpb
     .dao()
     .then((_) => _ !== ethers.constants.AddressZero)
