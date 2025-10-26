@@ -103,6 +103,15 @@ const chainsData = {
     oneToken: ethers.constants.WeiPerEther,
     homeChainId: 42220,
   },
+  xdc: {
+    name: 'production-xdc',
+    axlGateway: '0x0000000000000000000000000000000000000001',
+    axlGas: '0x0000000000000000000000000000000000000001',
+    lzEndpoint: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
+    nameService: '0x1e5154Bf5e31FF56051bbd45958b879Fb7a290FE',
+    oneToken: ethers.constants.WeiPerEther,
+    homeChainId: 42220,
+  },
 };
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
@@ -129,11 +138,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   //support simulation on a fork
   const chainData = chainsData[network.name === 'fork' ? 'mainnet' : network.name];
-  console.log(chainData, network.name, { isTestnet });
 
   const proxySalt = ethers.utils.keccak256(
-    ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge' + isTestnet ? 'Testnet' : 'V1')),
+    ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge' + (isTestnet ? 'Testnet' : 'V1'))),
   );
+  console.log(chainData, network.name, { isTestnet, proxySalt });
   const bridgeProxyDeploy = await deployments.deterministic('MessagePassingBridge', {
     contract: 'ERC1967Proxy',
     from: signer.address,
