@@ -161,6 +161,7 @@ export const prepareBlock = (block: BlockHeader, chainId?: number) => {
     'blobGasUsed',
     'excessBlobGas',
     'parentBeaconBlockRoot',
+    'requestsHash',
   ]);
   //special parsing for celo
   //https://github.com/celo-org/celo-blockchain/blob/e0c433849e3e6bfe32a421fd8dc05372286ba6d3/core/types/block.go

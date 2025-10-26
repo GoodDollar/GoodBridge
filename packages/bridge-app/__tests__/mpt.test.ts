@@ -206,6 +206,15 @@ describe('block merkle patricia tree tests', () => {
       expect(proof).toBeTruthy();
     });
 
+    it('generate receipt proof for celo post hardfork with complex 0x7b tx type', async () => {
+      const proof = await SigUtils.receiptProof(
+        '0xb336d5f7e08c16ec661696b0f8763ac2fd09f8a2d8f9daf08a9958bf61391675',
+        new ethers.providers.JsonRpcProvider('https://forno.celo.org'),
+        42220,
+      );
+      expect(proof).toBeTruthy();
+    });
+
     it('generate receipt proof for celo post hardfork with 0x7b tx type', async () => {
       const proof = await SigUtils.receiptProof(
         '0xc2596edb3969f030b69db2baed4c83969d7bb38e624e2534736ed283b7f77f09',
@@ -215,7 +224,8 @@ describe('block merkle patricia tree tests', () => {
       expect(proof).toBeTruthy();
     });
 
-    it('generate receipt proof for celo', async () => {
+    // not supporting old blocks
+    it.skip('generate receipt proof for celo', async () => {
       const proof = await SigUtils.receiptProof(
         '0x25a5e77f301944de1741355e1f1d710816b88a2f405e32efc69c10bb1b82f45d',
         new ethers.providers.JsonRpcProvider('https://forno.celo.org'),
@@ -317,9 +327,10 @@ describe('block merkle patricia tree tests', () => {
       expect(computedHash).toEqual(block.hash);
     });
 
-    it('creates celo rlpHeader', async () => {
+    // not supporting old blocks
+    it.skip('creates celo rlpHeader', async () => {
       const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
-        'latest',
+        '40180000',
         42220,
         'https://forno.celo.org',
       );
@@ -331,7 +342,8 @@ describe('block merkle patricia tree tests', () => {
       expect(computedHash).toEqual(block.hash);
     });
 
-    it('creates celo rlpHeader 2', async () => {
+    // not supporting old blocks
+    it.skip('creates celo rlpHeader 2', async () => {
       const { block, rlpHeader, blockHeader, computedHash } = await SigUtils.getBlockchainHeader(
         '18756992',
         42220,

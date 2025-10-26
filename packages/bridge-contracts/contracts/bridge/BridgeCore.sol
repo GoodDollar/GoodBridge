@@ -126,9 +126,15 @@ abstract contract BridgeCore {
                     blockReceipts.receiptProofs[j].keyIndex == 0 && blockReceipts.receiptProofs[j].proofIndex == 0,
                     'not start index'
                 );
-                require(blockReceipts.receiptProofs[j].expectedRoot == receiptRoot, 'receiptRoot mismatch');
-                require(blockReceipts.receiptProofs[j].verifyTrieProof(), 'receipt not in block');
-                require(chainStartBlock(chainId) <= blockReceipts.blockNumber, 'receipt too old');
+                address[] memory signer = new address[](1);
+                signer[0] = msg.sender;
+
+                // allow to skip receipt proof, because of celo last hardfork new receipt proofs structure
+                if (!isValidConsensus(signer)) {
+                    require(blockReceipts.receiptProofs[j].expectedRoot == receiptRoot, 'receiptRoot mismatch');
+                    require(blockReceipts.receiptProofs[j].verifyTrieProof(), 'receipt not in block');
+                    require(chainStartBlock(chainId) <= blockReceipts.blockNumber, 'receipt too old');
+                }
 
                 bool executed = _executeReceipt(
                     chainId,

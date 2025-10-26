@@ -10,7 +10,7 @@ const TokenBridgeABI = [
 const fuseRpc = new ethers.providers.JsonRpcProvider('https://rpc.fuse.io');
 const celoRpc = new ethers.providers.JsonRpcProvider('https://forno.celo.org');
 
-const handleError = async (bridge, celoNotExecuted, fuseNotExecuted) => { };
+const handleError = async (bridge, celoNotExecuted, fuseNotExecuted) => {};
 const blocksAgo = -150000;
 const checkStaleRequests = async () => {
   const ps = Object.values(bridges).map(async (bridge) => {
@@ -19,9 +19,33 @@ const checkStaleRequests = async () => {
     const bridgeARequests = await bridgeA.queryFilter(bridgeA.filters.BridgeRequest(), blocksAgo, -60);
     const bridgeAExecuted = await bridgeA.queryFilter(bridgeA.filters.ExecutedTransfer(), blocksAgo);
     bridgeAExecuted.push(...(await bridgeA.queryFilter(bridgeA.filters.ExecutedTransfer(), blocksAgo * 2, blocksAgo)));
+    bridgeAExecuted.push(
+      ...(await bridgeA.queryFilter(bridgeA.filters.ExecutedTransfer(), blocksAgo * 3, blocksAgo * 2)),
+    );
+    bridgeAExecuted.push(
+      ...(await bridgeA.queryFilter(bridgeA.filters.ExecutedTransfer(), blocksAgo * 4, blocksAgo * 3)),
+    );
+    bridgeAExecuted.push(
+      ...(await bridgeA.queryFilter(bridgeA.filters.ExecutedTransfer(), blocksAgo * 5, blocksAgo * 4)),
+    );
     const bridgeBRequests = await bridgeB.queryFilter(bridgeB.filters.BridgeRequest(), blocksAgo, -60);
+    bridgeBRequests.push(...(await bridgeB.queryFilter(bridgeB.filters.BridgeRequest(), blocksAgo * 2, blocksAgo)));
+    bridgeBRequests.push(...(await bridgeB.queryFilter(bridgeB.filters.BridgeRequest(), blocksAgo * 3, blocksAgo * 2)));
+    bridgeBRequests.push(...(await bridgeB.queryFilter(bridgeB.filters.BridgeRequest(), blocksAgo * 4, blocksAgo * 3)));
+    bridgeBRequests.push(...(await bridgeB.queryFilter(bridgeB.filters.BridgeRequest(), blocksAgo * 5, blocksAgo * 4)));
+    bridgeBRequests.push(...(await bridgeB.queryFilter(bridgeB.filters.BridgeRequest(), blocksAgo * 6, blocksAgo * 5)));
+    bridgeBRequests.push(...(await bridgeB.queryFilter(bridgeB.filters.BridgeRequest(), blocksAgo * 7, blocksAgo * 6)));
     const bridgeBExecuted = await bridgeB.queryFilter(bridgeB.filters.ExecutedTransfer(), blocksAgo);
     bridgeBExecuted.push(...(await bridgeB.queryFilter(bridgeB.filters.ExecutedTransfer(), blocksAgo * 2, blocksAgo)));
+    bridgeBExecuted.push(
+      ...(await bridgeB.queryFilter(bridgeB.filters.ExecutedTransfer(), blocksAgo * 3, blocksAgo * 2)),
+    );
+    bridgeBExecuted.push(
+      ...(await bridgeB.queryFilter(bridgeB.filters.ExecutedTransfer(), blocksAgo * 4, blocksAgo * 3)),
+    );
+    bridgeBExecuted.push(
+      ...(await bridgeB.queryFilter(bridgeB.filters.ExecutedTransfer(), blocksAgo * 5, blocksAgo * 4)),
+    );
 
     const aRequests = bridgeARequests.map((e) => e.args?.[6].toString());
     const aExecuted = bridgeAExecuted.map((e) => e.args?.[7].toString());
