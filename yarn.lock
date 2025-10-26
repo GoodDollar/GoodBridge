@@ -1542,7 +1542,7 @@ __metadata:
   dependencies:
     "@axelar-network/axelar-gmp-sdk-solidity": "npm:^3.6.1"
     "@axelar-network/axelarjs-sdk": "npm:^0.13.6"
-    "@gooddollar/goodprotocol": "npm:2.0.34-beta.3"
+    "@gooddollar/goodprotocol": "npm:2.0.34-beta.4"
     "@layerzerolabs/scan-client": "npm:^0.0.6"
     "@layerzerolabs/solidity-examples": "npm:^0.0.13"
     "@nomicfoundation/hardhat-chai-matchers": "npm:^1.0.5"
@@ -1582,10 +1582,10 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@gooddollar/goodprotocol@npm:2.0.34-beta.3":
-  version: 2.0.34-beta.3
-  resolution: "@gooddollar/goodprotocol@npm:2.0.34-beta.3"
-  checksum: 10/65197a50ca541af735fa940a136f20c596c65e873bb8881c3cf2e359754b1ffb06213dd1b3c96f432c5d2d6f2873365f7c8a09241f437b037bb9ef39b43b9939
+"@gooddollar/goodprotocol@npm:2.0.34-beta.4":
+  version: 2.0.34-beta.4
+  resolution: "@gooddollar/goodprotocol@npm:2.0.34-beta.4"
+  checksum: 10/de0a07b19fe431564dc46d528bb5bf65709a25c277fef4e1923fa3e415d600460a7ef12b21c84b54ccc5f9d45e853f46be5fecee59fb7085892d86120b556850
   languageName: node
   linkType: hard
 

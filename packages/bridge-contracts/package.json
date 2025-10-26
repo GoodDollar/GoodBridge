@@ -24,7 +24,7 @@
   "devDependencies": {
     "@axelar-network/axelar-gmp-sdk-solidity": "^3.6.1",
     "@axelar-network/axelarjs-sdk": "^0.13.6",
-    "@gooddollar/goodprotocol": "2.0.34-beta.3",
+    "@gooddollar/goodprotocol": "2.0.34-beta.4",
     "@layerzerolabs/scan-client": "^0.0.6",
     "@layerzerolabs/solidity-examples": "^0.0.13",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.5",

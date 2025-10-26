@@ -10,19 +10,33 @@ const exec = util.promisify(require('child_process').exec);
 const verifyContracts = async (chainData, mpbImplAddress, helperAddress, proxyAddress) => {
   //bug in hardhat-deploy not able to verify with libraries on etherscan
   console.log('verifying on impl+library on etherscan...');
-  await hre.run('verify:verify', {
-    address: proxyAddress,
-  });
-  await hre.run('verify:verify', {
-    address: helperAddress,
-  });
-  await hre.run('verify:verify', {
-    address: mpbImplAddress,
-    constructorArguments: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, chainData.homeChainId],
-    libraries: {
-      BridgeHelperLibrary: helperAddress,
-    },
-  });
+
+  try {
+    await hre.run('verify:verify', {
+      address: mpbImplAddress,
+      constructorArguments: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, chainData.homeChainId],
+      libraries: {
+        BridgeHelperLibrary: helperAddress,
+      },
+    });
+  } catch (e) {
+    console.log('implementation verification error:', e);
+  }
+
+  try {
+    await hre.run('verify:verify', {
+      address: proxyAddress,
+    });
+  } catch (e) {
+    console.log('proxy verification error:', e);
+  }
+  try {
+    await hre.run('verify:verify', {
+      address: helperAddress,
+    });
+  } catch (e) {
+    console.log('library verification error:', e);
+  }
 
   console.log('verifying on sourcify...');
   const sourcify = hre.run('sourcify');
@@ -229,7 +243,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         encoded,
       );
       console.log({ initializedTx });
-      if (isTestnet && network.name !== 'hardhat') {
+      if (network.name !== 'hardhat') {
         await addAsMinter();
       }
     } else if (isTestnet) {
@@ -307,7 +321,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
   }
 
-  if (['localhost', 'hardhat', 'fork'].includes(network.name) === false)
-    await verifyContracts(chainData, bridgeImpl.address, bridgeHelperLibrary.address, bridgeProxy.address);
+  try {
+    if (['localhost', 'hardhat', 'fork'].includes(network.name) === false)
+      await verifyContracts(chainData, bridgeImpl.address, bridgeHelperLibrary.address, bridgeProxy.address);
+  } catch (e) {
+    console.log('verification error:', e);
+  }
 };
 export default func;
