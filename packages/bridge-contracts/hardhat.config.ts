@@ -41,10 +41,6 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    localhost: {
-      url: 'http://localhost:8545',
-      chainId: 42220,
-    },
     develop: {
       chainId: 4447,
       url: 'http://localhost:8545',
@@ -52,8 +48,8 @@ const config: HardhatUserConfig = {
     mainnet: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 1,
-      url: 'https://rpc.ankr.com/eth',
-      gasPrice: 5e9,
+      url: 'https://eth.drpc.org',
+      gasPrice: 8e8,
     },
     fuse: {
       accounts: accounts as HttpNetworkAccountsConfig,
