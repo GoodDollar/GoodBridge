@@ -132,7 +132,7 @@ const config: HardhatUserConfig = {
     },
   },
   sourcify: {
-    enabled: false,
+    enabled: true,
   },
   verify: {
     etherscan: {
