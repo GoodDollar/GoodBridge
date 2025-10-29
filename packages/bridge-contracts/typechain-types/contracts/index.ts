@@ -7,5 +7,7 @@ import type * as bridge from "./bridge";
 export type { bridge };
 import type * as fuse from "./fuse";
 export type { fuse };
+import type * as messagePassingBridge from "./messagePassingBridge";
+export type { messagePassingBridge };
 import type * as test from "./test";
 export type { test };

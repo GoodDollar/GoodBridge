@@ -13,7 +13,11 @@ import type {
   Signer,
   utils,
 } from "ethers";
-import type { FunctionFragment, Result } from "@ethersproject/abi";
+import type {
+  FunctionFragment,
+  Result,
+  EventFragment,
+} from "@ethersproject/abi";
 import type { Listener, Provider } from "@ethersproject/providers";
 import type {
   TypedEventFilter,
@@ -67,16 +71,6 @@ export declare namespace BridgeCore {
     blockNumber: BigNumber;
   };
 
-  export type BlockHeaderStruct = {
-    parentHash: PromiseOrValue<BytesLike>;
-    number: PromiseOrValue<BigNumberish>;
-  };
-
-  export type BlockHeaderStructOutput = [string, BigNumber] & {
-    parentHash: string;
-    number: BigNumber;
-  };
-
   export type SignedBlockStruct = {
     chainId: PromiseOrValue<BigNumberish>;
     rlpHeader: PromiseOrValue<BytesLike>;
@@ -108,7 +102,6 @@ export interface BridgeCoreInterface extends utils.Interface {
     "executeReceipts(uint256,((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
     "isValidConsensus(address[])": FunctionFragment;
     "numValidators()": FunctionFragment;
-    "parseRLPToHeader(bytes)": FunctionFragment;
     "submitBlocks((uint256,bytes,bytes[],uint256,address[])[])": FunctionFragment;
     "submitChainBlockParentsAndTxs((uint256,bytes,bytes[],uint256,address[]),uint256,bytes[],((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
     "usedReceipts(bytes32)": FunctionFragment;
@@ -124,7 +117,6 @@ export interface BridgeCoreInterface extends utils.Interface {
       | "executeReceipts"
       | "isValidConsensus"
       | "numValidators"
-      | "parseRLPToHeader"
       | "submitBlocks"
       | "submitChainBlockParentsAndTxs"
       | "usedReceipts"
@@ -158,10 +150,6 @@ export interface BridgeCoreInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "numValidators",
     values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "parseRLPToHeader",
-    values: [PromiseOrValue<BytesLike>]
   ): string;
   encodeFunctionData(
     functionFragment: "submitBlocks",
@@ -219,10 +207,6 @@ export interface BridgeCoreInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "parseRLPToHeader",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "submitBlocks",
     data: BytesLike
   ): Result;
@@ -243,8 +227,37 @@ export interface BridgeCoreInterface extends utils.Interface {
     data: BytesLike
   ): Result;
 
-  events: {};
+  events: {
+    "BlockVerified(uint256,uint256,bytes32)": EventFragment;
+    "ValidatorsSet(address[],uint256)": EventFragment;
+  };
+
+  getEvent(nameOrSignatureOrTopic: "BlockVerified"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ValidatorsSet"): EventFragment;
 }
+
+export interface BlockVerifiedEventObject {
+  chainId: BigNumber;
+  blockNumber: BigNumber;
+  blockHash: string;
+}
+export type BlockVerifiedEvent = TypedEvent<
+  [BigNumber, BigNumber, string],
+  BlockVerifiedEventObject
+>;
+
+export type BlockVerifiedEventFilter = TypedEventFilter<BlockVerifiedEvent>;
+
+export interface ValidatorsSetEventObject {
+  validators: string[];
+  cycleEnd: BigNumber;
+}
+export type ValidatorsSetEvent = TypedEvent<
+  [string[], BigNumber],
+  ValidatorsSetEventObject
+>;
+
+export type ValidatorsSetEventFilter = TypedEventFilter<ValidatorsSetEvent>;
 
 export interface BridgeCore extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
@@ -301,15 +314,6 @@ export interface BridgeCore extends BaseContract {
     ): Promise<ContractTransaction>;
 
     numValidators(overrides?: CallOverrides): Promise<[BigNumber]>;
-
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<
-      [BridgeCore.BlockHeaderStructOutput] & {
-        header: BridgeCore.BlockHeaderStructOutput;
-      }
-    >;
 
     submitBlocks(
       signedBlocks: BridgeCore.SignedBlockStruct[],
@@ -369,11 +373,6 @@ export interface BridgeCore extends BaseContract {
 
   numValidators(overrides?: CallOverrides): Promise<BigNumber>;
 
-  parseRLPToHeader(
-    rlpHeader: PromiseOrValue<BytesLike>,
-    overrides?: CallOverrides
-  ): Promise<BridgeCore.BlockHeaderStructOutput>;
-
   submitBlocks(
     signedBlocks: BridgeCore.SignedBlockStruct[],
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -432,11 +431,6 @@ export interface BridgeCore extends BaseContract {
 
     numValidators(overrides?: CallOverrides): Promise<BigNumber>;
 
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<BridgeCore.BlockHeaderStructOutput>;
-
     submitBlocks(
       signedBlocks: BridgeCore.SignedBlockStruct[],
       overrides?: CallOverrides
@@ -466,7 +460,24 @@ export interface BridgeCore extends BaseContract {
     ): Promise<void>;
   };
 
-  filters: {};
+  filters: {
+    "BlockVerified(uint256,uint256,bytes32)"(
+      chainId?: null,
+      blockNumber?: null,
+      blockHash?: null
+    ): BlockVerifiedEventFilter;
+    BlockVerified(
+      chainId?: null,
+      blockNumber?: null,
+      blockHash?: null
+    ): BlockVerifiedEventFilter;
+
+    "ValidatorsSet(address[],uint256)"(
+      validators?: null,
+      cycleEnd?: null
+    ): ValidatorsSetEventFilter;
+    ValidatorsSet(validators?: null, cycleEnd?: null): ValidatorsSetEventFilter;
+  };
 
   estimateGas: {
     chainStartBlock(
@@ -497,11 +508,6 @@ export interface BridgeCore extends BaseContract {
     ): Promise<BigNumber>;
 
     numValidators(overrides?: CallOverrides): Promise<BigNumber>;
-
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
 
     submitBlocks(
       signedBlocks: BridgeCore.SignedBlockStruct[],
@@ -561,11 +567,6 @@ export interface BridgeCore extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     numValidators(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
 
     submitBlocks(
       signedBlocks: BridgeCore.SignedBlockStruct[],

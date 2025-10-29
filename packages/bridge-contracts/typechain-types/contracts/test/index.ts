@@ -3,9 +3,11 @@
 /* eslint-disable */
 import type * as multiCallSol from "./MultiCall.sol";
 export type { multiCallSol };
+import type * as testTokenSol from "./TestToken.sol";
+export type { testTokenSol };
 import type * as votingMockSol from "./VotingMock.sol";
 export type { votingMockSol };
 export type { ConsensusMock } from "./ConsensusMock";
-export type { TestToken } from "./TestToken";
+export type { TestRLPParser } from "./TestRLPParser";
 export type { TokenBridgeTest } from "./TokenBridgeTest";
 export type { VerifierTest } from "./VerifierTest";

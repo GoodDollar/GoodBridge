@@ -9,6 +9,7 @@ import type {
   CallOverrides,
   ContractTransaction,
   Overrides,
+  PayableOverrides,
   PopulatedTransaction,
   Signer,
   utils,
@@ -26,42 +27,6 @@ import type {
   OnEvent,
   PromiseOrValue,
 } from "../../../common";
-
-export declare namespace TokenBridge {
-  export type BridgeFeesStruct = {
-    minFee: PromiseOrValue<BigNumberish>;
-    maxFee: PromiseOrValue<BigNumberish>;
-    fee: PromiseOrValue<BigNumberish>;
-  };
-
-  export type BridgeFeesStructOutput = [BigNumber, BigNumber, BigNumber] & {
-    minFee: BigNumber;
-    maxFee: BigNumber;
-    fee: BigNumber;
-  };
-
-  export type BridgeLimitsStruct = {
-    dailyLimit: PromiseOrValue<BigNumberish>;
-    txLimit: PromiseOrValue<BigNumberish>;
-    accountDailyLimit: PromiseOrValue<BigNumberish>;
-    minAmount: PromiseOrValue<BigNumberish>;
-    onlyWhitelisted: PromiseOrValue<boolean>;
-  };
-
-  export type BridgeLimitsStructOutput = [
-    BigNumber,
-    BigNumber,
-    BigNumber,
-    BigNumber,
-    boolean
-  ] & {
-    dailyLimit: BigNumber;
-    txLimit: BigNumber;
-    accountDailyLimit: BigNumber;
-    minAmount: BigNumber;
-    onlyWhitelisted: boolean;
-  };
-}
 
 export declare namespace MPT {
   export type MerkleProofStruct = {
@@ -107,16 +72,6 @@ export declare namespace BridgeCore {
     blockNumber: BigNumber;
   };
 
-  export type BlockHeaderStruct = {
-    parentHash: PromiseOrValue<BytesLike>;
-    number: PromiseOrValue<BigNumberish>;
-  };
-
-  export type BlockHeaderStructOutput = [string, BigNumber] & {
-    parentHash: string;
-    number: BigNumber;
-  };
-
   export type SignedBlockStruct = {
     chainId: PromiseOrValue<BigNumberish>;
     rlpHeader: PromiseOrValue<BytesLike>;
@@ -137,6 +92,42 @@ export declare namespace BridgeCore {
     signatures: string[];
     cycleEnd: BigNumber;
     validators: string[];
+  };
+}
+
+export declare namespace TokenBridge {
+  export type BridgeFeesStruct = {
+    minFee: PromiseOrValue<BigNumberish>;
+    maxFee: PromiseOrValue<BigNumberish>;
+    fee: PromiseOrValue<BigNumberish>;
+  };
+
+  export type BridgeFeesStructOutput = [BigNumber, BigNumber, BigNumber] & {
+    minFee: BigNumber;
+    maxFee: BigNumber;
+    fee: BigNumber;
+  };
+
+  export type BridgeLimitsStruct = {
+    dailyLimit: PromiseOrValue<BigNumberish>;
+    txLimit: PromiseOrValue<BigNumberish>;
+    accountDailyLimit: PromiseOrValue<BigNumberish>;
+    minAmount: PromiseOrValue<BigNumberish>;
+    onlyWhitelisted: PromiseOrValue<boolean>;
+  };
+
+  export type BridgeLimitsStructOutput = [
+    BigNumber,
+    BigNumber,
+    BigNumber,
+    BigNumber,
+    boolean
+  ] & {
+    dailyLimit: BigNumber;
+    txLimit: BigNumber;
+    accountDailyLimit: BigNumber;
+    minAmount: BigNumber;
+    onlyWhitelisted: boolean;
   };
 }
 
@@ -161,14 +152,17 @@ export interface TokenBridgeInterface extends utils.Interface {
     "executeReceipts(uint256,((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
     "executedRequests(uint256)": FunctionFragment;
     "faucet()": FunctionFragment;
+    "initialize(address[],uint256,address[],uint32,address,(uint256,uint256,uint256),(uint256,uint256,uint256,uint256,bool),address,address)": FunctionFragment;
     "isClosed()": FunctionFragment;
     "isValidConsensus(address[])": FunctionFragment;
     "nameService()": FunctionFragment;
+    "normalizeFrom18ToTokenDecimals(uint256)": FunctionFragment;
+    "normalizeFromTokenTo18Decimals(uint256)": FunctionFragment;
     "numRequiredValidators()": FunctionFragment;
     "numValidators()": FunctionFragment;
     "onTokenTransfer(address,uint256,bytes)": FunctionFragment;
     "owner()": FunctionFragment;
-    "parseRLPToHeader(bytes)": FunctionFragment;
+    "proxiableUUID()": FunctionFragment;
     "renounceOwnership()": FunctionFragment;
     "requiredValidators(address)": FunctionFragment;
     "requiredValidatorsSet()": FunctionFragment;
@@ -182,10 +176,12 @@ export interface TokenBridgeInterface extends utils.Interface {
     "submitBlocks((uint256,bytes,bytes[],uint256,address[])[])": FunctionFragment;
     "submitChainBlockParentsAndTxs((uint256,bytes,bytes[],uint256,address[]),uint256,bytes[],((bytes32,bytes,bytes[],uint256,uint256,bytes)[],bytes,uint256)[])": FunctionFragment;
     "transferOwnership(address)": FunctionFragment;
+    "upgradeTo(address)": FunctionFragment;
+    "upgradeToAndCall(address,bytes)": FunctionFragment;
     "usedReceipts(bytes32)": FunctionFragment;
     "validatorsCycleEnd()": FunctionFragment;
     "verifyParentBlocks(uint256,uint256,bytes[],bytes)": FunctionFragment;
-    "withdraw(address)": FunctionFragment;
+    "withdraw(address,uint256)": FunctionFragment;
   };
 
   getFunction(
@@ -209,14 +205,17 @@ export interface TokenBridgeInterface extends utils.Interface {
       | "executeReceipts"
       | "executedRequests"
       | "faucet"
+      | "initialize"
       | "isClosed"
       | "isValidConsensus"
       | "nameService"
+      | "normalizeFrom18ToTokenDecimals"
+      | "normalizeFromTokenTo18Decimals"
       | "numRequiredValidators"
       | "numValidators"
       | "onTokenTransfer"
       | "owner"
-      | "parseRLPToHeader"
+      | "proxiableUUID"
       | "renounceOwnership"
       | "requiredValidators"
       | "requiredValidatorsSet"
@@ -230,6 +229,8 @@ export interface TokenBridgeInterface extends utils.Interface {
       | "submitBlocks"
       | "submitChainBlockParentsAndTxs"
       | "transferOwnership"
+      | "upgradeTo"
+      | "upgradeToAndCall"
       | "usedReceipts"
       | "validatorsCycleEnd"
       | "verifyParentBlocks"
@@ -317,6 +318,20 @@ export interface TokenBridgeInterface extends utils.Interface {
     values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(functionFragment: "faucet", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "initialize",
+    values: [
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<string>[],
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<string>,
+      TokenBridge.BridgeFeesStruct,
+      TokenBridge.BridgeLimitsStruct,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>
+    ]
+  ): string;
   encodeFunctionData(functionFragment: "isClosed", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "isValidConsensus",
@@ -325,6 +340,14 @@ export interface TokenBridgeInterface extends utils.Interface {
   encodeFunctionData(
     functionFragment: "nameService",
     values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "normalizeFrom18ToTokenDecimals",
+    values: [PromiseOrValue<BigNumberish>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "normalizeFromTokenTo18Decimals",
+    values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
     functionFragment: "numRequiredValidators",
@@ -344,8 +367,8 @@ export interface TokenBridgeInterface extends utils.Interface {
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
-    functionFragment: "parseRLPToHeader",
-    values: [PromiseOrValue<BytesLike>]
+    functionFragment: "proxiableUUID",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "renounceOwnership",
@@ -405,6 +428,14 @@ export interface TokenBridgeInterface extends utils.Interface {
     values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
+    functionFragment: "upgradeTo",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "upgradeToAndCall",
+    values: [PromiseOrValue<string>, PromiseOrValue<BytesLike>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "usedReceipts",
     values: [PromiseOrValue<BytesLike>]
   ): string;
@@ -423,7 +454,7 @@ export interface TokenBridgeInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "withdraw",
-    values: [PromiseOrValue<string>]
+    values: [PromiseOrValue<string>, PromiseOrValue<BigNumberish>]
   ): string;
 
   decodeFunctionResult(
@@ -487,6 +518,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "faucet", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "initialize", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "isClosed", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "isValidConsensus",
@@ -494,6 +526,14 @@ export interface TokenBridgeInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "nameService",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "normalizeFrom18ToTokenDecimals",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "normalizeFromTokenTo18Decimals",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -510,7 +550,7 @@ export interface TokenBridgeInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "parseRLPToHeader",
+    functionFragment: "proxiableUUID",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -562,6 +602,11 @@ export interface TokenBridgeInterface extends utils.Interface {
     functionFragment: "transferOwnership",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "upgradeTo", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "upgradeToAndCall",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "usedReceipts",
     data: BytesLike
@@ -577,15 +622,60 @@ export interface TokenBridgeInterface extends utils.Interface {
   decodeFunctionResult(functionFragment: "withdraw", data: BytesLike): Result;
 
   events: {
+    "AdminChanged(address,address)": EventFragment;
+    "BeaconUpgraded(address)": EventFragment;
+    "BlockVerified(uint256,uint256,bytes32)": EventFragment;
     "BridgeRequest(address,address,uint256,uint256,bool,uint256,uint256)": EventFragment;
     "ExecutedTransfer(address,address,address,uint256,uint256,uint256,uint256,uint256)": EventFragment;
+    "Initialized(uint8)": EventFragment;
     "OwnershipTransferred(address,address)": EventFragment;
+    "Upgraded(address)": EventFragment;
+    "ValidatorsSet(address[],uint256)": EventFragment;
   };
 
+  getEvent(nameOrSignatureOrTopic: "AdminChanged"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "BeaconUpgraded"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "BlockVerified"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "BridgeRequest"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ExecutedTransfer"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "Initialized"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnershipTransferred"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "Upgraded"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ValidatorsSet"): EventFragment;
 }
+
+export interface AdminChangedEventObject {
+  previousAdmin: string;
+  newAdmin: string;
+}
+export type AdminChangedEvent = TypedEvent<
+  [string, string],
+  AdminChangedEventObject
+>;
+
+export type AdminChangedEventFilter = TypedEventFilter<AdminChangedEvent>;
+
+export interface BeaconUpgradedEventObject {
+  beacon: string;
+}
+export type BeaconUpgradedEvent = TypedEvent<
+  [string],
+  BeaconUpgradedEventObject
+>;
+
+export type BeaconUpgradedEventFilter = TypedEventFilter<BeaconUpgradedEvent>;
+
+export interface BlockVerifiedEventObject {
+  chainId: BigNumber;
+  blockNumber: BigNumber;
+  blockHash: string;
+}
+export type BlockVerifiedEvent = TypedEvent<
+  [BigNumber, BigNumber, string],
+  BlockVerifiedEventObject
+>;
+
+export type BlockVerifiedEventFilter = TypedEventFilter<BlockVerifiedEvent>;
 
 export interface BridgeRequestEventObject {
   from: string;
@@ -630,6 +720,13 @@ export type ExecutedTransferEvent = TypedEvent<
 export type ExecutedTransferEventFilter =
   TypedEventFilter<ExecutedTransferEvent>;
 
+export interface InitializedEventObject {
+  version: number;
+}
+export type InitializedEvent = TypedEvent<[number], InitializedEventObject>;
+
+export type InitializedEventFilter = TypedEventFilter<InitializedEvent>;
+
 export interface OwnershipTransferredEventObject {
   previousOwner: string;
   newOwner: string;
@@ -641,6 +738,24 @@ export type OwnershipTransferredEvent = TypedEvent<
 
 export type OwnershipTransferredEventFilter =
   TypedEventFilter<OwnershipTransferredEvent>;
+
+export interface UpgradedEventObject {
+  implementation: string;
+}
+export type UpgradedEvent = TypedEvent<[string], UpgradedEventObject>;
+
+export type UpgradedEventFilter = TypedEventFilter<UpgradedEvent>;
+
+export interface ValidatorsSetEventObject {
+  validators: string[];
+  cycleEnd: BigNumber;
+}
+export type ValidatorsSetEvent = TypedEvent<
+  [string[], BigNumber],
+  ValidatorsSetEventObject
+>;
+
+export type ValidatorsSetEventFilter = TypedEventFilter<ValidatorsSetEvent>;
 
 export interface TokenBridge extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
@@ -731,8 +846,8 @@ export interface TokenBridge extends BaseContract {
     canBridge(
       from: PromiseOrValue<string>,
       amount: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
-    ): Promise<ContractTransaction>;
+      overrides?: CallOverrides
+    ): Promise<[boolean, string] & { isWithinLimit: boolean; error: string }>;
 
     chainIdToStats(
       arg0: PromiseOrValue<BigNumberish>,
@@ -783,6 +898,19 @@ export interface TokenBridge extends BaseContract {
 
     faucet(overrides?: CallOverrides): Promise<[string]>;
 
+    initialize(
+      _validators: PromiseOrValue<string>[],
+      _cycleEnd: PromiseOrValue<BigNumberish>,
+      _requiredValidators: PromiseOrValue<string>[],
+      _consensusRatio: PromiseOrValue<BigNumberish>,
+      _bridgedToken: PromiseOrValue<string>,
+      _fees: TokenBridge.BridgeFeesStruct,
+      _limits: TokenBridge.BridgeLimitsStruct,
+      _faucet: PromiseOrValue<string>,
+      _nameService: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     isClosed(overrides?: CallOverrides): Promise<[boolean]>;
 
     isValidConsensus(
@@ -791,6 +919,16 @@ export interface TokenBridge extends BaseContract {
     ): Promise<ContractTransaction>;
 
     nameService(overrides?: CallOverrides): Promise<[string]>;
+
+    normalizeFrom18ToTokenDecimals(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber] & { normalized: BigNumber }>;
+
+    normalizeFromTokenTo18Decimals(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber] & { normalized: BigNumber }>;
 
     numRequiredValidators(overrides?: CallOverrides): Promise<[number]>;
 
@@ -805,14 +943,7 @@ export interface TokenBridge extends BaseContract {
 
     owner(overrides?: CallOverrides): Promise<[string]>;
 
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<
-      [BridgeCore.BlockHeaderStructOutput] & {
-        header: BridgeCore.BlockHeaderStructOutput;
-      }
-    >;
+    proxiableUUID(overrides?: CallOverrides): Promise<[string]>;
 
     renounceOwnership(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -879,6 +1010,17 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
 
+    upgradeTo(
+      newImplementation: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    upgradeToAndCall(
+      newImplementation: PromiseOrValue<string>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     usedReceipts(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -896,6 +1038,7 @@ export interface TokenBridge extends BaseContract {
 
     withdraw(
       token: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
   };
@@ -962,8 +1105,8 @@ export interface TokenBridge extends BaseContract {
   canBridge(
     from: PromiseOrValue<string>,
     amount: PromiseOrValue<BigNumberish>,
-    overrides?: Overrides & { from?: PromiseOrValue<string> }
-  ): Promise<ContractTransaction>;
+    overrides?: CallOverrides
+  ): Promise<[boolean, string] & { isWithinLimit: boolean; error: string }>;
 
   chainIdToStats(
     arg0: PromiseOrValue<BigNumberish>,
@@ -1014,6 +1157,19 @@ export interface TokenBridge extends BaseContract {
 
   faucet(overrides?: CallOverrides): Promise<string>;
 
+  initialize(
+    _validators: PromiseOrValue<string>[],
+    _cycleEnd: PromiseOrValue<BigNumberish>,
+    _requiredValidators: PromiseOrValue<string>[],
+    _consensusRatio: PromiseOrValue<BigNumberish>,
+    _bridgedToken: PromiseOrValue<string>,
+    _fees: TokenBridge.BridgeFeesStruct,
+    _limits: TokenBridge.BridgeLimitsStruct,
+    _faucet: PromiseOrValue<string>,
+    _nameService: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   isClosed(overrides?: CallOverrides): Promise<boolean>;
 
   isValidConsensus(
@@ -1022,6 +1178,16 @@ export interface TokenBridge extends BaseContract {
   ): Promise<ContractTransaction>;
 
   nameService(overrides?: CallOverrides): Promise<string>;
+
+  normalizeFrom18ToTokenDecimals(
+    amount: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  normalizeFromTokenTo18Decimals(
+    amount: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   numRequiredValidators(overrides?: CallOverrides): Promise<number>;
 
@@ -1036,10 +1202,7 @@ export interface TokenBridge extends BaseContract {
 
   owner(overrides?: CallOverrides): Promise<string>;
 
-  parseRLPToHeader(
-    rlpHeader: PromiseOrValue<BytesLike>,
-    overrides?: CallOverrides
-  ): Promise<BridgeCore.BlockHeaderStructOutput>;
+  proxiableUUID(overrides?: CallOverrides): Promise<string>;
 
   renounceOwnership(
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1106,6 +1269,17 @@ export interface TokenBridge extends BaseContract {
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
+  upgradeTo(
+    newImplementation: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  upgradeToAndCall(
+    newImplementation: PromiseOrValue<string>,
+    data: PromiseOrValue<BytesLike>,
+    overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   usedReceipts(
     arg0: PromiseOrValue<BytesLike>,
     overrides?: CallOverrides
@@ -1123,6 +1297,7 @@ export interface TokenBridge extends BaseContract {
 
   withdraw(
     token: PromiseOrValue<string>,
+    amount: PromiseOrValue<BigNumberish>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
 
@@ -1241,6 +1416,19 @@ export interface TokenBridge extends BaseContract {
 
     faucet(overrides?: CallOverrides): Promise<string>;
 
+    initialize(
+      _validators: PromiseOrValue<string>[],
+      _cycleEnd: PromiseOrValue<BigNumberish>,
+      _requiredValidators: PromiseOrValue<string>[],
+      _consensusRatio: PromiseOrValue<BigNumberish>,
+      _bridgedToken: PromiseOrValue<string>,
+      _fees: TokenBridge.BridgeFeesStruct,
+      _limits: TokenBridge.BridgeLimitsStruct,
+      _faucet: PromiseOrValue<string>,
+      _nameService: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     isClosed(overrides?: CallOverrides): Promise<boolean>;
 
     isValidConsensus(
@@ -1249,6 +1437,16 @@ export interface TokenBridge extends BaseContract {
     ): Promise<boolean>;
 
     nameService(overrides?: CallOverrides): Promise<string>;
+
+    normalizeFrom18ToTokenDecimals(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    normalizeFromTokenTo18Decimals(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     numRequiredValidators(overrides?: CallOverrides): Promise<number>;
 
@@ -1263,10 +1461,7 @@ export interface TokenBridge extends BaseContract {
 
     owner(overrides?: CallOverrides): Promise<string>;
 
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<BridgeCore.BlockHeaderStructOutput>;
+    proxiableUUID(overrides?: CallOverrides): Promise<string>;
 
     renounceOwnership(overrides?: CallOverrides): Promise<void>;
 
@@ -1331,6 +1526,17 @@ export interface TokenBridge extends BaseContract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    upgradeTo(
+      newImplementation: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    upgradeToAndCall(
+      newImplementation: PromiseOrValue<string>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     usedReceipts(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -1348,11 +1554,39 @@ export interface TokenBridge extends BaseContract {
 
     withdraw(
       token: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<void>;
   };
 
   filters: {
+    "AdminChanged(address,address)"(
+      previousAdmin?: null,
+      newAdmin?: null
+    ): AdminChangedEventFilter;
+    AdminChanged(
+      previousAdmin?: null,
+      newAdmin?: null
+    ): AdminChangedEventFilter;
+
+    "BeaconUpgraded(address)"(
+      beacon?: PromiseOrValue<string> | null
+    ): BeaconUpgradedEventFilter;
+    BeaconUpgraded(
+      beacon?: PromiseOrValue<string> | null
+    ): BeaconUpgradedEventFilter;
+
+    "BlockVerified(uint256,uint256,bytes32)"(
+      chainId?: null,
+      blockNumber?: null,
+      blockHash?: null
+    ): BlockVerifiedEventFilter;
+    BlockVerified(
+      chainId?: null,
+      blockNumber?: null,
+      blockHash?: null
+    ): BlockVerifiedEventFilter;
+
     "BridgeRequest(address,address,uint256,uint256,bool,uint256,uint256)"(
       from?: PromiseOrValue<string> | null,
       to?: PromiseOrValue<string> | null,
@@ -1393,6 +1627,9 @@ export interface TokenBridge extends BaseContract {
       id?: PromiseOrValue<BigNumberish> | null
     ): ExecutedTransferEventFilter;
 
+    "Initialized(uint8)"(version?: null): InitializedEventFilter;
+    Initialized(version?: null): InitializedEventFilter;
+
     "OwnershipTransferred(address,address)"(
       previousOwner?: PromiseOrValue<string> | null,
       newOwner?: PromiseOrValue<string> | null
@@ -1401,6 +1638,19 @@ export interface TokenBridge extends BaseContract {
       previousOwner?: PromiseOrValue<string> | null,
       newOwner?: PromiseOrValue<string> | null
     ): OwnershipTransferredEventFilter;
+
+    "Upgraded(address)"(
+      implementation?: PromiseOrValue<string> | null
+    ): UpgradedEventFilter;
+    Upgraded(
+      implementation?: PromiseOrValue<string> | null
+    ): UpgradedEventFilter;
+
+    "ValidatorsSet(address[],uint256)"(
+      validators?: null,
+      cycleEnd?: null
+    ): ValidatorsSetEventFilter;
+    ValidatorsSet(validators?: null, cycleEnd?: null): ValidatorsSetEventFilter;
   };
 
   estimateGas: {
@@ -1436,7 +1686,7 @@ export interface TokenBridge extends BaseContract {
     canBridge(
       from: PromiseOrValue<string>,
       amount: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     chainIdToStats(
@@ -1482,6 +1732,19 @@ export interface TokenBridge extends BaseContract {
 
     faucet(overrides?: CallOverrides): Promise<BigNumber>;
 
+    initialize(
+      _validators: PromiseOrValue<string>[],
+      _cycleEnd: PromiseOrValue<BigNumberish>,
+      _requiredValidators: PromiseOrValue<string>[],
+      _consensusRatio: PromiseOrValue<BigNumberish>,
+      _bridgedToken: PromiseOrValue<string>,
+      _fees: TokenBridge.BridgeFeesStruct,
+      _limits: TokenBridge.BridgeLimitsStruct,
+      _faucet: PromiseOrValue<string>,
+      _nameService: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     isClosed(overrides?: CallOverrides): Promise<BigNumber>;
 
     isValidConsensus(
@@ -1490,6 +1753,16 @@ export interface TokenBridge extends BaseContract {
     ): Promise<BigNumber>;
 
     nameService(overrides?: CallOverrides): Promise<BigNumber>;
+
+    normalizeFrom18ToTokenDecimals(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    normalizeFromTokenTo18Decimals(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
 
     numRequiredValidators(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -1504,10 +1777,7 @@ export interface TokenBridge extends BaseContract {
 
     owner(overrides?: CallOverrides): Promise<BigNumber>;
 
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
+    proxiableUUID(overrides?: CallOverrides): Promise<BigNumber>;
 
     renounceOwnership(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1574,6 +1844,17 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
 
+    upgradeTo(
+      newImplementation: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    upgradeToAndCall(
+      newImplementation: PromiseOrValue<string>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     usedReceipts(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -1591,6 +1872,7 @@ export interface TokenBridge extends BaseContract {
 
     withdraw(
       token: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
   };
@@ -1628,7 +1910,7 @@ export interface TokenBridge extends BaseContract {
     canBridge(
       from: PromiseOrValue<string>,
       amount: PromiseOrValue<BigNumberish>,
-      overrides?: Overrides & { from?: PromiseOrValue<string> }
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     chainIdToStats(
@@ -1674,6 +1956,19 @@ export interface TokenBridge extends BaseContract {
 
     faucet(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
+    initialize(
+      _validators: PromiseOrValue<string>[],
+      _cycleEnd: PromiseOrValue<BigNumberish>,
+      _requiredValidators: PromiseOrValue<string>[],
+      _consensusRatio: PromiseOrValue<BigNumberish>,
+      _bridgedToken: PromiseOrValue<string>,
+      _fees: TokenBridge.BridgeFeesStruct,
+      _limits: TokenBridge.BridgeLimitsStruct,
+      _faucet: PromiseOrValue<string>,
+      _nameService: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     isClosed(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     isValidConsensus(
@@ -1682,6 +1977,16 @@ export interface TokenBridge extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     nameService(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    normalizeFrom18ToTokenDecimals(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    normalizeFromTokenTo18Decimals(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
 
     numRequiredValidators(
       overrides?: CallOverrides
@@ -1698,10 +2003,7 @@ export interface TokenBridge extends BaseContract {
 
     owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
+    proxiableUUID(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     renounceOwnership(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1770,6 +2072,17 @@ export interface TokenBridge extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
+    upgradeTo(
+      newImplementation: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    upgradeToAndCall(
+      newImplementation: PromiseOrValue<string>,
+      data: PromiseOrValue<BytesLike>,
+      overrides?: PayableOverrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
     usedReceipts(
       arg0: PromiseOrValue<BytesLike>,
       overrides?: CallOverrides
@@ -1789,6 +2102,7 @@ export interface TokenBridge extends BaseContract {
 
     withdraw(
       token: PromiseOrValue<string>,
+      amount: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
   };
