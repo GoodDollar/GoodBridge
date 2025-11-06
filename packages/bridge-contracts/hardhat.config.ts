@@ -48,8 +48,8 @@ const config: HardhatUserConfig = {
     mainnet: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 1,
-      url: 'https://rpc.ankr.com/eth',
-      gasPrice: 5e9,
+      url: 'https://eth.drpc.org',
+      gasPrice: 8e8,
     },
     fuse: {
       accounts: accounts as HttpNetworkAccountsConfig,
@@ -86,12 +86,30 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 42220,
       url: 'https://forno.celo.org',
+    },
+    xdc: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 50,
+      url: 'https://rpc.xinfin.network',
       verify: {
         etherscan: {
-          apiUrl: 'https://api.celoscan.io',
-          apiKey: process.env.CELOSCAN_KEY,
+          apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
+          apiKey: process.env.ETHERSCAN_KEY || '',
         },
       },
+      // url: 'http://localhost:8545',
+    },
+    xdc_testnet: {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 50,
+      url: 'https://rpc.xdc.network',
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
+          apiKey: process.env.ETHERSCAN_KEY || '',
+        },
+      },
+      // url: 'http://localhost:8545',
     },
     alfajores: {
       accounts: accounts as HttpNetworkAccountsConfig,
@@ -122,18 +140,13 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: {
-      goerli: process.env.ETHERSCAN_KEY || '',
-      mainnet: process.env.ETHERSCAN_KEY || '',
-      celo: process.env.CELOSCAN_KEY || '',
-      fuse: 'x',
-    },
+    apiKey: process.env.ETHERSCAN_KEY || '',
     customChains: [
       {
         chainId: 42220,
         network: 'celo',
         urls: {
-          apiURL: 'https://api.celoscan.io/api',
+          apiURL: 'https://api.etherscan.io/v2/api?chainid=42220',
           browserURL: 'https://celoscan.io',
         },
       },
@@ -143,6 +156,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: '',
           browserURL: 'https://explorer.celo.org',
+        },
+      },
+      {
+        network: 'xdc',
+        chainId: 50,
+        urls: {
+          apiURL: 'https://api.etherscan.io/v2/api?chainid=50',
+          browserURL: 'https://xdcscan.com/',
         },
       },
     ],

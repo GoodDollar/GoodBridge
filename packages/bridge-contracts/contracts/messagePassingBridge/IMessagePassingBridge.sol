@@ -48,8 +48,6 @@ interface IMessagePassingBridge {
 
     function lzEndpoint_() external view returns (address);
 
-    function TESTNET() external view returns (bool);
-
     function guardian() external view returns (address);
 
     function bridgeFees() external view returns (uint256 minFee, uint256 maxFee, uint256 fee);

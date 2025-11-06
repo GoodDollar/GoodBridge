@@ -5,29 +5,43 @@ import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import CtrlABI from '@gooddollar/goodprotocol/artifacts/abis/Controller.min.json';
 import util from 'util';
 import { getImplementationAddress } from '@openzeppelin/upgrades-core';
+import { MessagePassingBridge } from '../typechain-types';
 const exec = util.promisify(require('child_process').exec);
 
-const verifyContracts = async (chainData, mpbImplAddress, helperAddress, isTestnet) => {
-  console.log('verifying on etherscan...');
-  await hre.run('etherscan-verify');
-  console.log('verifying on sourcify...');
-  await hre.run('sourcify');
-
+const verifyContracts = async (chainData, mpbImplAddress, helperAddress, proxyAddress) => {
   //bug in hardhat-deploy not able to verify with libraries on etherscan
   console.log('verifying on impl+library on etherscan...');
-  await hre.run('verify:verify', {
-    address: mpbImplAddress,
-    constructorArguments: [
-      chainData.axlGateway,
-      chainData.axlGas,
-      chainData.lzEndpoint,
-      isTestnet,
-      chainData.homeChainId,
-    ],
-    libraries: {
-      BridgeHelperLibrary: helperAddress,
-    },
-  });
+
+  try {
+    await hre.run('verify:verify', {
+      address: mpbImplAddress,
+      constructorArguments: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, chainData.homeChainId],
+      libraries: {
+        BridgeHelperLibrary: helperAddress,
+      },
+    });
+  } catch (e) {
+    console.log('implementation verification error:', e);
+  }
+
+  try {
+    await hre.run('verify:verify', {
+      address: proxyAddress,
+    });
+  } catch (e) {
+    console.log('proxy verification error:', e);
+  }
+  try {
+    await hre.run('verify:verify', {
+      address: helperAddress,
+    });
+  } catch (e) {
+    console.log('library verification error:', e);
+  }
+
+  console.log('verifying on sourcify...');
+  const sourcify = hre.run('sourcify');
+  await sourcify;
 };
 
 const chainsData = {
@@ -36,27 +50,14 @@ const chainsData = {
     axlGas: '0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6',
     lzEndpoint: '0xbfD2135BFfbb0B5378b56643c2Df8a87552Bfa23',
     nameService: Contracts['hardhat']?.NameService,
-    minter: Contracts['hadhat']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
     homeChainId: 31337,
-  },
-  goerli: {
-    name: 'goerli',
-    axlGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
-    axlGas: '0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6',
-    lzEndpoint: '0xbfD2135BFfbb0B5378b56643c2Df8a87552Bfa23',
-    nameService: Contracts['goerli']?.NameService,
-    minter: Contracts['goerli']?.GoodDollarMintBurnWrapper,
-    oneToken: ethers.constants.WeiPerEther,
-    zkLightClient: '0x55d193eF196Be455c9c178b0984d7F9cE750CCb4',
-    homeChainId: 5,
   },
   alfajores: {
     axlGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
     axlGas: '0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6',
     lzEndpoint: '0xae92d5aD7583AD66E49A0c67BAd18F6ba52dDDc1',
     nameService: Contracts['alfajores']?.NameService,
-    minter: Contracts['alfajores']?.GoodDollarMintBurnWrapper || '0x69d9c8d240e282a4ec0058cf0ac4e9d8ac7a11ac',
     oneToken: ethers.constants.WeiPerEther,
     homeChainId: 5,
   },
@@ -66,7 +67,6 @@ const chainsData = {
     axlGas: '0x2d5d7d31F671F86C782533cc367F14109a082712',
     lzEndpoint: '0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675',
     nameService: Contracts['production-mainnet']?.NameService,
-    minter: Contracts['production-mainnet']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.BigNumber.from(100),
     zkLightClient: '0x394ee343625B83B5778d6F42d35142bdf26dBAcD',
     homeChainId: 42220,
@@ -77,7 +77,6 @@ const chainsData = {
     axlGas: '0x2d5d7d31F671F86C782533cc367F14109a082712',
     lzEndpoint: '0x3A73033C0b1407574C76BdBAc67f126f6b4a9AA9',
     nameService: Contracts['production-celo']?.NameService,
-    minter: Contracts['production-celo']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
     zkLightClient: '0x1F45c453a91179a32b97623736dF09A552BC4f7f',
     homeChainId: 42220,
@@ -88,7 +87,6 @@ const chainsData = {
     axlGas: '0x2d5d7d31F671F86C782533cc367F14109a082712',
     lzEndpoint: '0x3A73033C0b1407574C76BdBAc67f126f6b4a9AA9',
     nameService: Contracts['development-celo']?.NameService,
-    minter: Contracts['development-celo']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.constants.WeiPerEther,
     zkLightClient: '0x1F45c453a91179a32b97623736dF09A552BC4f7f',
     homeChainId: 42220,
@@ -99,7 +97,6 @@ const chainsData = {
     axlGas: '0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6',
     lzEndpoint: '0x9740FF91F1985D8d2B71494aE1A2f723bb3Ed9E4',
     nameService: Contracts['production']?.NameService,
-    minter: Contracts['production']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.BigNumber.from(100),
     homeChainId: 42220,
   },
@@ -109,10 +106,38 @@ const chainsData = {
     axlGas: '0xbE406F0189A0B4cf3A05C286473D23791Dd44Cc6',
     lzEndpoint: '0x9740FF91F1985D8d2B71494aE1A2f723bb3Ed9E4',
     nameService: Contracts['fuse']?.NameService,
-    minter: Contracts['fuse']?.GoodDollarMintBurnWrapper,
     oneToken: ethers.BigNumber.from(100),
     homeChainId: 42220,
   },
+  xdc_testnet: {
+    name: 'development-xdc',
+    axlGateway: '0x0000000000000000000000000000000000000001',
+    axlGas: '0x0000000000000000000000000000000000000001',
+    lzEndpoint: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
+    nameService: Contracts['development-xdc']?.NameService,
+    oneToken: ethers.constants.WeiPerEther,
+    homeChainId: 42220,
+  },
+  xdc: {
+    name: 'production-xdc',
+    axlGateway: '0x0000000000000000000000000000000000000001',
+    axlGas: '0x0000000000000000000000000000000000000001',
+    lzEndpoint: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
+    nameService: '0x1e5154Bf5e31FF56051bbd45958b879Fb7a290FE',
+    oneToken: ethers.constants.WeiPerEther,
+    homeChainId: 42220,
+  },
+};
+
+const simulateUpgrade = async (mpb: MessagePassingBridge, impl: string) => {
+  const owner = await mpb.owner();
+  const signer = await ethers.getImpersonatedSigner(owner);
+  console.log('got owner signer:', signer.address);
+  const upgradeResult = await (
+    await mpb.connect(signer).upgradeToAndCall(impl, mpb.interface.encodeFunctionData('upgrade', []))
+  ).wait();
+  console.log('xdc:', await mpb.lzChainIdsMapping(50));
+  console.log({ upgradeResult });
 };
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
@@ -132,16 +157,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     await ctrl.mock.avatar.returns(signer.address);
     chainsData[network.name].nameService = ns.address;
   }
-  let isTestnet = true;
-  if (['celo', 'mainnet', 'fuse', 'fork'].includes(network.name)) isTestnet = false;
+  let isTestnet = false;
+  if (network.name.includes('testnet')) {
+    isTestnet = true;
+  }
 
   //support simulation on a fork
-  const chainData = chainsData[network.name === 'fork' ? 'mainnet' : network.name];
-  console.log(chainData, network.name, { isTestnet });
+  const chainData = chainsData[network.name === 'localhost' ? 'celo' : network.name];
 
   const proxySalt = ethers.utils.keccak256(
     ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge' + (isTestnet ? 'Testnet' : 'V1'))),
   );
+  console.log(chainData, network.name, { isTestnet, proxySalt });
   const bridgeProxyDeploy = await deployments.deterministic('MessagePassingBridge', {
     contract: 'ERC1967Proxy',
     from: signer.address,
@@ -159,16 +186,20 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   console.log('BridgeHelperLibrary', bridgeHelperLibrary.address);
   const bridgeProxy = await bridgeProxyDeploy.deploy();
 
+  console.log('MessagePassingBridge proxy', bridgeProxy.address);
   const bridgeImpl = await deployments.deploy('MessagePassingBridge_Implementation', {
     contract: 'MessagePassingBridge',
     from: signer.address,
     deterministicDeployment: true,
     log: true,
-    args: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, isTestnet, chainData.homeChainId],
+    args: [chainData.axlGateway, chainData.axlGas, chainData.lzEndpoint, chainData.homeChainId],
     libraries: { BridgeHelperLibrary: bridgeHelperLibrary.address },
   }); //as unknown as MessagePassingBridge;
+  console.log('MessagePassingBridge implementation', bridgeImpl.address);
 
   const mpb = await ethers.getContractAt('MessagePassingBridge', bridgeProxy.address);
+  // await simulateUpgrade(mpb as unknown as MessagePassingBridge, bridgeImpl.address);
+  // return;
   const initialized = await mpb
     .dao()
     .then((_) => _ !== ethers.constants.AddressZero)
@@ -226,7 +257,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         encoded,
       );
       console.log({ initializedTx });
-      if (isTestnet) {
+      if (network.name !== 'hardhat') {
         await addAsMinter();
       }
     } else if (isTestnet) {
@@ -253,19 +284,20 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   const setLzZKOracle = async () => {
+    console.log('setting zklightclient...');
     if (chainData.zkLightClient) {
-      if (network.config.chainId != 1)
+      if (network.config.chainId != 1) {
         await mpb
           .setConfig(0, 101, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
           .then((_) => _.wait()); //eth
-      if (isTestnet)
-        await mpb
-          .setConfig(0, 10121, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
-          .then((_) => _.wait()); //goerli
-      if (network.config.chainId != 42220)
+        console.log('set zkLightClient for eth target');
+      }
+      if (network.config.chainId != 42220) {
         await mpb
           .setConfig(0, 125, 6, ethers.utils.defaultAbiCoder.encode(['address'], [chainData.zkLightClient]))
           .then((_) => _.wait()); // celo
+        console.log('set zkLightClient for celo target');
+      }
     }
   };
 
@@ -292,7 +324,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   if ((await mpb.owner()) === signer.address) {
-    console.log('setting zklightclient...');
     await setLzZKOracle();
     if (['production-mainnet', 'goerli'].includes(chainData.name)) {
       console.log('setting fee recipient to null');
@@ -304,7 +335,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
   }
 
-  if (['localhost', 'hardhat', 'fork'].includes(network.name) === false)
-    await verifyContracts(chainData, bridgeImpl.address, bridgeHelperLibrary.address, isTestnet);
+  try {
+    if (['localhost', 'hardhat', 'fork'].includes(network.name) === false)
+      await verifyContracts(chainData, bridgeImpl.address, bridgeHelperLibrary.address, bridgeProxy.address);
+  } catch (e) {
+    console.log('verification error:', e);
+  }
 };
 export default func;

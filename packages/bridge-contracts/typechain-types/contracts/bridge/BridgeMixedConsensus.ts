@@ -71,16 +71,6 @@ export declare namespace BridgeCore {
     blockNumber: BigNumber;
   };
 
-  export type BlockHeaderStruct = {
-    parentHash: PromiseOrValue<BytesLike>;
-    number: PromiseOrValue<BigNumberish>;
-  };
-
-  export type BlockHeaderStructOutput = [string, BigNumber] & {
-    parentHash: string;
-    number: BigNumber;
-  };
-
   export type SignedBlockStruct = {
     chainId: PromiseOrValue<BigNumberish>;
     rlpHeader: PromiseOrValue<BytesLike>;
@@ -115,7 +105,6 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     "numRequiredValidators()": FunctionFragment;
     "numValidators()": FunctionFragment;
     "owner()": FunctionFragment;
-    "parseRLPToHeader(bytes)": FunctionFragment;
     "renounceOwnership()": FunctionFragment;
     "requiredValidators(address)": FunctionFragment;
     "requiredValidatorsSet()": FunctionFragment;
@@ -140,7 +129,6 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
       | "numRequiredValidators"
       | "numValidators"
       | "owner"
-      | "parseRLPToHeader"
       | "renounceOwnership"
       | "requiredValidators"
       | "requiredValidatorsSet"
@@ -190,10 +178,6 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
-  encodeFunctionData(
-    functionFragment: "parseRLPToHeader",
-    values: [PromiseOrValue<BytesLike>]
-  ): string;
   encodeFunctionData(
     functionFragment: "renounceOwnership",
     values?: undefined
@@ -283,10 +267,6 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "parseRLPToHeader",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "renounceOwnership",
     data: BytesLike
   ): Result;
@@ -332,11 +312,36 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
   ): Result;
 
   events: {
+    "BlockVerified(uint256,uint256,bytes32)": EventFragment;
+    "Initialized(uint8)": EventFragment;
     "OwnershipTransferred(address,address)": EventFragment;
+    "ValidatorsSet(address[],uint256)": EventFragment;
   };
 
+  getEvent(nameOrSignatureOrTopic: "BlockVerified"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "Initialized"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "OwnershipTransferred"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "ValidatorsSet"): EventFragment;
 }
+
+export interface BlockVerifiedEventObject {
+  chainId: BigNumber;
+  blockNumber: BigNumber;
+  blockHash: string;
+}
+export type BlockVerifiedEvent = TypedEvent<
+  [BigNumber, BigNumber, string],
+  BlockVerifiedEventObject
+>;
+
+export type BlockVerifiedEventFilter = TypedEventFilter<BlockVerifiedEvent>;
+
+export interface InitializedEventObject {
+  version: number;
+}
+export type InitializedEvent = TypedEvent<[number], InitializedEventObject>;
+
+export type InitializedEventFilter = TypedEventFilter<InitializedEvent>;
 
 export interface OwnershipTransferredEventObject {
   previousOwner: string;
@@ -349,6 +354,17 @@ export type OwnershipTransferredEvent = TypedEvent<
 
 export type OwnershipTransferredEventFilter =
   TypedEventFilter<OwnershipTransferredEvent>;
+
+export interface ValidatorsSetEventObject {
+  validators: string[];
+  cycleEnd: BigNumber;
+}
+export type ValidatorsSetEvent = TypedEvent<
+  [string[], BigNumber],
+  ValidatorsSetEventObject
+>;
+
+export type ValidatorsSetEventFilter = TypedEventFilter<ValidatorsSetEvent>;
 
 export interface BridgeMixedConsensus extends BaseContract {
   connect(signerOrProvider: Signer | Provider | string): this;
@@ -411,15 +427,6 @@ export interface BridgeMixedConsensus extends BaseContract {
     numValidators(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     owner(overrides?: CallOverrides): Promise<[string]>;
-
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<
-      [BridgeCore.BlockHeaderStructOutput] & {
-        header: BridgeCore.BlockHeaderStructOutput;
-      }
-    >;
 
     renounceOwnership(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -511,11 +518,6 @@ export interface BridgeMixedConsensus extends BaseContract {
 
   owner(overrides?: CallOverrides): Promise<string>;
 
-  parseRLPToHeader(
-    rlpHeader: PromiseOrValue<BytesLike>,
-    overrides?: CallOverrides
-  ): Promise<BridgeCore.BlockHeaderStructOutput>;
-
   renounceOwnership(
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
@@ -606,11 +608,6 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     owner(overrides?: CallOverrides): Promise<string>;
 
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<BridgeCore.BlockHeaderStructOutput>;
-
     renounceOwnership(overrides?: CallOverrides): Promise<void>;
 
     requiredValidators(
@@ -665,6 +662,20 @@ export interface BridgeMixedConsensus extends BaseContract {
   };
 
   filters: {
+    "BlockVerified(uint256,uint256,bytes32)"(
+      chainId?: null,
+      blockNumber?: null,
+      blockHash?: null
+    ): BlockVerifiedEventFilter;
+    BlockVerified(
+      chainId?: null,
+      blockNumber?: null,
+      blockHash?: null
+    ): BlockVerifiedEventFilter;
+
+    "Initialized(uint8)"(version?: null): InitializedEventFilter;
+    Initialized(version?: null): InitializedEventFilter;
+
     "OwnershipTransferred(address,address)"(
       previousOwner?: PromiseOrValue<string> | null,
       newOwner?: PromiseOrValue<string> | null
@@ -673,6 +684,12 @@ export interface BridgeMixedConsensus extends BaseContract {
       previousOwner?: PromiseOrValue<string> | null,
       newOwner?: PromiseOrValue<string> | null
     ): OwnershipTransferredEventFilter;
+
+    "ValidatorsSet(address[],uint256)"(
+      validators?: null,
+      cycleEnd?: null
+    ): ValidatorsSetEventFilter;
+    ValidatorsSet(validators?: null, cycleEnd?: null): ValidatorsSetEventFilter;
   };
 
   estimateGas: {
@@ -710,11 +727,6 @@ export interface BridgeMixedConsensus extends BaseContract {
     numValidators(overrides?: CallOverrides): Promise<BigNumber>;
 
     owner(overrides?: CallOverrides): Promise<BigNumber>;
-
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<BigNumber>;
 
     renounceOwnership(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -808,11 +820,6 @@ export interface BridgeMixedConsensus extends BaseContract {
     numValidators(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
-
-    parseRLPToHeader(
-      rlpHeader: PromiseOrValue<BytesLike>,
-      overrides?: CallOverrides
-    ): Promise<PopulatedTransaction>;
 
     renounceOwnership(
       overrides?: Overrides & { from?: PromiseOrValue<string> }
