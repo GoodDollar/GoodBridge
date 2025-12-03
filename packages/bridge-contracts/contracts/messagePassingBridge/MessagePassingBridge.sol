@@ -528,7 +528,7 @@ contract MessagePassingBridge is
 
         //burn/mint on all chains
         dao.mintTokens(tokenAmount - fee, target, avatar);
-        if (fee > 0) dao.mintTokens(fee, feeRecipient, avatar);
+        if (fee > 0 && feeRecipient != address(0)) dao.mintTokens(fee, feeRecipient, avatar);
 
         emit ExecutedTransfer(from, target, normalizedAmount, fee, sourceChainId, bridge, id);
     }
