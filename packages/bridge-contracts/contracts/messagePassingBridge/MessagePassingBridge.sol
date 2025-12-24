@@ -152,8 +152,7 @@ contract MessagePassingBridge is
         __LZHandlerUpgradeable_init(lzEndpoint_);
         guardian = msg.sender;
         bridgeLimits = limits;
-        bridgeFees = fees;
-        require(bridgeFees.fee <= 10000, 'invalid fee');
+        setBridgeFees(fees);
         feeRecipient = nameService.getAddress('UBISCHEME');
         if (feeRecipient == address(0)) feeRecipient = avatar;
 
@@ -229,7 +228,7 @@ contract MessagePassingBridge is
      * @dev Function for setting the bridge fees
      * @param fees The bridge fees to set
      */
-    function setBridgeFees(BridgeFees memory fees) external {
+    function setBridgeFees(BridgeFees memory fees) public {
         _onlyOwnerOrGuardian();
         require(fees.fee <= 10000, 'invalid fee');
         bridgeFees = fees;
