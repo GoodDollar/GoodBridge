@@ -769,6 +769,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@chainlink/env-enc@npm:^1.0.5":
+  version: 1.0.5
+  resolution: "@chainlink/env-enc@npm:1.0.5"
+  dependencies:
+    yargs: "npm:^17.7.1"
+  bin:
+    env-enc: dist/cli.js
+  checksum: 10/004d7749ba6a6ec3f26ab69e12709dd66c7f10bfcb478aed2142421590a736eaf29141ae2c011fc99f15166bb491c4bb6e80251585105d3ebec1416608d8fad2
+  languageName: node
+  linkType: hard
+
 "@colors/colors@npm:1.5.0":
   version: 1.5.0
   resolution: "@colors/colors@npm:1.5.0"
@@ -1542,6 +1553,7 @@ __metadata:
   dependencies:
     "@axelar-network/axelar-gmp-sdk-solidity": "npm:^3.6.1"
     "@axelar-network/axelarjs-sdk": "npm:^0.13.6"
+    "@chainlink/env-enc": "npm:^1.0.5"
     "@gooddollar/goodprotocol": "npm:2.0.34-beta.4"
     "@layerzerolabs/scan-client": "npm:^0.0.6"
     "@layerzerolabs/solidity-examples": "npm:^0.0.13"
@@ -1566,7 +1578,7 @@ __metadata:
     ethers: "npm:^5.*"
     hardhat: "npm:2.*"
     hardhat-contract-sizer: "npm:^2.6.1"
-    hardhat-deploy: "npm:0.11.44"
+    hardhat-deploy: "npm:0.11.43"
     hardhat-gas-reporter: "npm:^1.0.9"
     merkle-patricia-tree: "npm:^2.*"
     prettier: "npm:^2.5.1"
@@ -10691,9 +10703,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hardhat-deploy@npm:0.11.44":
-  version: 0.11.44
-  resolution: "hardhat-deploy@npm:0.11.44"
+"hardhat-deploy@npm:0.11.43":
+  version: 0.11.43
+  resolution: "hardhat-deploy@npm:0.11.43"
   dependencies:
     "@ethersproject/abi": "npm:^5.7.0"
     "@ethersproject/abstract-signer": "npm:^5.7.0"
@@ -10719,7 +10731,7 @@ __metadata:
     murmur-128: "npm:^0.2.1"
     qs: "npm:^6.9.4"
     zksync-web3: "npm:^0.14.3"
-  checksum: 10/091574ace9b905c1909d094847cc8522cc995fd3823b863bdc45f50d28a31be840bed6e2477395f2f1b69b7b048d0a9ab9b274cd5f6e37193d1823a60e602eb9
+  checksum: 10/aa993d4c786407782d1f6bc231a5b8e4b9248172cf18959ccb1ac9133e6807767c564c117d89234646d10e0832e47442584aaf77f62994400bb8cb614f4442b4
   languageName: node
   linkType: hard
 
@@ -21075,6 +21087,21 @@ __metadata:
     y18n: "npm:^5.0.5"
     yargs-parser: "npm:^21.1.1"
   checksum: 10/77e4221b49867d50ce5ded87e91ff11f439b46aa4f01d2116f65402c3ac7dfba937d5bb29d50cecf4acda5aaf848d6ff4facd50b2428098c3990c46d58d5b539
+  languageName: node
+  linkType: hard
+
+"yargs@npm:^17.7.1":
+  version: 17.7.2
+  resolution: "yargs@npm:17.7.2"
+  dependencies:
+    cliui: "npm:^8.0.1"
+    escalade: "npm:^3.1.1"
+    get-caller-file: "npm:^2.0.5"
+    require-directory: "npm:^2.1.1"
+    string-width: "npm:^4.2.3"
+    y18n: "npm:^5.0.5"
+    yargs-parser: "npm:^21.1.1"
+  checksum: 10/abb3e37678d6e38ea85485ed86ebe0d1e3464c640d7d9069805ea0da12f69d5a32df8e5625e370f9c96dd1c2dc088ab2d0a4dd32af18222ef3c4224a19471576
   languageName: node
   linkType: hard
 

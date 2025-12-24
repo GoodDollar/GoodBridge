@@ -11,10 +11,13 @@ import '@nomiclabs/hardhat-waffle';
 import 'hardhat-deploy';
 import { HttpNetworkAccountsConfig } from 'hardhat/types';
 import { configDotenv } from 'dotenv';
-
+import * as envEnc from '@chainlink/env-enc';
 configDotenv();
+envEnc.config();
 
-const pkey = process.env.PRIVATE_KEY;
+const pkey = process.argv.find((_) => _.includes('testnet') || _.includes('staging'))
+  ? process.env.DEV_KEY
+  : process.env.PRIVATE_KEY;
 const mnemonic = process.env.MNEMONIC;
 
 let accounts: unknown = 'remote';

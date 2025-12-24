@@ -152,6 +152,7 @@ contract MessagePassingBridge is
         guardian = msg.sender;
         bridgeLimits = limits;
         bridgeFees = fees;
+        require(bridgeFees.fee <= 10000, 'invalid fee');
         feeRecipient = nameService.getAddress('UBISCHEME');
         if (feeRecipient == address(0)) feeRecipient = avatar;
 
@@ -229,6 +230,7 @@ contract MessagePassingBridge is
      */
     function setBridgeFees(BridgeFees memory fees) external {
         _onlyOwnerOrGuardian();
+        require(bridgeFees.fee <= 10000, 'invalid fee');
         bridgeFees = fees;
     }
 
@@ -263,7 +265,7 @@ contract MessagePassingBridge is
     function withdraw(address token, uint256 amount) external {
         _onlyAvatar();
         if (amount == 0) amount = IERC20(token).balanceOf(address(this));
-        IERC20(token).transfer(msg.sender, amount);
+        require(IERC20(token).transfer(msg.sender, amount), 'withdraw failed');
     }
 
     /**
@@ -309,7 +311,7 @@ contract MessagePassingBridge is
     // }
 
     /**
-     * @dev Enforces transfer limits and checks if the transfer is valid
+     * @dev Enforces transfer limits and checks if the transfer is valid. limits are enforced on the target minting side.
      * @param from The address to transfer from
      * @param target The address to transfer to
      * @param amount The amount to transfer
@@ -357,7 +359,8 @@ contract MessagePassingBridge is
     }
 
     /**
-     * @dev Bridges tokens from one chain to another, this performs burning or locking
+     * @dev Bridges tokens from one chain to another, this performs burning or locking.
+     * @notice limits are not enforced here. limits are enforced on the target minting side.
      * @param from The address to bridge tokens from
      * @param target The address to bridge tokens to
      * @param targetChainId The chain ID of the target chain
@@ -470,7 +473,7 @@ contract MessagePassingBridge is
     }
 
     /**
-     * @dev Bridges tokens from one chain to another, this performs minting or unlock
+     * @dev Bridges tokens from one chain to another, this performs minting or unlock. limits are enforced here
      * @param from The address to bridge tokens from
      * @param target The address to bridge tokens to
      * @param normalizedAmount The amount of tokens to bridge
