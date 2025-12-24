@@ -8,6 +8,7 @@ import {StringToAddress, AddressToString} from '@axelar-network/axelar-gmp-sdk-s
 import {AccessControlUpgradeable} from '@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol';
 import '@openzeppelin/contracts/utils/Strings.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol';
+import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import './LZHandlerUpgradeable.sol';
 import './AxelarHandlerUpgradeable.sol';
 import './BridgeHelperLibrary.sol';
@@ -265,7 +266,7 @@ contract MessagePassingBridge is
     function withdraw(address token, uint256 amount) external {
         _onlyAvatar();
         if (amount == 0) amount = IERC20(token).balanceOf(address(this));
-        require(IERC20(token).transfer(msg.sender, amount), 'withdraw failed');
+        SafeERC20.safeTransfer(IERC20(token), msg.sender, amount);
     }
 
     /**
