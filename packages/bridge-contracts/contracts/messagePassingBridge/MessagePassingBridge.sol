@@ -231,7 +231,7 @@ contract MessagePassingBridge is
      */
     function setBridgeFees(BridgeFees memory fees) external {
         _onlyOwnerOrGuardian();
-        require(bridgeFees.fee <= 10000, 'invalid fee');
+        require(fees.fee <= 10000, 'invalid fee');
         bridgeFees = fees;
     }
 
