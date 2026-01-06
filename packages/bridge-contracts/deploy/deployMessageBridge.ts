@@ -166,7 +166,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const chainData = chainsData[network.name === 'localhost' ? 'celo' : network.name];
 
   const proxySalt = ethers.utils.keccak256(
-    ethers.utils.arrayify(ethers.utils.toUtf8Bytes('MessagePassingBridge' + (isTestnet ? 'Testnet' : 'V1'))),
+    ethers.utils.arrayify(ethers.utils.toUtf8Bytes(isTestnet ? 'Testnet' : 'MessagePassingBridgeV1')),
   );
   console.log(chainData, network.name, { isTestnet, proxySalt });
   const bridgeProxyDeploy = await deployments.deterministic('MessagePassingBridge', {
