@@ -4,6 +4,10 @@ pragma solidity >=0.8;
 import {ISuperGoodDollar} from "../superfluid/ISuperGoodDollar.sol";
 import "../../utils/DAOUpgradeableContract.sol";
 
+interface IIdentity {
+    function isWhitelisted(address) external view returns (bool);
+}
+
 /**
  * @title GoodDollarMinterBurner
  * @dev DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT
@@ -15,9 +19,10 @@ import "../../utils/DAOUpgradeableContract.sol";
  * - Mint tokens when receiving cross-chain transfers
  * - Burn tokens when sending cross-chain transfers
  * - Manage operators (like OFT adapter) that can mint/burn
- * - Weekly and monthly mint/burn limits (configurable by DAO, 0 to disable)
- * - Automatic period reset when limits are checked
  * - Pause functionality for emergency situations
+ * - Bridge limits enforcement on receiving side only (minting)
+ *   - Limits are enforced when minting tokens (receiving), not when burning (sending)
+ *   - This matches MessagePassingBridge behavior where limits are enforced on target minting side
  * - Upgradeable via DAO governance
  */
 contract GoodDollarMinterBurner is DAOUpgradeableContract {
@@ -25,36 +30,50 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
     mapping(address => bool) public operators;
     
     bool public paused;
-    
-    // Weekly and monthly limits
-    uint256 public weeklyMintLimit;
-    uint256 public monthlyMintLimit;
-    uint256 public weeklyBurnLimit;
-    uint256 public monthlyBurnLimit;
-    
-    // Current period tracking
-    uint256 public weeklyMinted;
-    uint256 public monthlyMinted;
-    uint256 public weeklyBurned;
-    uint256 public monthlyBurned;
-    
-    // Period start timestamps
-    uint256 public currentWeekStart;
-    uint256 public currentMonthStart;
-    
-    // Constants for period duration
-    uint256 public constant WEEK_DURATION = 7 days;
-    uint256 public constant MONTH_DURATION = 30 days;
+
+    // Bridge limits structure
+    struct BridgeLimits {
+        uint256 dailyLimit;
+        uint256 txLimit;
+        uint256 accountDailyLimit;
+        uint256 minAmount;
+        bool onlyWhitelisted;
+    }
+
+    // Bridge daily limit tracking
+    struct BridgeDailyLimit {
+        uint256 lastTransferReset;
+        uint256 bridged24Hours;
+    }
+
+    // Account-specific daily limit tracking
+    struct AccountLimit {
+        uint256 lastTransferReset;
+        uint256 bridged24Hours;
+    }
+
+    BridgeLimits public bridgeLimits;
+    BridgeDailyLimit public bridgeDailyLimit;
+    mapping(address => AccountLimit) public accountsDailyLimit;
+
+    // A mapping for approved requests above limits
+    mapping(uint256 => bool) public approvedRequests;
+
+    error BRIDGE_LIMITS(string reason);
 
     event OperatorSet(address indexed operator, bool status);
     event Paused(address indexed account);
     event Unpaused(address indexed account);
-    event WeeklyMintLimitSet(uint256 oldLimit, uint256 newLimit);
-    event MonthlyMintLimitSet(uint256 oldLimit, uint256 newLimit);
-    event WeeklyBurnLimitSet(uint256 oldLimit, uint256 newLimit);
-    event MonthlyBurnLimitSet(uint256 oldLimit, uint256 newLimit);
     event TokensMinted(address indexed to, uint256 amount, address indexed operator);
     event TokensBurned(address indexed from, uint256 amount, address indexed operator);
+    event BridgeLimitsSet(
+        uint256 dailyLimit,
+        uint256 txLimit,
+        uint256 accountDailyLimit,
+        uint256 minAmount,
+        bool onlyWhitelisted
+    );
+    event RequestApproved(uint256 indexed requestId);
     
     modifier onlyOperators() {
         require(operators[msg.sender] || msg.sender == avatar, "Not authorized");
@@ -66,16 +85,17 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
      * @dev Initialize the MinterBurner contract
      * @param _token The address of the GoodDollar token contract
      * @param _nameService The NameService contract for DAO integration
+     * @param _limits The initial bridge limits to set
      */
     function initialize(
         ISuperGoodDollar _token,
-        INameService _nameService
+        INameService _nameService,
+        BridgeLimits memory _limits
     ) public initializer {
         require(address(_token) != address(0), "Token address cannot be zero");
         token = _token;
         setDAO(_nameService);
-        currentWeekStart = block.timestamp;
-        currentMonthStart = block.timestamp;
+        bridgeLimits = _limits;
     }
 
     /**
@@ -92,77 +112,93 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
     }
 
     /**
-     * @dev Set the weekly mint limit
-     * @param _limit The new weekly mint limit (0 to disable)
+     * @dev Function for setting the bridge limits
+     * @param _limits The bridge limits to set
      * 
      * Only the DAO avatar can call this function.
      */
-    function setWeeklyMintLimit(uint256 _limit) external {
+    function setBridgeLimits(BridgeLimits memory _limits) external {
         _onlyAvatar();
-        uint256 oldLimit = weeklyMintLimit;
-        weeklyMintLimit = _limit;
-        emit WeeklyMintLimitSet(oldLimit, _limit);
+        bridgeLimits = _limits;
+        emit BridgeLimitsSet(
+            _limits.dailyLimit,
+            _limits.txLimit,
+            _limits.accountDailyLimit,
+            _limits.minAmount,
+            _limits.onlyWhitelisted
+        );
     }
 
     /**
-     * @dev Set the monthly mint limit
-     * @param _limit The new monthly mint limit (0 to disable)
+     * @dev Function for approving requests above limits
+     * @param _requestId The request id to approve
      * 
      * Only the DAO avatar can call this function.
      */
-    function setMonthlyMintLimit(uint256 _limit) external {
+    function approveRequest(uint256 _requestId) external {
         _onlyAvatar();
-        uint256 oldLimit = monthlyMintLimit;
-        monthlyMintLimit = _limit;
-        emit MonthlyMintLimitSet(oldLimit, _limit);
+        approvedRequests[_requestId] = true;
+        emit RequestApproved(_requestId);
     }
 
     /**
-     * @dev Set the weekly burn limit
-     * @param _limit The new weekly burn limit (0 to disable)
+     * @dev Check if minting is allowed for a given address and amount
+     * @param _to The address to mint tokens to
+     * @param _amount The amount of tokens to mint
+     * @return isWithinLimit Whether the mint is within the limit
+     * @return error The error message, if any
      * 
-     * Only the DAO avatar can call this function.
+     * Note: Limits are only enforced on the receiving side (minting), not on the sending side (burning).
      */
-    function setWeeklyBurnLimit(uint256 _limit) external {
-        _onlyAvatar();
-        uint256 oldLimit = weeklyBurnLimit;
-        weeklyBurnLimit = _limit;
-        emit WeeklyBurnLimitSet(oldLimit, _limit);
+    function canMint(address _to, uint256 _amount) public view returns (bool isWithinLimit, string memory error) {
+        return BridgeHelperLibrary.canBridge(
+            bridgeLimits,
+            accountsDailyLimit[_to],
+            bridgeDailyLimit,
+            nameService,
+            paused,
+            _to,
+            _amount
+        );
     }
 
     /**
-     * @dev Set the monthly burn limit
-     * @param _limit The new monthly burn limit (0 to disable)
+     * @dev Enforces transfer limits for minting (receiving tokens)
+     * @param _to The address to mint tokens to
+     * @param _amount The amount of tokens to mint
+     * @param _requestId The request ID (0 to skip approval check)
      * 
-     * Only the DAO avatar can call this function.
+     * Note: Limits are only enforced on the receiving side (minting), matching MessagePassingBridge behavior.
+     * The canMint() function is a public view for checking limits without state changes.
+     * This function checks limits AND updates the daily limit counters.
      */
-    function setMonthlyBurnLimit(uint256 _limit) external {
-        _onlyAvatar();
-        uint256 oldLimit = monthlyBurnLimit;
-        monthlyBurnLimit = _limit;
-        emit MonthlyBurnLimitSet(oldLimit, _limit);
-    }
-
-    /**
-     * @dev Internal function to reset weekly period if needed
-     */
-    function _resetWeeklyIfNeeded() internal {
-        if (block.timestamp >= currentWeekStart + WEEK_DURATION) {
-            weeklyMinted = 0;
-            weeklyBurned = 0;
-            currentWeekStart = block.timestamp;
+    function _enforceMintLimits(address _to, uint256 _amount, uint256 _requestId) internal {
+        // Reset daily limits if needed
+        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
+            bridgeDailyLimit.lastTransferReset = block.timestamp;
+            bridgeDailyLimit.bridged24Hours = 0;
         }
-    }
 
-    /**
-     * @dev Internal function to reset monthly period if needed
-     */
-    function _resetMonthlyIfNeeded() internal {
-        if (block.timestamp >= currentMonthStart + MONTH_DURATION) {
-            monthlyMinted = 0;
-            monthlyBurned = 0;
-            currentMonthStart = block.timestamp;
+        if (accountsDailyLimit[_to].lastTransferReset < block.timestamp - 1 days) {
+            accountsDailyLimit[_to].lastTransferReset = block.timestamp;
+            accountsDailyLimit[_to].bridged24Hours = 0;
         }
+
+        // Skip limits for manually approved requests
+        if (_requestId > 0 && approvedRequests[_requestId]) {
+            // Approved request, skip limit checks but still update counters
+            bridgeDailyLimit.bridged24Hours += _amount;
+            accountsDailyLimit[_to].bridged24Hours += _amount;
+            return;
+        }
+
+        // Check limits
+        (bool isValid, string memory reason) = canMint(_to, _amount);
+        if (!isValid) revert BRIDGE_LIMITS(reason);
+
+        // Update counters
+        bridgeDailyLimit.bridged24Hours += _amount;
+        accountsDailyLimit[_to].bridged24Hours += _amount;
     }
 
     /**
@@ -172,27 +208,10 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
      * @return success True if the burn was successful
      * 
      * Only authorized operators (like OFT adapter) or the DAO avatar can call this.
-     * Enforces weekly and monthly burn limits if set.
+     * Note: Limits are NOT enforced on the sending side (burning), matching MessagePassingBridge behavior.
+     * Limits are only enforced on the receiving side (minting) when tokens are received.
      */
     function burn(address _from, uint256 _amount) external onlyOperators returns (bool) {
-        // Reset periods if needed
-        _resetWeeklyIfNeeded();
-        _resetMonthlyIfNeeded();
-        
-        // Check weekly limit (0 means no limit)
-        if (weeklyBurnLimit > 0) {
-            require(weeklyBurned + _amount <= weeklyBurnLimit, "Weekly burn limit exceeded");
-        }
-        
-        // Check monthly limit (0 means no limit)
-        if (monthlyBurnLimit > 0) {
-            require(monthlyBurned + _amount <= monthlyBurnLimit, "Monthly burn limit exceeded");
-        }
-        
-        // Update counters
-        weeklyBurned += _amount;
-        monthlyBurned += _amount;
-        
         token.burnFrom(_from, _amount);
         
         emit TokensBurned(_from, _amount, msg.sender);
@@ -206,26 +225,32 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
      * @return success True if the mint was successful
      * 
      * Only authorized operators (like OFT adapter) or the DAO avatar can call this.
-     * Enforces weekly and monthly mint limits if set.
+     * Limits are enforced on the receiving side (when minting received tokens).
      */
     function mint(address _to, uint256 _amount) external onlyOperators returns (bool) {
-        // Reset periods if needed
-        _resetWeeklyIfNeeded();
-        _resetMonthlyIfNeeded();
+        // Enforce limits (requestId = 0 means no approval bypass)
+        _enforceMintLimits(_to, _amount, 0);
         
-        // Check weekly limit (0 means no limit)
-        if (weeklyMintLimit > 0) {
-            require(weeklyMinted + _amount <= weeklyMintLimit, "Weekly mint limit exceeded");
+        bool success = token.mint(_to, _amount);
+        if (success) {
+            emit TokensMinted(_to, _amount, msg.sender);
         }
-        
-        // Check monthly limit (0 means no limit)
-        if (monthlyMintLimit > 0) {
-            require(monthlyMinted + _amount <= monthlyMintLimit, "Monthly mint limit exceeded");
-        }
-        
-        // Update counters
-        weeklyMinted += _amount;
-        monthlyMinted += _amount;
+        return success;
+    }
+
+    /**
+     * @dev Mint tokens to an address with request ID (for approved requests above limits)
+     * @param _to The address to mint tokens to
+     * @param _amount The amount of tokens to mint
+     * @param _requestId The request ID (if approved, limits are bypassed)
+     * @return success True if the mint was successful
+     * 
+     * Only authorized operators (like OFT adapter) or the DAO avatar can call this.
+     * This version allows bypassing limits for pre-approved requests.
+     */
+    function mintWithRequestId(address _to, uint256 _amount, uint256 _requestId) external onlyOperators returns (bool) {
+        // Enforce limits with requestId (approved requests bypass limits)
+        _enforceMintLimits(_to, _amount, _requestId);
         
         bool success = token.mint(_to, _amount);
         if (success) {
