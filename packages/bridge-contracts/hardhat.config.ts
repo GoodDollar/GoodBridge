@@ -12,6 +12,10 @@ import 'hardhat-deploy';
 import { HttpNetworkAccountsConfig } from 'hardhat/types';
 import { configDotenv } from 'dotenv';
 import * as envEnc from '@chainlink/env-enc';
+
+import '@layerzerolabs/toolbox-hardhat'
+import { EndpointId } from '@layerzerolabs/lz-definitions'
+
 configDotenv();
 envEnc.config();
 
