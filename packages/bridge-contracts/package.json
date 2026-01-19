@@ -30,6 +30,7 @@
     "@layerzerolabs/lz-evm-protocol-v2": "^3.0.151",
     "@layerzerolabs/oapp-evm": "^0.4.1",
     "@layerzerolabs/oft-evm": "^4.0.0",
+    "@layerzerolabs/oft-evm-upgradeable": "^4.0.2",
     "@layerzerolabs/scan-client": "^0.0.6",
     "@layerzerolabs/solidity-examples": "^0.0.13",
     "@layerzerolabs/toolbox-hardhat": "~0.6.13",
