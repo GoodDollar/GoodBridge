@@ -1,36 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { IERC20, IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { OFTCoreUpgradeable } from "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol";
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
 import { BridgeHelperLibrary } from "../messagePassingBridge/BridgeHelperLibrary.sol";
-
-interface INameService {
-    function getAddress(string memory) external view returns (address);
-}
+import { IMessagePassingBridge } from "../messagePassingBridge/IMessagePassingBridge.sol";
+import { INameService } from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 
 interface IIdentity {
     function isWhitelisted(address) external view returns (bool);
-}
-
-struct BridgeLimits {
-    uint256 dailyLimit;
-    uint256 txLimit;
-    uint256 accountDailyLimit;
-    uint256 minAmount;
-    bool onlyWhitelisted;
-}
-
-struct BridgeDailyLimit {
-    uint256 lastTransferReset;
-    uint256 bridged24Hours;
-}
-
-struct AccountLimit {
-    uint256 lastTransferReset;
-    uint256 bridged24Hours;
 }
 
 /**
@@ -38,7 +17,7 @@ struct AccountLimit {
  * @notice Upgradeable OFT adapter that uses mint/burn mechanisms for cross-chain transfers
  * @dev Inherits from OFTCoreUpgradeable and implements mint/burn logic similar to MintBurnOFTAdapter
  */
-contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
+contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     /// @dev Struct for storing bridge fees
     struct BridgeFees {
         uint256 minFee;
@@ -59,13 +38,13 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
     address public feeRecipient;
 
     /// @dev Bridge limits structure
-    BridgeLimits public bridgeLimits;
+    IMessagePassingBridge.BridgeLimits public bridgeLimits;
 
     /// @dev Bridge daily limit tracking
-    BridgeDailyLimit public bridgeDailyLimit;
+    IMessagePassingBridge.BridgeDailyLimit public bridgeDailyLimit;
 
     /// @dev Account-specific daily limit tracking
-    mapping(address => AccountLimit) public accountsDailyLimit;
+    mapping(address => IMessagePassingBridge.AccountLimit) public accountsDailyLimit;
 
     /// @dev A mapping for approved requests above limits
     mapping(uint256 => bool) public approvedRequests;
@@ -136,7 +115,6 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
     ) public initializer {
         // Initialize parent contracts
         __OFTCore_init(_owner);
-        __Ownable_init(_owner);
         
         // Set state variables
         innerToken = IERC20(_token);
@@ -193,7 +171,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
      * @notice Sets the bridge limits configuration
      * @param _limits The bridge limits struct
      */
-    function setBridgeLimits(BridgeLimits memory _limits) external onlyOwner {
+    function setBridgeLimits(IMessagePassingBridge.BridgeLimits memory _limits) external onlyOwner {
         bridgeLimits = _limits;
         emit BridgeLimitsSet(
             _limits.dailyLimit,
@@ -238,7 +216,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
      * @return error The error message, if any
      */
     function canBridge(address _from, uint256 _amount) public view returns (bool isWithinLimit, string memory error) {
-        BridgeLimits memory limits = BridgeLimits({
+        IMessagePassingBridge.BridgeLimits memory limits = IMessagePassingBridge.BridgeLimits({
             dailyLimit: bridgeLimits.dailyLimit,
             txLimit: bridgeLimits.txLimit,
             accountDailyLimit: bridgeLimits.accountDailyLimit,
@@ -246,12 +224,12 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
             onlyWhitelisted: bridgeLimits.onlyWhitelisted
         });
         
-        AccountLimit memory accountLimit = AccountLimit({
+        IMessagePassingBridge.AccountLimit memory accountLimit = IMessagePassingBridge.AccountLimit({
             lastTransferReset: accountsDailyLimit[_from].lastTransferReset,
             bridged24Hours: accountsDailyLimit[_from].bridged24Hours
         });
         
-        BridgeDailyLimit memory dailyLimit = BridgeDailyLimit({
+        IMessagePassingBridge.BridgeDailyLimit memory dailyLimit = IMessagePassingBridge.BridgeDailyLimit({
             lastTransferReset: bridgeDailyLimit.lastTransferReset,
             bridged24Hours: bridgeDailyLimit.bridged24Hours
         });
