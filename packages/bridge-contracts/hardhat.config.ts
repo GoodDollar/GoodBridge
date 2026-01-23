@@ -7,8 +7,8 @@ import 'hardhat-contract-sizer';
 import '@openzeppelin/hardhat-upgrades';
 import '@nomicfoundation/hardhat-chai-matchers';
 import '@nomicfoundation/hardhat-verify';
-import '@nomiclabs/hardhat-waffle';
-import 'hardhat-deploy';
+// Temporarily disabled due to incompatibility with Hardhat 2.x
+// import 'hardhat-deploy';
 import { HttpNetworkAccountsConfig } from 'hardhat/types';
 import { configDotenv } from 'dotenv';
 import * as envEnc from '@chainlink/env-enc';
@@ -39,13 +39,26 @@ if (pkey) {
  */
 const config: HardhatUserConfig = {
   solidity: {
-    version: '0.8.10',
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 0,
+    compilers: [
+      {
+        version: '0.8.22',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 0,
+          },
+        },
       },
-    },
+      {
+        version: '0.8.10',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 0,
+          },
+        },
+      },
+    ],
   },
   networks: {
     develop: {

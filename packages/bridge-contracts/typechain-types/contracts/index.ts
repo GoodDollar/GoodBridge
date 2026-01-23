@@ -9,5 +9,7 @@ import type * as fuse from "./fuse";
 export type { fuse };
 import type * as messagePassingBridge from "./messagePassingBridge";
 export type { messagePassingBridge };
+import type * as oft from "./oft";
+export type { oft };
 import type * as test from "./test";
 export type { test };

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { IERC20, IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { OFTCoreUpgradeable } from "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol";
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
@@ -9,9 +8,9 @@ import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/I
 /**
  * @title GoodDollarOFTAdapter
  * @notice Upgradeable OFT adapter that uses mint/burn mechanisms for cross-chain transfers
- * @dev Inherits from OFTCoreUpgradeable and implements mint/burn logic similar to MintBurnOFTAdapter
+ * @dev Inherits from OFTCoreUpgradeable (which already includes OwnableUpgradeable) and implements mint/burn logic similar to MintBurnOFTAdapter
  */
-contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
+contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     /// @dev The underlying ERC20 token
     IERC20 internal innerToken;
     
@@ -36,18 +35,17 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
      * @notice Initializes the GoodDollarOFTAdapter contract
      * @param _token The address of the underlying ERC20 token
      * @param _minterBurner The contract responsible for minting and burning tokens
-     * @param _lzEndpoint The LayerZero endpoint address (must match constructor)
      * @param _owner The contract owner
+     * @dev The LayerZero endpoint is set in the constructor and cannot be changed per proxy
      */
     function initialize(
         address _token,
         IMintableBurnable _minterBurner,
-        address _lzEndpoint,
         address _owner
     ) public initializer {
         // Initialize parent contracts
+        // __OFTCore_init already initializes OwnableUpgradeable through OAppCoreUpgradeable
         __OFTCore_init(_owner);
-        __Ownable_init(_owner);
         
         // Set state variables
         innerToken = IERC20(_token);
@@ -105,7 +103,8 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, OwnableUpgradeable {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
         
         // Mint tokens to recipient
-        minterBurner.mint(_to, _amountLD);
+        bool success = minterBurner.mint(_to, _amountLD);
+        require(success, "GoodDollarOFTAdapter: Mint failed");
         
         return _amountLD;
     }

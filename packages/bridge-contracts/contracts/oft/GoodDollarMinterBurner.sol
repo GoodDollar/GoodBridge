@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8;
 
-import {ISuperGoodDollar} from "../superfluid/ISuperGoodDollar.sol";
-import "../../utils/DAOUpgradeableContract.sol";
+import {ISuperGoodDollar} from "@gooddollar/goodprotocol/contracts/token/superfluid/ISuperGoodDollar.sol";
+import {DAOUpgradeableContract, INameService} from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 
 interface IIdentity {
     function isWhitelisted(address) external view returns (bool);
