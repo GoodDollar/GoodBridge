@@ -1,0 +1,11 @@
+@openzeppelin/contracts/=../../node_modules/@openzeppelin/contracts/
+@openzeppelin/contracts-upgradeable/=../../node_modules/@openzeppelin/contracts-upgradeable/
+@layerzerolabs/oft-evm-upgradeable/=../../node_modules/@layerzerolabs/oft-evm-upgradeable/
+@layerzerolabs/oft-evm/=../../node_modules/@layerzerolabs/oft-evm/
+@layerzerolabs/oapp-evm/=../../node_modules/@layerzerolabs/oapp-evm/
+@layerzerolabs/oapp-evm-upgradeable/=../../node_modules/@layerzerolabs/oapp-evm-upgradeable/
+@layerzerolabs/lz-evm-protocol-v2/=../../node_modules/@layerzerolabs/lz-evm-protocol-v2/
+@layerzerolabs/solidity-examples/=../../node_modules/@layerzerolabs/solidity-examples/
+@gooddollar/goodprotocol/=../../node_modules/@gooddollar/goodprotocol/
+@superfluid-finance/ethereum-contracts/=../../node_modules/@superfluid-finance/ethereum-contracts/
+
