@@ -254,8 +254,8 @@ export type { MessagePassingBridge } from "./contracts/messagePassingBridge/Mess
 export { MessagePassingBridge__factory } from "./factories/contracts/messagePassingBridge/MessagePassingBridge.sol/MessagePassingBridge__factory";
 export type { GoodDollarMinterBurner } from "./contracts/oft/GoodDollarMinterBurner.sol/GoodDollarMinterBurner";
 export { GoodDollarMinterBurner__factory } from "./factories/contracts/oft/GoodDollarMinterBurner.sol/GoodDollarMinterBurner__factory";
-export type { GoodDollarOFTAdapter } from "./contracts/oft/GoodDollarOFTAdapter";
-export { GoodDollarOFTAdapter__factory } from "./factories/contracts/oft/GoodDollarOFTAdapter__factory";
+export type { GoodDollarOFTAdapter } from "./contracts/oft/GoodDollarOFTAdapter.sol/GoodDollarOFTAdapter";
+export { GoodDollarOFTAdapter__factory } from "./factories/contracts/oft/GoodDollarOFTAdapter.sol/GoodDollarOFTAdapter__factory";
 export type { ConsensusMock } from "./contracts/test/ConsensusMock";
 export { ConsensusMock__factory } from "./factories/contracts/test/ConsensusMock__factory";
 export type { Multicall } from "./contracts/test/MultiCall.sol/Multicall";

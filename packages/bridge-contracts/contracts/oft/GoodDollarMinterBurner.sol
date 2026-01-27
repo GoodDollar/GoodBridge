@@ -42,16 +42,13 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
     
     /**
      * @dev Initialize the MinterBurner contract
-     * @param _token The address of the GoodDollar token contract
      * @param _nameService The NameService contract for DAO integration
      */
     function initialize(
-        ISuperGoodDollar _token,
         INameService _nameService
     ) public initializer {
-        require(address(_token) != address(0), "Token address cannot be zero");
-        token = _token;
         setDAO(_nameService);
+        token = ISuperGoodDollar(address(nativeToken()));
     }
 
     /**
@@ -125,4 +122,10 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
         emit Unpaused(msg.sender);
     }
 
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[50] private __gap;
 }

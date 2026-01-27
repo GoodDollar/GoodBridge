@@ -377,6 +377,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IBeacon__factory>;
     getContractFactory(
+      name: "ERC1967Proxy",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC1967Proxy__factory>;
+    getContractFactory(
       name: "ERC1967Upgrade",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ERC1967Upgrade__factory>;
@@ -520,6 +524,10 @@ declare module "hardhat/types/runtime" {
       name: "GoodDollarOFTAdapter",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.GoodDollarOFTAdapter__factory>;
+    getContractFactory(
+      name: "IIdentity",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IIdentity__factory>;
     getContractFactory(
       name: "ConsensusMock",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -1017,6 +1025,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IBeacon>;
     getContractAt(
+      name: "ERC1967Proxy",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC1967Proxy>;
+    getContractAt(
       name: "ERC1967Upgrade",
       address: string,
       signer?: ethers.Signer
@@ -1196,6 +1209,11 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.GoodDollarOFTAdapter>;
+    getContractAt(
+      name: "IIdentity",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IIdentity>;
     getContractAt(
       name: "ConsensusMock",
       address: string,
