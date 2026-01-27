@@ -15,7 +15,7 @@ interface IIdentity {
 /**
  * @title GoodDollarOFTAdapter
  * @notice Upgradeable OFT adapter that uses mint/burn mechanisms for cross-chain transfers
- * @dev Inherits from OFTCoreUpgradeable and implements mint/burn logic similar to MintBurnOFTAdapter
+ * @dev Inherits from OFTCoreUpgradeable (which already includes OwnableUpgradeable) and implements mint/burn logic similar to MintBurnOFTAdapter
  */
 contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     /// @dev Struct for storing bridge fees
@@ -100,27 +100,21 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
      * @notice Initializes the GoodDollarOFTAdapter contract
      * @param _token The address of the underlying ERC20 token
      * @param _minterBurner The contract responsible for minting and burning tokens
-     * @param _lzEndpoint The LayerZero endpoint address (must match constructor)
      * @param _owner The contract owner
-     * @param _feeRecipient The address to receive bridge fees (can be address(0) to disable fees)
-     * @param _nameService The NameService contract for identity checks (can be address(0))
+     * @dev The LayerZero endpoint is set in the constructor and cannot be changed per proxy
      */
     function initialize(
         address _token,
         IMintableBurnable _minterBurner,
-        address _lzEndpoint,
-        address _owner,
-        address _feeRecipient,
-        INameService _nameService
+        address _owner
     ) public initializer {
         // Initialize parent contracts
+        // __OFTCore_init already initializes OwnableUpgradeable through OAppCoreUpgradeable
         __OFTCore_init(_owner);
         
         // Set state variables
         innerToken = IERC20(_token);
         minterBurner = _minterBurner;
-        feeRecipient = _feeRecipient;
-        nameService = _nameService;
     }
 
     /**
@@ -310,9 +304,6 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
      * @param _amountLD The amount of tokens to credit in local decimals
      * @param _srcEid The source chain ID
      * @return amountReceivedLD The amount of tokens actually received in local decimals
-     * @dev Takes fees similar to MessagePassingBridge: mint (amount - fee) to recipient, mint fee to fee recipient
-     * @dev Enforces bridge limits before minting, matching MessagePassingBridge behavior
-     * @dev Note: Limits are tracked by recipient address (_to) since we don't have access to the original sender in OFT
      */
     function _credit(
         address _to,
@@ -321,32 +312,17 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     ) internal virtual override returns (uint256 amountReceivedLD) {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
         
-        // Generate a request ID from the message (using source chain ID and amount as a simple hash)
-        // In a real implementation, you might want to pass this from the LayerZero message
-        uint256 requestId = uint256(keccak256(abi.encode(_srcEid, _to, _amountLD, block.timestamp)));
+        // Mint tokens to recipient
+        bool success = minterBurner.mint(_to, _amountLD);
+        require(success, "GoodDollarOFTAdapter: Mint failed");
         
-        // Enforce limits before processing
-        // Note: We track limits by recipient address (_to) since OFT doesn't provide original sender in _credit
-        // For approved requests, call approveRequest() with the requestId before the transfer
-        _enforceLimits(_to, _to, _amountLD, requestId);
-        
-        // Calculate fee if fee recipient is set and fee is configured
-        uint256 fee = 0;
-        if (feeRecipient != address(0) && bridgeFees.fee > 0) {
-            fee = _takeFee(_amountLD);
-        }
-        
-        // Mint tokens to recipient (amount minus fee)
-        uint256 amountToRecipient = _amountLD - fee;
-        minterBurner.mint(_to, amountToRecipient);
-        
-        // Mint fee to fee recipient if fee exists
-        if (fee > 0) {
-            minterBurner.mint(feeRecipient, fee);
-            emit FeeCollected(feeRecipient, fee);
-        }
-        
-        // Return the actual amount received by the recipient (amount minus fee)
-        return amountToRecipient;
+        return _amountLD;
     }
+    
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[50] private __gap;
 }
