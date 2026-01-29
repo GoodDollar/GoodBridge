@@ -337,7 +337,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
      * @param _amountLD The amount of tokens to credit in local decimals
      * @param _srcEid The source chain ID
      * @return amountReceivedLD The amount of tokens actually received in local decimals
-     * @dev Fees are deducted on the destination chain, matching MessagePassingBridge behavior
+     * @dev Fees are deducted on the destination chain
      */
     function _credit(
         address _to,
