@@ -337,6 +337,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
      * @param _amountLD The amount of tokens to credit in local decimals
      * @param _srcEid The source chain ID
      * @return amountReceivedLD The amount of tokens actually received in local decimals
+     * @dev Fees are deducted on the destination chain, matching MessagePassingBridge behavior
      */
     function _credit(
         address _to,
@@ -345,9 +346,20 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     ) internal virtual override returns (uint256 amountReceivedLD) {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
         
-        // Mint tokens to recipient
-        bool success = minterBurner.mint(_to, _amountLD);
+        // Calculate fee (fee is deducted on destination chain, matching MessagePassingBridge)
+        uint256 fee = _takeFee(_amountLD);
+        
+        // Mint tokens to recipient (amount minus fee)
+        uint256 recipientAmount = _amountLD - fee;
+        bool success = minterBurner.mint(_to, recipientAmount);
         require(success, "GoodDollarOFTAdapter: Mint failed");
+        
+        // Mint fee to fee recipient if set
+        if (fee > 0 && feeRecipient != address(0)) {
+            bool feeSuccess = minterBurner.mint(feeRecipient, fee);
+            require(feeSuccess, "GoodDollarOFTAdapter: Fee mint failed");
+            emit FeeCollected(feeRecipient, fee);
+        }
         
         return _amountLD;
     }
