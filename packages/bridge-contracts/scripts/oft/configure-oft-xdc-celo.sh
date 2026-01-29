@@ -89,18 +89,18 @@ print_success "MINTER_ROLE granted on development-celo"
 
 echo ""
 
-# Step 4: Set LayerZero peers (required before wiring, after ownership transfer)
-print_step "Step 4: Setting LayerZero peer connections"
+# # Step 4: Set LayerZero peers (required before wiring, after ownership transfer)
+# print_step "Step 4: Setting LayerZero peer connections"
 
-print_step "Setting peer on development-xdc..."
-yarn hardhat run scripts/oft/set-layerzero-peers.ts --network development-xdc
-print_success "Peer set on development-xdc"
+# print_step "Setting peer on development-xdc..."
+# yarn hardhat run scripts/oft/set-layerzero-peers.ts --network development-xdc
+# print_success "Peer set on development-xdc"
 
-print_step "Setting peer on development-celo..."
-yarn hardhat run scripts/oft/set-layerzero-peers.ts --network development-celo
-print_success "Peer set on development-celo"
+# print_step "Setting peer on development-celo..."
+# yarn hardhat run scripts/oft/set-layerzero-peers.ts --network development-celo
+# print_success "Peer set on development-celo"
 
-echo ""
+# echo ""
 
 # Step 5: Wire LayerZero connections (optional - peers already set)
 WIRE_XDC_SUCCESS=false

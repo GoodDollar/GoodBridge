@@ -285,7 +285,7 @@ const main = async () => {
     try {
       // Try to use combineOptions to build proper options
       // combineOptions(msgType, extraOptions) - msgType 1 = SEND
-      const combineOptionsResult = await oftAdapter.combineOptions(1, "0x");
+      const combineOptionsResult = await oftAdapter.combineOptions(destEndpointId, 1, extraOptions);
       if (combineOptionsResult && combineOptionsResult !== "0x") {
         extraOptions = combineOptionsResult;
         console.log("Using combined options from OApp");

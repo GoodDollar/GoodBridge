@@ -88,6 +88,9 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when fees are collected
     event FeeCollected(address indexed recipient, uint256 amount);
 
+    /// @dev Event emitted when the contract is authorized to be upgraded
+    event AuthorizedUpgrade(address indexed newImplementation);
+    
     /// @dev Event emitted when bridge limits are updated
     event BridgeLimitsSet(
         uint256 dailyLimit,
@@ -134,16 +137,13 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     ) public initializer {
         // Initialize OwnableUpgradeable first
         __Ownable_init();
-        __OAppSender_init(_owner);      // This calls __OAppCore_init internally
-        __OAppReceiver_init(_owner);     // This also calls __OAppCore_init internally  
             
         // Transfer ownership to the specified owner (since __Ownable_init sets it to msg.sender)
         __OFTCore_init(_owner);
         _transferOwnership(_owner);
         
         // Set state variables
-        setDAO(_nameService);
-        innerToken = ISuperGoodDollar(address(nativeToken()));
+        innerToken = IERC20(_nameService.getAddress("GOODDOLLAR"));
         minterBurner = _minterBurner;
         feeRecipient = _feeRecipient;
     }
@@ -351,7 +351,6 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         
         return _amountLD;
     }
-<<<<<<< HEAD
 
     /**
      * @dev Authorizes the upgrade of the contract to a new implementation
@@ -362,8 +361,8 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
         // Authorization is handled by onlyOwner modifier
         // Additional checks can be added here if needed
+        emit AuthorizedUpgrade(newImplementation);
     }
-=======
     
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
@@ -371,5 +370,4 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
     uint256[50] private __gap;
->>>>>>> feat/oft-adapter-step2
 }

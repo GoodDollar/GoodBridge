@@ -167,7 +167,7 @@ const config: HardhatUserConfig = {
     "production-xdc": {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
-      url: 'https://rpc.xdc.network',
+      url: 'https://rpc.xinfin.network',
       verify: {
         etherscan: {
           apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
@@ -178,7 +178,7 @@ const config: HardhatUserConfig = {
     "development-xdc": {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
-      url: 'https://rpc.xdc.network',
+      url: 'https://rpc.xinfin.network',
       eid: EndpointId.XDC_V2_MAINNET,
       verify: {
         etherscan: {

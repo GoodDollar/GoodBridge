@@ -144,18 +144,14 @@ const main = async () => {
 
   // Prepare transaction
   const abiCoder = ethers.utils.defaultAbiCoder;
-  const setBridgeLimitsEncoded = oftAdapter.interface.encodeFunctionData("setBridgeLimits", [newLimits]);
+  // const setBridgeLimitsEncoded = oftAdapter.interface.encodeFunctionData("setBridgeLimits", [newLimits]);
+
 
   // Execute via Controller/Avatar
   try {
     console.log("\nExecuting via Controller/Avatar...");
     const Controller = await ethers.getContractAt("Controller", controllerAddress);
-    const tx = await Controller.genericCall(
-      oftAdapterAddress,
-      setBridgeLimitsEncoded,
-      avatarAddress,
-      0
-    );
+    const tx = await oftAdapter.setBridgeLimits(newLimits);
     await tx.wait();
     console.log("✅ Transaction confirmed:", tx.hash);
 

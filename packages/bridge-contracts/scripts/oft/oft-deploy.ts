@@ -35,7 +35,7 @@ export const deployOFTContracts = async () => {
   }
 
   // Get token address from GoodProtocol
-  const tokenAddress = goodProtocolContracts.GoodDollar || goodProtocolContracts.SuperGoodDollar;
+  const tokenAddress = goodProtocolContracts.GoodDollar;
   if (!tokenAddress) {
     throw new Error(`Token address not found in GoodProtocol deployment for network ${networkName}. Please deploy SuperGoodDollar or GoodDollar first.`);
   }
@@ -86,7 +86,7 @@ export const deployOFTContracts = async () => {
     const MinterBurnerFactory = await ethers.getContractFactory("GoodDollarMinterBurner");
     MinterBurner = await upgrades.deployProxy(
       MinterBurnerFactory,
-      [tokenAddress, nameServiceAddress],
+      [nameServiceAddress],
       { kind: "uups", initializer: "initialize" }
     );
     await MinterBurner.deployed();
@@ -109,7 +109,7 @@ export const deployOFTContracts = async () => {
 
   // Get fee recipient (can be Avatar or address(0) to disable fees)
   // Default to Avatar, but can be overridden via environment variable
-  const feeRecipient = process.env.OFT_FEE_RECIPIENT || avatarAddress || ethers.constants.AddressZero;
+  const feeRecipient = avatarAddress;
 
   // Deploy GoodDollarOFTAdapter (upgradeable via proxy)
   // Constructor takes (token, lzEndpoint) - initialize() is called automatically by proxy
@@ -129,22 +129,14 @@ export const deployOFTContracts = async () => {
     // Encode the initialize function call
     const initializeInterface = OFTAdapterFactory.interface;
     const initializeData = initializeInterface.encodeFunctionData("initialize", [
-      tokenAddress,
       MinterBurner.address,
       lzEndpoint,
-      avatarAddress,
+      root.address,
       feeRecipient,
       nameServiceAddress
     ]);
     
-    console.log("Initialize parameters:", {
-      token: tokenAddress,
-      minterBurner: MinterBurner.address,
-      lzEndpoint,
-      owner: avatarAddress,
-      feeRecipient,
-      nameService: nameServiceAddress
-    });
+    console.log("Initialize parameters:", initializeData);
     
     // Create UUPS proxy manually using OpenZeppelin's ERC1967Proxy
     // This follows the same pattern as upgrades.deployProxy but bypasses validation
@@ -152,7 +144,6 @@ export const deployOFTContracts = async () => {
     OFTAdapter = await upgrades.deployProxy(
       OFTAdapterFactory, 
       [
-        tokenAddress, 
         MinterBurner.address,
         lzEndpoint,
         root.address,
