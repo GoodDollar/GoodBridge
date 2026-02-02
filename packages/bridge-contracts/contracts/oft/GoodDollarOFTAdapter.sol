@@ -3,9 +3,9 @@ pragma solidity >=0.8.0;
 
 import { IERC20, IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { OFTCoreUpgradeable } from "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
-import { BridgeHelperLibrary } from "../messagePassingBridge/BridgeHelperLibrary.sol";
-import { IMessagePassingBridge } from "../messagePassingBridge/IMessagePassingBridge.sol";
 import { INameService } from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 
 interface IIdentity {
@@ -17,12 +17,33 @@ interface IIdentity {
  * @notice Upgradeable OFT adapter that uses mint/burn mechanisms for cross-chain transfers
  * @dev Inherits from OFTCoreUpgradeable (which already includes OwnableUpgradeable) and implements mint/burn logic similar to MintBurnOFTAdapter
  */
-contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
+contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     /// @dev Struct for storing bridge fees
     struct BridgeFees {
         uint256 minFee;
         uint256 maxFee;
         uint256 fee; // Fee in basis points (0-10000, where 10000 = 100%)
+    }
+
+    /// @dev Struct for storing account limits
+    struct AccountLimit {
+        uint256 lastTransferReset;
+        uint256 bridged24Hours;
+    }
+
+    /// @dev Struct for storing bridge daily limits
+    struct BridgeDailyLimit {
+        uint256 lastTransferReset;
+        uint256 bridged24Hours;
+    }
+
+    /// @dev Struct for storing bridge limits
+    struct BridgeLimits {
+        uint256 dailyLimit;
+        uint256 txLimit;
+        uint256 accountDailyLimit;
+        uint256 minAmount;
+        bool onlyWhitelisted;
     }
 
     /// @dev The underlying ERC20 token
@@ -38,13 +59,13 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     address public feeRecipient;
 
     /// @dev Bridge limits structure
-    IMessagePassingBridge.BridgeLimits public bridgeLimits;
+    BridgeLimits public bridgeLimits;
 
     /// @dev Bridge daily limit tracking
-    IMessagePassingBridge.BridgeDailyLimit public bridgeDailyLimit;
+    BridgeDailyLimit public bridgeDailyLimit;
 
     /// @dev Account-specific daily limit tracking
-    mapping(address => IMessagePassingBridge.AccountLimit) public accountsDailyLimit;
+    mapping(address => AccountLimit) public accountsDailyLimit;
 
     /// @dev A mapping for approved requests above limits
     mapping(uint256 => bool) public approvedRequests;
@@ -98,23 +119,30 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
 
     /**
      * @notice Initializes the GoodDollarOFTAdapter contract
-     * @param _token The address of the underlying ERC20 token
      * @param _minterBurner The contract responsible for minting and burning tokens
      * @param _owner The contract owner
-     * @dev The LayerZero endpoint is set in the constructor and cannot be changed per proxy
+     * @param _feeRecipient The address to receive bridge fees (can be address(0) to disable fees)
+     * @param _nameService The NameService contract for identity checks (can be address(0))
      */
+    /// @custom:oz-upgrades-unsafe-allow constructor state-variable-immutable missing-initializer
     function initialize(
-        address _token,
         IMintableBurnable _minterBurner,
-        address _owner
+        address /* _lzEndpoint */,
+        address _owner,
+        address _feeRecipient,
+        INameService _nameService
     ) public initializer {
-        // Initialize parent contracts
-        // __OFTCore_init already initializes OwnableUpgradeable through OAppCoreUpgradeable
+        // Initialize OwnableUpgradeable first
+        __Ownable_init();
+            
+        // Transfer ownership to the specified owner (since __Ownable_init sets it to msg.sender)
         __OFTCore_init(_owner);
+        _transferOwnership(_owner);
         
         // Set state variables
-        innerToken = IERC20(_token);
+        innerToken = IERC20(_nameService.getAddress("GOODDOLLAR"));
         minterBurner = _minterBurner;
+        feeRecipient = _feeRecipient;
     }
 
     /**
@@ -173,7 +201,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
      * @notice Sets the bridge limits configuration
      * @param _limits The bridge limits struct
      */
-    function setBridgeLimits(IMessagePassingBridge.BridgeLimits memory _limits) external onlyOwner {
+    function setBridgeLimits(BridgeLimits memory _limits) external onlyOwner {
         bridgeLimits = _limits;
         emit BridgeLimitsSet(
             _limits.dailyLimit,
@@ -218,33 +246,35 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
      * @return error The error message, if any
      */
     function canBridge(address _from, uint256 _amount) public view returns (bool isWithinLimit, string memory error) {
-        IMessagePassingBridge.BridgeLimits memory limits = IMessagePassingBridge.BridgeLimits({
-            dailyLimit: bridgeLimits.dailyLimit,
-            txLimit: bridgeLimits.txLimit,
-            accountDailyLimit: bridgeLimits.accountDailyLimit,
-            minAmount: bridgeLimits.minAmount,
-            onlyWhitelisted: bridgeLimits.onlyWhitelisted
-        });
-        
-        IMessagePassingBridge.AccountLimit memory accountLimit = IMessagePassingBridge.AccountLimit({
-            lastTransferReset: accountsDailyLimit[_from].lastTransferReset,
-            bridged24Hours: accountsDailyLimit[_from].bridged24Hours
-        });
-        
-        IMessagePassingBridge.BridgeDailyLimit memory dailyLimit = IMessagePassingBridge.BridgeDailyLimit({
-            lastTransferReset: bridgeDailyLimit.lastTransferReset,
-            bridged24Hours: bridgeDailyLimit.bridged24Hours
-        });
-        
-        return BridgeHelperLibrary.canBridge(
-            limits,
-            accountLimit,
-            dailyLimit,
-            nameService,
-            isClosed,
-            _from,
-            _amount
-        );
+        if (isClosed) return (false, 'closed');
+
+        if (_amount < bridgeLimits.minAmount) return (false, 'minAmount');
+
+        uint256 account24hours = accountsDailyLimit[_from].bridged24Hours;
+        if (accountsDailyLimit[_from].lastTransferReset < block.timestamp - 1 days) {
+            account24hours = _amount;
+        } else {
+            account24hours += _amount;
+        }
+
+        if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
+            IIdentity id = IIdentity(nameService.getAddress("IDENTITY"));
+            if (address(id) != address(0)) {
+                if (!id.isWhitelisted(_from)) return (false, 'not whitelisted');
+            }
+        }
+
+        if (account24hours > bridgeLimits.accountDailyLimit) return (false, 'accountDailyLimit');
+
+        if (_amount > bridgeLimits.txLimit) return (false, 'txLimit');
+
+        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
+            if (_amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
+        } else {
+            if (bridgeDailyLimit.bridged24Hours + _amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
+        }
+
+        return (true, '');
     }
 
     /**
@@ -305,7 +335,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
      * @param _amountLD The amount of tokens to credit in local decimals
      * @param _srcEid The source chain ID
      * @return amountReceivedLD The amount of tokens actually received in local decimals
-     * @dev Fees are deducted on the destination chain, matching MessagePassingBridge behavior
+     * @dev Fees are deducted on the destination chain
      */
     function _credit(
         address _to,
@@ -335,7 +365,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
         
         return _amountLD;
     }
-    
+
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
      * variables without shifting down storage in the inheritance chain.
