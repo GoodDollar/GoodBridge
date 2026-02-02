@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
+pragma solidity >=0.8;
 
-// pragma solidity >=0.8;
-// import {IGoodDollar} from "@gooddollar/goodprotocol/contracts/Interfaces.sol";
 /**
  * @title ISuperGoodDollar
  * @notice Interface for GoodDollar token functions used in this project

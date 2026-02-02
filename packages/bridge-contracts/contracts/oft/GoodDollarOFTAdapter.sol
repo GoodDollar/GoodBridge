@@ -186,10 +186,18 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     /**
      * @notice Calculates the fee amount from the given amount
      * @param amount The amount to calculate fee from
-     * @return fee The calculated fee amount
+     * @return fee The calculated fee amount (enforced to be between minFee and maxFee if set)
      */
     function _takeFee(uint256 amount) internal view returns (uint256 fee) {
         fee = (amount * bridgeFees.fee) / 10000;
+        
+        // Enforce minFee and maxFee bounds
+        if (bridgeFees.minFee > 0 && fee < bridgeFees.minFee) {
+            fee = bridgeFees.minFee;
+        }
+        if (bridgeFees.maxFee > 0 && fee > bridgeFees.maxFee) {
+            fee = bridgeFees.maxFee;
+        }
     }
 
     /**
@@ -274,41 +282,30 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
 
     /**
      * @notice Enforces transfer limits and checks if the transfer is valid
-     * @param _from The address to transfer from
-     * @param _to The address to transfer to
+     * @param _address The address to transfer from
      * @param _amount The amount to transfer
      * @param _requestId The request ID (0 to skip approval check)
-     * @dev Limits are enforced on the receiving side (minting), matching MessagePassingBridge behavior
+     * @dev Limits are enforced on both sending and receiving sides
      */
-    function _enforceLimits(address _from, address _to, uint256 _amount, uint256 _requestId) internal {
-        if (_to == address(0)) revert BRIDGE_LIMITS('invalid recipient');
-
+    function _enforceLimits(address _address, uint256 _amount, uint256 _requestId) internal {
         // Reset daily limits if needed
         if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
             bridgeDailyLimit.lastTransferReset = block.timestamp;
             bridgeDailyLimit.bridged24Hours = 0;
         }
 
-        if (accountsDailyLimit[_from].lastTransferReset < block.timestamp - 1 days) {
-            accountsDailyLimit[_from].lastTransferReset = block.timestamp;
-            accountsDailyLimit[_from].bridged24Hours = 0;
-        }
-
-        // Skip limits for manually approved requests
-        if (_requestId > 0 && approvedRequests[_requestId]) {
-            // Approved request, skip limit checks but still update counters
-            bridgeDailyLimit.bridged24Hours += _amount;
-            accountsDailyLimit[_from].bridged24Hours += _amount;
-            return;
+        if (accountsDailyLimit[_address].lastTransferReset < block.timestamp - 1 days) {
+            accountsDailyLimit[_address].lastTransferReset = block.timestamp;
+            accountsDailyLimit[_address].bridged24Hours = 0;
         }
 
         // Check limits
-        (bool isValid, string memory reason) = canBridge(_from, _amount);
+        (bool isValid, string memory reason) = canBridge(_address, _amount);
         if (!isValid) revert BRIDGE_LIMITS(reason);
 
         // Update counters
         bridgeDailyLimit.bridged24Hours += _amount;
-        accountsDailyLimit[_from].bridged24Hours += _amount;
+        accountsDailyLimit[_address].bridged24Hours += _amount;
     }
 
     /**
@@ -326,6 +323,10 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         uint256 _minAmountLD,
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
+        // Enforce limits on sending side
+        // if (approvedRequests[id] == false)
+            _enforceLimits(_from, _amountLD, 0);
+        
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
         // Burns tokens from the caller
         minterBurner.burn(_from, amountSentLD);
@@ -345,6 +346,10 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         uint32 _srcEid
     ) internal virtual override returns (uint256 amountReceivedLD) {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
+        
+        // Enforce limits on receiving side (using recipient as the account to check limits for)
+        // if (approvedRequests[id] == false)
+            _enforceLimits(_to, _amountLD, 0);
         
         // Calculate fee (fee is deducted on destination chain, matching MessagePassingBridge)
         uint256 fee = _takeFee(_amountLD);
