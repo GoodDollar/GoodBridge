@@ -155,10 +155,18 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     /**
      * @notice Calculates the fee amount from the given amount
      * @param amount The amount to calculate fee from
-     * @return fee The calculated fee amount
+     * @return fee The calculated fee amount (enforced to be between minFee and maxFee if set)
      */
     function _takeFee(uint256 amount) internal view returns (uint256 fee) {
         fee = (amount * bridgeFees.fee) / 10000;
+        
+        // Enforce minFee and maxFee bounds
+        if (bridgeFees.minFee > 0 && fee < bridgeFees.minFee) {
+            fee = bridgeFees.minFee;
+        }
+        if (bridgeFees.maxFee > 0 && fee > bridgeFees.maxFee) {
+            fee = bridgeFees.maxFee;
+        }
     }
 
     /**
@@ -258,14 +266,6 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
             accountsDailyLimit[_address].bridged24Hours = 0;
         }
 
-        // Skip limits for manually approved requests
-        if (_requestId > 0 && approvedRequests[_requestId]) {
-            // Approved request, skip limit checks but still update counters
-            bridgeDailyLimit.bridged24Hours += _amount;
-            accountsDailyLimit[_address].bridged24Hours += _amount;
-            return;
-        }
-
         // Check limits
         (bool isValid, string memory reason) = canBridge(_address, _amount);
         if (!isValid) revert BRIDGE_LIMITS(reason);
@@ -291,7 +291,8 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
         // Enforce limits on sending side
-        _enforceLimits(_from, _amountLD, 0);
+        // if (approvedRequests[id] == false)
+            _enforceLimits(_from, _amountLD, 0);
         
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
         // Burns tokens from the caller
@@ -314,7 +315,8 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
         
         // Enforce limits on receiving side (using recipient as the account to check limits for)
-        _enforceLimits(_to, _amountLD, 0);
+        // if (approvedRequests[id] == false)
+            _enforceLimits(_to, _amountLD, 0);
         
         // Calculate fee (fee is deducted on destination chain, matching MessagePassingBridge)
         uint256 fee = _takeFee(_amountLD);
