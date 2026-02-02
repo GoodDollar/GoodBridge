@@ -126,18 +126,6 @@ export const deployOFTContracts = async () => {
     }
     console.log("✅ Verified Avatar address:", avatarAddress);
     
-    // Encode the initialize function call
-    const initializeInterface = OFTAdapterFactory.interface;
-    const initializeData = initializeInterface.encodeFunctionData("initialize", [
-      MinterBurner.address,
-      lzEndpoint,
-      root.address,
-      feeRecipient,
-      nameServiceAddress
-    ]);
-    
-    console.log("Initialize parameters:", initializeData);
-    
     // Create UUPS proxy manually using OpenZeppelin's ERC1967Proxy
     // This follows the same pattern as upgrades.deployProxy but bypasses validation
     console.log("Deploying proxy and initializing...");
