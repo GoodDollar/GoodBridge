@@ -241,13 +241,12 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
 
     /**
      * @notice Enforces transfer limits and checks if the transfer is valid
-     * @param _from The address to transfer from
+     * @param _address The address to transfer from
      * @param _amount The amount to transfer
      * @param _requestId The request ID (0 to skip approval check)
      * @dev Limits are enforced on both sending and receiving sides
      */
     function _enforceLimits(address _address, uint256 _amount, uint256 _requestId) internal {
-
         // Reset daily limits if needed
         if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
             bridgeDailyLimit.lastTransferReset = block.timestamp;
