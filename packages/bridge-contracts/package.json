@@ -44,7 +44,6 @@
     "@openzeppelin/hardhat-upgrades": "^1.21.0",
     "@resolver-engine/core": "^0.3.3",
     "@safe-global/safe-core-sdk-types": "^2.3.0",
-    "@superfluid-finance/ethereum-contracts": "1.8.1",
     "@typechain/ethers-v5": "^10.1.0",
     "@typechain/hardhat": "^6.1.2",
     "@types/chai": "^4.3.3",

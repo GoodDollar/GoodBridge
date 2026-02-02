@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8;
 
-import {ISuperGoodDollar} from "@gooddollar/goodprotocol/contracts/token/superfluid/ISuperGoodDollar.sol";
+import {ISuperGoodDollar} from "./interfaces/ISuperGoodDollar.sol";
 import {DAOUpgradeableContract, INameService} from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 
 interface IIdentity {
