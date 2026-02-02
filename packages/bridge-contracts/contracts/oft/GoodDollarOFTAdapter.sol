@@ -88,9 +88,6 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when fees are collected
     event FeeCollected(address indexed recipient, uint256 amount);
 
-    /// @dev Event emitted when the contract is authorized to be upgraded
-    event AuthorizedUpgrade(address indexed newImplementation);
-    
     /// @dev Event emitted when bridge limits are updated
     event BridgeLimitsSet(
         uint256 dailyLimit,
@@ -369,18 +366,6 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         return _amountLD;
     }
 
-    /**
-     * @dev Authorizes the upgrade of the contract to a new implementation
-     * @param newImplementation The address of the new implementation contract
-     * @dev Only the owner can authorize upgrades (enforced by onlyOwner modifier)
-     * @dev This function is required for UUPS upgradeable pattern
-     */
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
-        // Authorization is handled by onlyOwner modifier
-        // Additional checks can be added here if needed
-        emit AuthorizedUpgrade(newImplementation);
-    }
-    
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
      * variables without shifting down storage in the inheritance chain.

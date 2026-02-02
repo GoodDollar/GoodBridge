@@ -87,7 +87,7 @@ export const deployOFTContracts = async () => {
     MinterBurner = await upgrades.deployProxy(
       MinterBurnerFactory,
       [nameServiceAddress],
-      { kind: "uups", initializer: "initialize" }
+      { kind: "transparent", initializer: "initialize" }
     );
     await MinterBurner.deployed();
     console.log("GoodDollarMinterBurner deployed to:", MinterBurner.address);
@@ -151,7 +151,7 @@ export const deployOFTContracts = async () => {
         nameServiceAddress
       ], 
       { 
-        kind: "uups", 
+        kind: "transparent", 
         initializer: "initialize", 
         unsafeAllow: ["constructor", "state-variable-immutable", "missing-initializer-call", "duplicate-initializer-call"],
         constructorArgs: [tokenAddress, lzEndpoint]
