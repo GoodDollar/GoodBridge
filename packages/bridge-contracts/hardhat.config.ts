@@ -226,7 +226,7 @@ const config: HardhatUserConfig = {
     ],
   },
   contractSizer: {
-    runOnCompile: false,
+    runOnCompile: true,
   },
   namedAccounts: {
     deployer: {
