@@ -10,7 +10,7 @@
 
 import { network, ethers } from "hardhat";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment.json";
+import release from "../../release/deployment-oft.json";
 
 const main = async () => {
   const networkName = network.name;
@@ -33,11 +33,11 @@ const main = async () => {
   const avatarAddress = goodProtocolContracts.Avatar;
 
   if (!oftAdapterAddress) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment.json for ${networkName}`);
+    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
   }
 
   if (!avatarAddress) {
-    throw new Error(`Avatar not found in deployment.json for ${networkName}`);
+    throw new Error(`Avatar not found in GoodProtocol deployment.json for ${networkName}`);
   }
 
   console.log("\nContract addresses:");
@@ -161,7 +161,7 @@ const main = async () => {
                   "The contract is upgradeable-compatible but was deployed directly (not as a proxy).\n" +
                   "Reinitialization is not possible for direct deployments.\n\n" +
                   "SOLUTION: You must redeploy the contract:\n" +
-                  "1. Remove the GoodDollarOFTAdapter address from release/deployment.json\n" +
+                  "1. Remove the GoodDollarOFTAdapter address from release/deployment-oft.json\n" +
                   "2. Run the deployment script again to deploy a new contract\n" +
                   "3. The new contract will be initialized with the correct owner (Avatar)\n\n" +
                   `Current OFTAdapter address: ${oftAdapterAddress}\n` +

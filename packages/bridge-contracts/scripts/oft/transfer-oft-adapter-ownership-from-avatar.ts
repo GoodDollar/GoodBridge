@@ -11,7 +11,7 @@
 
 import { network, ethers } from "hardhat";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment.json";
+import release from "../../release/deployment-oft.json";
 
 const main = async () => {
   const networkName = network.name;
@@ -36,15 +36,15 @@ const main = async () => {
   const controllerAddress = goodProtocolContracts.Controller;
 
   if (!oftAdapterAddress) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment.json for ${networkName}`);
+    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
   }
 
   if (!avatarAddress) {
-    throw new Error(`Avatar not found in deployment.json for ${networkName}`);
+    throw new Error(`Avatar not found in GoodProtocol deployment.json for ${networkName}`);
   }
 
   if (!controllerAddress) {
-    throw new Error(`Controller not found in deployment.json for ${networkName}`);
+    throw new Error(`Controller not found in GoodProtocol deployment.json for ${networkName}`);
   }
 
   console.log("Contract addresses:");

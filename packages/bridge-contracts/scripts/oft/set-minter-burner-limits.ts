@@ -14,7 +14,7 @@
 import { network, ethers } from "hardhat";
 import { BigNumber } from "ethers";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment.json";
+import release from "../../release/deployment-oft.json";
 
 const main = async () => {
   const networkName = network.name;
@@ -31,7 +31,7 @@ const main = async () => {
   // Get deployment info
   const currentRelease = release[networkName] || {};
   if (!currentRelease.GoodDollarOFTAdapter) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment.json for ${networkName}`);
+    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
   }
 
   // Get GoodProtocol contracts for Controller and Avatar
@@ -45,15 +45,15 @@ const main = async () => {
   const avatarAddress = goodProtocolContracts.Avatar;
 
   if (!oftAdapterAddress) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment.json for ${networkName}`);
+    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
   }
 
   if (!controllerAddress) {
-    throw new Error(`Controller not found in deployment.json for ${networkName}`);
+    throw new Error(`Controller not found in GoodProtocol deployment.json for ${networkName}`);
   }
 
   if (!avatarAddress) {
-    throw new Error(`Avatar not found in deployment.json for ${networkName}`);
+    throw new Error(`Avatar not found in GoodProtocol deployment.json for ${networkName}`);
   }
 
   console.log("\nContract addresses:");

@@ -13,13 +13,5 @@
     "fuseBridge": "0x08fdf766694C353401350c225cAEB9C631dC3288",
     "celoBridge": "0xfb152Fc469A3E9154f8AA60bbD6700EcBC357A54",
     "registry": "0x44a1E0A83821E239F9Cef248CECc3AC5b910aeD2"
-  },
-  "development-celo": {
-    "GoodDollarMinterBurner": "0x3850786C7627Ce276EF6F715a0eF31d5FeCf1fc7",
-    "GoodDollarOFTAdapter": "0x28aE7CE2F3BBb0bf58B24F1961885aeE1e456f46"
-  },
-  "development-xdc": {
-    "GoodDollarMinterBurner": "0xb20eaE658437b793257C326751a695ED5e94dD3E",
-    "GoodDollarOFTAdapter": "0x3a568CFD4e3F6ef9f5e341FAbAD84B6Cc41C1A75"
   }
 }

@@ -15,7 +15,7 @@ import { network, ethers, upgrades } from "hardhat";
 import { Contract } from "ethers";
 import fse from "fs-extra";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment.json";
+import release from "../../release/deployment-oft.json";
 
 const { name: networkName } = network;
 
@@ -97,7 +97,7 @@ export const deployOFTContracts = async () => {
       release[networkName] = {};
     }
     release[networkName].GoodDollarMinterBurner = MinterBurner.address;
-    await fse.writeJSON("release/deployment.json", release, { spaces: 2 });
+    await fse.writeJSON("release/deployment-oft.json", release, { spaces: 2 });
   } else {
     console.log("GoodDollarMinterBurner already deployed at:", currentRelease.GoodDollarMinterBurner);
     MinterBurner = await ethers.getContractAt("GoodDollarMinterBurner", currentRelease.GoodDollarMinterBurner);
@@ -162,7 +162,7 @@ export const deployOFTContracts = async () => {
     
     // Update release file
     release[networkName].GoodDollarOFTAdapter = OFTAdapter.address;
-    await fse.writeJSON("release/deployment.json", release, { spaces: 2 });
+    await fse.writeJSON("release/deployment-oft.json", release, { spaces: 2 });
     
     console.log("Fee recipient:", feeRecipient);
   } else {

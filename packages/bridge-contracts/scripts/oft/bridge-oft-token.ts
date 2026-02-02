@@ -22,7 +22,7 @@ import { network, ethers } from "hardhat";
 import { Contract } from "ethers";
 import { EndpointId } from "@layerzerolabs/lz-definitions";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment.json";
+import release from "../../release/deployment-oft.json";
 
 // IERC20 interface for token operations
 const IERC20_ABI = [
@@ -79,15 +79,15 @@ const main = async () => {
   const minterBurnerAddress = currentRelease.GoodDollarMinterBurner;
 
   if (!oftAdapterAddress) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment.json for ${networkName}`);
+    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
   }
 
   if (!tokenAddress) {
-    throw new Error(`GoodDollar token not found in deployment.json for ${networkName}`);
+    throw new Error(`GoodDollar token not found in GoodProtocol deployment.json for ${networkName}`);
   }
 
   if (!minterBurnerAddress) {
-    throw new Error(`GoodDollarMinterBurner not found in deployment.json for ${networkName}`);
+    throw new Error(`GoodDollarMinterBurner not found in deployment-oft.json for ${networkName}`);
   }
 
   console.log("\nSource chain contract addresses:");
@@ -150,9 +150,9 @@ const main = async () => {
   
   if (!destOFTAdapter) {
     throw new Error(
-      `${destNetwork} OFT adapter address not found in deployment.json.\n` +
+      `${destNetwork} OFT adapter address not found in deployment-oft.json.\n` +
       `Please either:\n` +
-      `  1. Deploy OFT adapter on ${destNetwork} and add it to deployment.json, or\n` +
+      `  1. Deploy OFT adapter on ${destNetwork} and add it to deployment-oft.json, or\n` +
       `  2. Manually set the peer using: scripts/set-oft-peer.ts`
     );
   }
