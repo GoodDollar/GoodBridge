@@ -1,0 +1,55 @@
+{
+  "development-xdc": {
+    "skipTransferOwnership": false,
+    "skipWiring": false,
+    "skipLimits": false,
+    "skipBridgeTest": true,
+    "limits": {
+      "dailyLimit": "5000",
+      "txLimit": "1000",
+      "accountDailyLimit": "1000",
+      "minAmount": "1",
+      "onlyWhitelisted": false
+    }
+  },
+  "development-celo": {
+    "skipTransferOwnership": false,
+    "skipWiring": false,
+    "skipLimits": false,
+    "skipBridgeTest": true,
+    "limits": {
+      "dailyLimit": "5000",
+      "txLimit": "1000",
+      "accountDailyLimit": "1000",
+      "minAmount": "1",
+      "onlyWhitelisted": false
+    }
+  },
+  "production-xdc": {
+    "skipTransferOwnership": false,
+    "skipWiring": false,
+    "skipLimits": false,
+    "skipBridgeTest": true,
+    "limits": {
+      "dailyLimit": "1000000",
+      "txLimit": "100000",
+      "accountDailyLimit": "50000",
+      "minAmount": "10",
+      "onlyWhitelisted": false
+    }
+  },
+  "production-celo": {
+    "skipTransferOwnership": false,
+    "skipWiring": false,
+    "skipLimits": false,
+    "skipBridgeTest": true,
+    "limits": {
+      "dailyLimit": "1000000",
+      "txLimit": "100000",
+      "accountDailyLimit": "50000",
+      "minAmount": "10",
+      "onlyWhitelisted": false
+    }
+  }
+}
+

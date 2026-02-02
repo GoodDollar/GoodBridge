@@ -5,8 +5,11 @@
  * Note: Limits are now managed in GoodDollarOFTAdapter, not GoodDollarMinterBurner
  * 
  * Usage:
- *   DAILY_LIMIT=1000000 TX_LIMIT=100000 ACCOUNT_DAILY_LIMIT=50000 MIN_AMOUNT=10 \
  *   npx hardhat run scripts/oft/set-minter-burner-limits.ts --network development-celo
+ * 
+ * Configuration:
+ *   All limit values are read from scripts/oft/oft.config.json
+ *   Each network/env has its entry in the config file.
  * 
  * Note: This script must be run by a guardian or address with permissions to execute via Controller
  */
@@ -15,6 +18,7 @@ import { network, ethers } from "hardhat";
 import { BigNumber } from "ethers";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
 import release from "../../release/deployment-oft.json";
+import config from "./oft.config.json";
 
 const main = async () => {
   const networkName = network.name;
@@ -72,7 +76,17 @@ const main = async () => {
   console.log("Min Amount:", ethers.utils.formatEther(currentLimits.minAmount), "G$");
   console.log("Only Whitelisted:", currentLimits.onlyWhitelisted);
 
-  // Parse environment variables (values can be in decimal format, e.g., "1000000" for 1M G$)
+  // Get config for this network
+  const networkConfig = (config as any)[networkName];
+  if (!networkConfig || !networkConfig.limits) {
+    console.log("\n⚠️  No limits configuration found for this network.");
+    console.log(`Please add a "limits" entry for "${networkName}" in scripts/oft/oft.config.json`);
+    return;
+  }
+
+  const limitsConfig = networkConfig.limits;
+
+  // Parse limit values (values can be in decimal format, e.g., "1000000" for 1M G$)
   // The script will automatically convert them to wei (18 decimals)
   const parseLimit = (value: string | undefined): BigNumber | null => {
     if (!value) return null;
@@ -89,29 +103,11 @@ const main = async () => {
     }
   };
 
-  const dailyLimit = parseLimit(process.env.DAILY_LIMIT);
-  const txLimit = parseLimit(process.env.TX_LIMIT);
-  const accountDailyLimit = parseLimit(process.env.ACCOUNT_DAILY_LIMIT);
-  const minAmount = parseLimit(process.env.MIN_AMOUNT);
-  const onlyWhitelisted = process.env.ONLY_WHITELISTED !== undefined ? process.env.ONLY_WHITELISTED === "true" : null;
-
-  // Check if any limits are being set
-  if (dailyLimit === null && txLimit === null && accountDailyLimit === null && minAmount === null && onlyWhitelisted === null) {
-    console.log("\n⚠️  No limits specified. Please provide at least one limit to set.");
-    console.log("\nUsage examples:");
-    console.log("  # Using decimal values (recommended - easier to read):");
-    console.log("  DAILY_LIMIT=1000000 TX_LIMIT=100000 \\");
-    console.log("  ACCOUNT_DAILY_LIMIT=50000 MIN_AMOUNT=10 \\");
-    console.log("  ONLY_WHITELISTED=false \\");
-    console.log("  npx hardhat run scripts/oft/set-minter-burner-limits.ts --network development-celo");
-    console.log("\n  # Or using wei values (if you prefer):");
-    console.log("  DAILY_LIMIT=1000000000000000000000000 TX_LIMIT=100000000000000000000000 \\");
-    console.log("  ACCOUNT_DAILY_LIMIT=50000000000000000000000 MIN_AMOUNT=10000000000000000000 \\");
-    console.log("  ONLY_WHITELISTED=false \\");
-    console.log("  npx hardhat run scripts/oft/set-minter-burner-limits.ts --network development-celo");
-    console.log("\nNote: Decimal values (e.g., '1000000' for 1M G$) are automatically converted to wei.");
-    return;
-  }
+  const dailyLimit = parseLimit(limitsConfig.dailyLimit);
+  const txLimit = parseLimit(limitsConfig.txLimit);
+  const accountDailyLimit = parseLimit(limitsConfig.accountDailyLimit);
+  const minAmount = parseLimit(limitsConfig.minAmount);
+  const onlyWhitelisted = limitsConfig.onlyWhitelisted !== undefined ? limitsConfig.onlyWhitelisted : null;
 
   // Prepare new limits struct (use current values if not provided)
   const newLimits = {
