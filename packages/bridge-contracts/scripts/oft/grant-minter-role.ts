@@ -59,9 +59,9 @@ const main = async () => {
   console.log("Avatar:", avatarAddress);
 
   // Get token contract to check current status
-  // Use the interface from goodprotocol package
+  // Use the local interface file
   const token = await ethers.getContractAt(
-    "@gooddollar/goodprotocol/contracts/token/superfluid/ISuperGoodDollar.sol:ISuperGoodDollar",
+    "interfaces/ISuperGoodDollar.sol:ISuperGoodDollar",
     tokenAddress
   );
   
