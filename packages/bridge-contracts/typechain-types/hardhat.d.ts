@@ -421,34 +421,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IERC165__factory>;
     getContractFactory(
-      name: "IConstantInflowNFT",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IConstantInflowNFT__factory>;
-    getContractFactory(
-      name: "IConstantOutflowNFT",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IConstantOutflowNFT__factory>;
-    getContractFactory(
-      name: "IFlowNFTBase",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IFlowNFTBase__factory>;
-    getContractFactory(
-      name: "ISuperAgreement",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.ISuperAgreement__factory>;
-    getContractFactory(
-      name: "ISuperfluidToken",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.ISuperfluidToken__factory>;
-    getContractFactory(
-      name: "ISuperToken",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.ISuperToken__factory>;
-    getContractFactory(
-      name: "TokenInfo",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.TokenInfo__factory>;
-    getContractFactory(
       name: "BlockHeaderRegistry",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.BlockHeaderRegistry__factory>;
@@ -528,6 +500,10 @@ declare module "hardhat/types/runtime" {
       name: "IIdentity",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IIdentity__factory>;
+    getContractFactory(
+      name: "ISuperGoodDollar",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ISuperGoodDollar__factory>;
     getContractFactory(
       name: "ConsensusMock",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -1080,41 +1056,6 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IERC165>;
     getContractAt(
-      name: "IConstantInflowNFT",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IConstantInflowNFT>;
-    getContractAt(
-      name: "IConstantOutflowNFT",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IConstantOutflowNFT>;
-    getContractAt(
-      name: "IFlowNFTBase",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IFlowNFTBase>;
-    getContractAt(
-      name: "ISuperAgreement",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.ISuperAgreement>;
-    getContractAt(
-      name: "ISuperfluidToken",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.ISuperfluidToken>;
-    getContractAt(
-      name: "ISuperToken",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.ISuperToken>;
-    getContractAt(
-      name: "TokenInfo",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.TokenInfo>;
-    getContractAt(
       name: "BlockHeaderRegistry",
       address: string,
       signer?: ethers.Signer
@@ -1214,6 +1155,11 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IIdentity>;
+    getContractAt(
+      name: "ISuperGoodDollar",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ISuperGoodDollar>;
     getContractAt(
       name: "ConsensusMock",
       address: string,
