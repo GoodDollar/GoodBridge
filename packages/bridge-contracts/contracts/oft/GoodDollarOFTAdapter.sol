@@ -311,10 +311,10 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
         uint256 _minAmountLD,
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
-        if (approvedRequests[id] == false) {
+        // if (approvedRequests[id] == false) {
             // Enforce limits on sending side
             _enforceLimits(_from, _amountLD, 0);
-        }
+        // }
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
         // Burns tokens from the caller
         minterBurner.burn(_from, amountSentLD);
@@ -335,10 +335,10 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     ) internal virtual override returns (uint256 amountReceivedLD) {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
         
-        if (approvedRequests[id] == false) {
+        // if (approvedRequests[id] == false) {
             // Enforce limits on receiving side (using recipient as the account to check limits for)
             _enforceLimits(_to, _amountLD, 0);
-        }
+        // }
         
         // Calculate fee (fee is deducted on destination chain, matching MessagePassingBridge)
         uint256 fee = _takeFee(_amountLD);
