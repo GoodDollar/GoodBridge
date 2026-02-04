@@ -4,8 +4,6 @@ pragma solidity >=0.8.0;
 import { IERC20, IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { OFTCoreUpgradeable } from "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol";
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
-import { BridgeHelperLibrary } from "../messagePassingBridge/BridgeHelperLibrary.sol";
-import { IMessagePassingBridge } from "../messagePassingBridge/IMessagePassingBridge.sol";
 import { INameService } from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 
 interface IIdentity {
@@ -313,10 +311,10 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
         uint256 _minAmountLD,
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
-        // Enforce limits on sending side
-        // if (approvedRequests[id] == false)
+        if (approvedRequests[id] == false) {
+            // Enforce limits on sending side
             _enforceLimits(_from, _amountLD, 0);
-        
+        }
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
         // Burns tokens from the caller
         minterBurner.burn(_from, amountSentLD);
@@ -337,9 +335,10 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     ) internal virtual override returns (uint256 amountReceivedLD) {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
         
-        // Enforce limits on receiving side (using recipient as the account to check limits for)
-        // if (approvedRequests[id] == false)
+        if (approvedRequests[id] == false) {
+            // Enforce limits on receiving side (using recipient as the account to check limits for)
             _enforceLimits(_to, _amountLD, 0);
+        }
         
         // Calculate fee (fee is deducted on destination chain, matching MessagePassingBridge)
         uint256 fee = _takeFee(_amountLD);
