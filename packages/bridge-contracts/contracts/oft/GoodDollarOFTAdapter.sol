@@ -4,8 +4,6 @@ pragma solidity >=0.8.0;
 import { IERC20, IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { OFTCoreUpgradeable } from "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol";
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
-import { BridgeHelperLibrary } from "../messagePassingBridge/BridgeHelperLibrary.sol";
-import { IMessagePassingBridge } from "../messagePassingBridge/IMessagePassingBridge.sol";
 import { INameService } from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 
 interface IIdentity {
