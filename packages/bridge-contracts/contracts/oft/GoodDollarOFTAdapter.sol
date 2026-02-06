@@ -2,9 +2,10 @@
 pragma solidity >=0.8.0;
 
 import { IERC20, IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import { OFTCoreUpgradeable } from "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol";
+import "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol";
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
 import { INameService } from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 interface IIdentity {
     function isWhitelisted(address) external view returns (bool);
@@ -15,7 +16,7 @@ interface IIdentity {
  * @notice Upgradeable OFT adapter that uses mint/burn mechanisms for cross-chain transfers
  * @dev Inherits from OFTCoreUpgradeable (which already includes OwnableUpgradeable) and implements mint/burn logic similar to MintBurnOFTAdapter
  */
-contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
+contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     /// @dev Struct for storing bridge fees
     struct BridgeFees {
         uint256 minFee;
@@ -66,7 +67,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     mapping(address => AccountLimit) public accountsDailyLimit;
 
     /// @dev A mapping for approved requests above limits
-    mapping(uint256 => bool) public approvedRequests;
+    mapping(bytes32 => bool) public approvedRequests;
 
     /// @dev A boolean for whether the bridge is closed
     bool public isClosed;
@@ -99,7 +100,10 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     event BridgePaused(bool isPaused);
 
     /// @dev Event emitted when a request is approved
-    event RequestApproved(uint256 indexed requestId);
+    event RequestApproved(bytes32 indexed requestId, bool approved);
+
+    /// @dev Event emitted when limits are bypassed by request ID
+    event LimitsBypassedByRequestId(address indexed account, bytes32 indexed requestId);
 
     /**
      * @dev Constructor for the upgradeable contract
@@ -214,10 +218,11 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     /**
      * @notice Function for approving requests above limits
      * @param _requestId The request id to approve
+     * @param approved Whether to approve the request or not
      */
-    function approveRequest(uint256 _requestId) external onlyOwner {
-        approvedRequests[_requestId] = true;
-        emit RequestApproved(_requestId);
+    function approveRequest(bytes32 _requestId, bool approved) external onlyOwner {
+        approvedRequests[_requestId] = approved;
+        emit RequestApproved(_requestId, approved);
     }
 
     /**
@@ -275,7 +280,12 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
      * @param _requestId The request ID (0 to skip approval check)
      * @dev Limits are enforced on both sending and receiving sides
      */
-    function _enforceLimits(address _address, uint256 _amount, uint256 _requestId) internal {
+    function _enforceLimits(address _address, uint256 _amount, bytes32 _requestId) internal {
+        if (_requestId != 0 && approvedRequests[_requestId] == true) { 
+            emit LimitsBypassedByRequestId(_address, _requestId);
+            return; // skip approval check if request is approved
+        }
+            
         // Reset daily limits if needed
         if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
             bridgeDailyLimit.lastTransferReset = block.timestamp;
@@ -311,9 +321,9 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
         uint256 _minAmountLD,
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
-        // Enforce limits on sending side
-        // if (approvedRequests[id] == false)
-            _enforceLimits(_from, _amountLD, 0);
+        /// TODO: Enforce limits on sending side
+        // bytes32 requestId = getRequestId(address(this), _from, _to, _dstEid, 0);
+        // _enforceLimits(_from, _amountLD, requestId);
         
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
         // Burns tokens from the caller
@@ -335,9 +345,6 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
     ) internal virtual override returns (uint256 amountReceivedLD) {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
         
-        // Enforce limits on receiving side (using recipient as the account to check limits for)
-        // if (approvedRequests[id] == false)
-            _enforceLimits(_to, _amountLD, 0);
         
         // Calculate fee (fee is deducted on destination chain, matching MessagePassingBridge)
         uint256 fee = _takeFee(_amountLD);
@@ -357,6 +364,55 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable {
         return _amountLD;
     }
     
+    /**
+     * @notice Generates a request ID for a given transaction
+     * @param adapterAddress The address of the adapter contract
+     * @param sender The address of the sender
+     * @param to The address of the recipient
+     * @param sourceChainId The ID of the source chain
+     * @param id The current ID counter
+     * @return The request ID
+     */
+    function getRequestId(
+        address adapterAddress, 
+        address sender, 
+        address to, 
+        uint256 sourceChainId, 
+        uint256 id
+    ) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                adapterAddress, 
+                sender, 
+                to, 
+                sourceChainId, 
+                id
+            )
+        );
+    }
+
+    /**
+     * @notice Overrides the default _lzReceive function to enforce limits on receiving side
+     */
+    function _lzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata _message,
+        address _executor,
+        bytes calldata _extraData
+    ) internal virtual override {
+        // TODO: enforce limits on receiving side
+        // bytes32 requestId = getRequestId(address(this), _origin.sender, _message.sendTo().bytes32ToAddress(), _origin.srcEid, _origin.nonce);
+        // _enforceLimits(_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), requestId);
+        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
+    }
+
+    /**
+     * @dev Only the owner can authorize upgrades (enforced by onlyOwner modifier)
+     */
+    function _authorizeUpgrade(address impl) internal virtual override onlyOwner {
+    }
+
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
      * variables without shifting down storage in the inheritance chain.
