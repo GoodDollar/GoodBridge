@@ -409,37 +409,31 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     }
 
     /**
-     * @notice Generates a request ID for a given transaction
-     * @param sender The address of the sender
-     * @param to The address of the recipient
-     * @param srcChainId The ID of the source chain
-     * @param dstChainId The ID of the destination chain
-     * @param messageNonce The nonce of the sender
-     * @return The request ID
-     */
-    function getRequestId(
-        address sender, 
-        address to, 
-        uint256 srcChainId,
-        uint256 dstChainId,
-        uint256 messageNonce
-    ) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                sender, 
-                to, 
-                srcChainId, 
-                dstChainId,
-                messageNonce
-            )
-        );
-    }
-
-    /**
      * @notice Predicts the GUID that will be used for the next message to a destination
      */
     function predictNextGuid(uint32 _dstEid, address _sender, address _receiver) public view returns (bytes32) {
-        return endpoint.nextGuid(_sender, _dstEid, bytes32(uint256(uint160(_receiver))));
+        bytes32 receiverBytes32 = _toBytes32(_receiver);
+        return generateGuid(
+            endpoint.outboundNonce(_sender, _dstEid, receiverBytes32) + 1, 
+            endpoint.eid(), 
+            _sender, 
+            _dstEid, 
+            receiverBytes32
+        );
+    }
+
+    function generateGuid(
+        uint64 _nonce,
+        uint32 _srcEid,
+        address _sender,
+        uint32 _dstEid,
+        bytes32 _receiver
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_nonce, _srcEid, _toBytes32(_sender), _dstEid, _receiver));
+    }
+
+    function _toBytes32(address _address) internal pure returns (bytes32 result) {
+        result = bytes32(uint256(uint160(_address)));
     }
 
     /**
@@ -447,6 +441,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
      */
     function _authorizeUpgrade(address impl) internal virtual override onlyOwner {
     }
+
 
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
