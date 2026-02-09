@@ -68,13 +68,13 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     /// @dev Account-specific daily limit tracking
     mapping(address => AccountLimit) public accountsDailyLimit;
 
-    struct Request {
-        bool approved;
-        uint256 amount;
-        uint256 fromTimestamp;
-    }
+    // struct Request {
+    //     bool approved;
+    //     uint256 amount;
+    //     uint256 fromTimestamp;
+    // }
     /// @dev A mapping for approved requests above limits
-    mapping(bytes32 => Request) public approvedRequests;
+    mapping(bytes32 => bool) public approvedRequests;
 
     /// @dev A boolean for whether the bridge is closed
     bool public isClosed;
@@ -232,15 +232,14 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
 
     /**
      * @notice Function for approving requests above limits
-     * @param _requestId The request id to approve
-     * @param approved Whether to approve the request or not
      */
-    function approveRequest(bytes32 _requestId, bool approved, uint256 _amount, uint256 _fromTimestamp) external onlyOwner {
-        approvedRequests[_requestId] = Request(
-            approved, 
-            _amount == 0 ? type(uint256).max : _amount, 
-            _fromTimestamp == 0 ? block.timestamp : _fromTimestamp
-        );
+    function approveRequest(bytes32 _requestId, bool approved/*, uint256 _amount, uint256 _fromTimestamp*/) external onlyOwner {
+        // approvedRequests[_requestId] = Request(
+        //     approved, 
+        //     _amount == 0 ? type(uint256).max : _amount, 
+        //     _fromTimestamp == 0 ? block.timestamp : _fromTimestamp
+        // );
+        approvedRequests[_requestId] = approved;
         emit RequestApproved(_requestId, approved);
     }
 
@@ -293,9 +292,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     }
 
     function _isRequestApproved(bytes32 _requestId, uint256 _amount) internal view returns (bool) {
-        return approvedRequests[_requestId].approved && 
+        return approvedRequests[_requestId] /*.approved && 
             approvedRequests[_requestId].fromTimestamp < block.timestamp && 
-            approvedRequests[_requestId].amount >= _amount;
+            approvedRequests[_requestId].amount >= _amount*/;
     }
     /**
      * @notice Enforces transfer limits and checks if the transfer is valid
