@@ -437,17 +437,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
 
     /**
      * @notice Predicts the GUID that will be used for the next message to a destination
-     * @param _dstEid The destination endpoint ID
-     * @return The predicted GUID (bytes32)
-     * @dev This function calls the LayerZero endpoint's nextGuid function to predict
-     *      the GUID that will be assigned to the next message sent to the destination.
-     *      The GUID is calculated as keccak256(nonce + path) where path includes
-     *      srcEid, sender, dstEid, and receiver.
-     * @dev Note: If another transaction sends a message before yours, the actual GUID may differ.
      */
-    function predictNextGuid(uint32 _dstEid, address _sender) public view returns (bytes32) {
-        bytes32 peer = _getPeerOrRevert(_dstEid);
-        return endpoint.nextGuid(_sender, _dstEid, peer);
+    function predictNextGuid(uint32 _dstEid, address _sender, address _receiver) public view returns (bytes32) {
+        return endpoint.nextGuid(_sender, _dstEid, bytes32(uint256(uint160(_receiver))));
     }
 
     /**
