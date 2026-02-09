@@ -102,7 +102,6 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
             'constructor', 
             'state-variable-immutable',
             'duplicate-initializer-call',
-            'delegatecall'
           ],
         }
       )) as GoodDollarOFTAdapter;
@@ -121,7 +120,7 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       });
     });
   });
-/*
+
   describe('OFT Adapter Configuration', () => {
     let adapter: GoodDollarOFTAdapter;
     let minterBurner: any;
@@ -149,9 +148,7 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
           unsafeAllow: [
             'constructor', 
             'state-variable-immutable', 
-            // 'missing-initializer-call', 
-            // 'duplicate-initializer-call',
-            // 'delegatecall',
+            'duplicate-initializer-call',
           ],
         }
       )) as GoodDollarOFTAdapter;
@@ -209,11 +206,6 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       expect(storedLimits.onlyWhitelisted).to.equal(limits.onlyWhitelisted);
     });
 
-    it('Should set NameService', async function () {
-      await adapter.setNameService(celoContracts.NameService);
-      expect(await adapter.nameService()).to.equal(celoContracts.NameService);
-    });
-
     it('Should pause/unpause bridge', async function () {
       await expect(adapter.pauseBridge(true))
         .to.emit(adapter, 'BridgePaused')
@@ -228,6 +220,6 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       expect(await adapter.isClosed()).to.be.false;
     });
   });
-*/
+
 });
 
