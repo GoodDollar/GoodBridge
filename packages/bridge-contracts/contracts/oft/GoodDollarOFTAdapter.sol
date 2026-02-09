@@ -16,7 +16,7 @@ interface IIdentity {
  * @notice Upgradeable OFT adapter that uses mint/burn mechanisms for cross-chain transfers
  * @dev Inherits from OFTCoreUpgradeable (which already includes OwnableUpgradeable) and implements mint/burn logic similar to MintBurnOFTAdapter
  */
-contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
+contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     using OFTMsgCodec for bytes;
     using OFTMsgCodec for bytes32;
     /// @dev Struct for storing bridge fees
@@ -139,13 +139,17 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         address _owner
     ) public initializer {
         // Initialize parent contracts
-        // __OFTCore_init initializes OwnableUpgradeable, OAppCoreUpgradeable, OAppSenderUpgradeable, and OAppReceiverUpgradeable
         __UUPSUpgradeable_init();
+        // __Ownable_init_unchained();
+        // __OAppSender_init_unchained();
+        // __OAppReceiver_init_unchained();
+        __Ownable_init();
+        __OAppSender_init(_owner);
+        __OAppReceiver_init(_owner);
         __OFTCore_init(_owner);
-        // __Ownable_init();
-        // __OAppSender_init(_owner);
-        // __OAppReceiver_init(_owner);
         
+        _transferOwnership(_owner);
+
         // Set state variables
         innerToken = IERC20(_token);
         minterBurner = _minterBurner;
@@ -334,10 +338,8 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         MessagingFee calldata _fee,
         address _refundAddress
     ) internal virtual override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
-        uint64 nextNonce = endpoint.outboundNonce(address(this), _sendParam.dstEid, _getPeerOrRevert(_sendParam.dstEid)) + 1;
-        bytes32 requestId = getRequestId(msg.sender, _sendParam.to.bytes32ToAddress(), endpoint.eid(), _sendParam.dstEid, nextNonce);
-        _enforceLimits(msg.sender, _sendParam.amountLD, requestId);
-        return super._send(_sendParam, _fee, _refundAddress);
+        (msgReceipt, oftReceipt) = super._send(_sendParam, _fee, _refundAddress);
+        _enforceLimits(_sendParam.to.bytes32ToAddress(), _sendParam.amountLD, msgReceipt.guid);        
     }
 
     /**
@@ -350,14 +352,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         address _executor,
         bytes calldata _extraData
     ) internal virtual override {
-        // TODO: enforce limits on receiving side
-        bytes32 requestId = getRequestId(
-            _origin.sender.bytes32ToAddress(), 
-            _message.sendTo().bytes32ToAddress(), 
-            _origin.srcEid, endpoint.eid(), 
-            _origin.nonce
-        );
-        _enforceLimits(_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), requestId);
+        _enforceLimits(_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), _guid);
         super._lzReceive(_origin, _guid, _message, _executor, _extraData);
     }
     /**
@@ -438,6 +433,21 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
                 messageNonce
             )
         );
+    }
+
+    /**
+     * @notice Predicts the GUID that will be used for the next message to a destination
+     * @param _dstEid The destination endpoint ID
+     * @return The predicted GUID (bytes32)
+     * @dev This function calls the LayerZero endpoint's nextGuid function to predict
+     *      the GUID that will be assigned to the next message sent to the destination.
+     *      The GUID is calculated as keccak256(nonce + path) where path includes
+     *      srcEid, sender, dstEid, and receiver.
+     * @dev Note: If another transaction sends a message before yours, the actual GUID may differ.
+     */
+    function predictNextGuid(uint32 _dstEid, address _sender) public view returns (bytes32) {
+        bytes32 peer = _getPeerOrRevert(_dstEid);
+        return endpoint.nextGuid(_sender, _dstEid, peer);
     }
 
     /**
