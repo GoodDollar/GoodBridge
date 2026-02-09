@@ -17,6 +17,8 @@ interface IIdentity {
  * @dev Inherits from OFTCoreUpgradeable (which already includes OwnableUpgradeable) and implements mint/burn logic similar to MintBurnOFTAdapter
  */
 contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
+    using OFTMsgCodec for bytes;
+    using OFTMsgCodec for bytes32;
     /// @dev Struct for storing bridge fees
     struct BridgeFees {
         uint256 minFee;
@@ -66,8 +68,13 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     /// @dev Account-specific daily limit tracking
     mapping(address => AccountLimit) public accountsDailyLimit;
 
+    struct Request {
+        bool approved;
+        uint256 amount;
+        uint256 fromTimestamp;
+    }
     /// @dev A mapping for approved requests above limits
-    mapping(bytes32 => bool) public approvedRequests;
+    mapping(bytes32 => Request) public approvedRequests;
 
     /// @dev A boolean for whether the bridge is closed
     bool public isClosed;
@@ -132,8 +139,12 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         address _owner
     ) public initializer {
         // Initialize parent contracts
-        // __OFTCore_init already initializes OwnableUpgradeable through OAppCoreUpgradeable
+        // __OFTCore_init initializes OwnableUpgradeable, OAppCoreUpgradeable, OAppSenderUpgradeable, and OAppReceiverUpgradeable
+        __UUPSUpgradeable_init();
         __OFTCore_init(_owner);
+        // __Ownable_init();
+        // __OAppSender_init(_owner);
+        // __OAppReceiver_init(_owner);
         
         // Set state variables
         innerToken = IERC20(_token);
@@ -220,8 +231,12 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
      * @param _requestId The request id to approve
      * @param approved Whether to approve the request or not
      */
-    function approveRequest(bytes32 _requestId, bool approved) external onlyOwner {
-        approvedRequests[_requestId] = approved;
+    function approveRequest(bytes32 _requestId, bool approved, uint256 _amount, uint256 _fromTimestamp) external onlyOwner {
+        approvedRequests[_requestId] = Request(
+            approved, 
+            _amount == 0 ? type(uint256).max : _amount, 
+            _fromTimestamp == 0 ? block.timestamp : _fromTimestamp
+        );
         emit RequestApproved(_requestId, approved);
     }
 
@@ -273,6 +288,11 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         return (true, '');
     }
 
+    function _isRequestApproved(bytes32 _requestId, uint256 _amount) internal view returns (bool) {
+        return approvedRequests[_requestId].approved && 
+            approvedRequests[_requestId].fromTimestamp < block.timestamp && 
+            approvedRequests[_requestId].amount >= _amount;
+    }
     /**
      * @notice Enforces transfer limits and checks if the transfer is valid
      * @param _address The address to transfer from
@@ -281,7 +301,7 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
      * @dev Limits are enforced on both sending and receiving sides
      */
     function _enforceLimits(address _address, uint256 _amount, bytes32 _requestId) internal {
-        if (_requestId != 0 && approvedRequests[_requestId] == true) { 
+        if (_requestId != 0 && _isRequestApproved(_requestId, _amount)) { 
             emit LimitsBypassedByRequestId(_address, _requestId);
             return; // skip approval check if request is approved
         }
@@ -305,43 +325,52 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
         bridgeDailyLimit.bridged24Hours += _amount;
         accountsDailyLimit[_address].bridged24Hours += _amount;
     }
-
+    
     /**
-     * @notice Burns tokens from the sender's balance to prepare for sending
-     * @param _from The address to debit the tokens from
-     * @param _amountLD The amount of tokens to send in local decimals
-     * @param _minAmountLD The minimum amount to send in local decimals
-     * @param _dstEid The destination chain ID
-     * @return amountSentLD The amount sent in local decimals
-     * @return amountReceivedLD The amount received in local decimals on the remote
+     * @notice Overrides the default _send function to enforce limits on sending side
      */
-    function _debit(
-        address _from,
-        uint256 _amountLD,
-        uint256 _minAmountLD,
-        uint32 _dstEid
-    ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
-        /// TODO: Enforce limits on sending side
-        // bytes32 requestId = getRequestId(address(this), _from, _to, _dstEid, 0);
-        // _enforceLimits(_from, _amountLD, requestId);
-        
-        (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
-        // Burns tokens from the caller
-        minterBurner.burn(_from, amountSentLD);
+    function _send(
+        SendParam calldata _sendParam,
+        MessagingFee calldata _fee,
+        address _refundAddress
+    ) internal virtual override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
+        uint64 nextNonce = endpoint.outboundNonce(address(this), _sendParam.dstEid, _getPeerOrRevert(_sendParam.dstEid)) + 1;
+        bytes32 requestId = getRequestId(msg.sender, _sendParam.to.bytes32ToAddress(), endpoint.eid(), _sendParam.dstEid, nextNonce);
+        _enforceLimits(msg.sender, _sendParam.amountLD, requestId);
+        return super._send(_sendParam, _fee, _refundAddress);
     }
 
+    /**
+     * @notice Overrides the default _lzReceive function to enforce limits on receiving side
+     */
+    function _lzReceive(
+        Origin calldata _origin,
+        bytes32 _guid,
+        bytes calldata _message,
+        address _executor,
+        bytes calldata _extraData
+    ) internal virtual override {
+        // TODO: enforce limits on receiving side
+        bytes32 requestId = getRequestId(
+            _origin.sender.bytes32ToAddress(), 
+            _message.sendTo().bytes32ToAddress(), 
+            _origin.srcEid, endpoint.eid(), 
+            _origin.nonce
+        );
+        _enforceLimits(_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), requestId);
+        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
+    }
     /**
      * @notice Mints tokens to the specified address upon receiving them
      * @param _to The address to credit the tokens to
      * @param _amountLD The amount of tokens to credit in local decimals
-     * @param _srcEid The source chain ID
      * @return amountReceivedLD The amount of tokens actually received in local decimals
      * @dev Fees are deducted on the destination chain
      */
     function _credit(
         address _to,
         uint256 _amountLD,
-        uint32 _srcEid
+        uint32 /* _srcEid */
     ) internal virtual override returns (uint256 amountReceivedLD) {
         if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
         
@@ -365,46 +394,50 @@ contract GoodDollarOFTAdapter is OFTCoreUpgradeable, UUPSUpgradeable {
     }
     
     /**
-     * @notice Generates a request ID for a given transaction
-     * @param adapterAddress The address of the adapter contract
-     * @param sender The address of the sender
-     * @param to The address of the recipient
-     * @param sourceChainId The ID of the source chain
-     * @param id The current ID counter
-     * @return The request ID
+     * @notice Burns tokens from the sender's balance to prepare for sending
+     * @param _from The address to debit the tokens from
+     * @param _amountLD The amount of tokens to send in local decimals
+     * @param _minAmountLD The minimum amount to send in local decimals
+     * @param _dstEid The destination chain ID
+     * @return amountSentLD The amount sent in local decimals
+     * @return amountReceivedLD The amount received in local decimals on the remote
      */
-    function getRequestId(
-        address adapterAddress, 
-        address sender, 
-        address to, 
-        uint256 sourceChainId, 
-        uint256 id
-    ) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                adapterAddress, 
-                sender, 
-                to, 
-                sourceChainId, 
-                id
-            )
-        );
+    function _debit(
+        address _from,
+        uint256 _amountLD,
+        uint256 _minAmountLD,
+        uint32 _dstEid
+    ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
+        (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
+        // Burns tokens from the caller
+        minterBurner.burn(_from, amountSentLD);
     }
 
     /**
-     * @notice Overrides the default _lzReceive function to enforce limits on receiving side
+     * @notice Generates a request ID for a given transaction
+     * @param sender The address of the sender
+     * @param to The address of the recipient
+     * @param srcChainId The ID of the source chain
+     * @param dstChainId The ID of the destination chain
+     * @param messageNonce The nonce of the sender
+     * @return The request ID
      */
-    function _lzReceive(
-        Origin calldata _origin,
-        bytes32 _guid,
-        bytes calldata _message,
-        address _executor,
-        bytes calldata _extraData
-    ) internal virtual override {
-        // TODO: enforce limits on receiving side
-        // bytes32 requestId = getRequestId(address(this), _origin.sender, _message.sendTo().bytes32ToAddress(), _origin.srcEid, _origin.nonce);
-        // _enforceLimits(_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), requestId);
-        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
+    function getRequestId(
+        address sender, 
+        address to, 
+        uint256 srcChainId,
+        uint256 dstChainId,
+        uint256 messageNonce
+    ) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                sender, 
+                to, 
+                srcChainId, 
+                dstChainId,
+                messageNonce
+            )
+        );
     }
 
     /**
