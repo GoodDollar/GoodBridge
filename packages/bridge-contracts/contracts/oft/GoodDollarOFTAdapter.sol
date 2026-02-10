@@ -136,7 +136,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     function initialize(
         address _token,
         IMintableBurnable _minterBurner,
-        address _owner
+        address _owner,
+        address _feeRecipient
     ) public initializer {
         // Initialize parent contracts
         __UUPSUpgradeable_init();
@@ -153,6 +154,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         // Set state variables
         innerToken = IERC20(_token);
         minterBurner = _minterBurner;
+        feeRecipient = _feeRecipient;
     }
 
     /**
