@@ -14,7 +14,7 @@ import type { OmniPointHardhat } from "@layerzerolabs/toolbox-hardhat";
 import { OAppEnforcedOption } from "@layerzerolabs/toolbox-hardhat";
 import { ExecutorOptionType } from "@layerzerolabs/lz-v2-utilities";
 import { TwoWayConfig, generateConnectionsConfig } from "@layerzerolabs/metadata-tools";
-import dao from "./release/deployment.json";
+import dao from "./release/deployment-oft.json";
 
 // Network names - adjust these based on your deployment
 const XDC_NETWORK = "development-xdc";
