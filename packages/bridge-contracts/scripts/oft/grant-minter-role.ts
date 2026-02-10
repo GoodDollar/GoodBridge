@@ -61,7 +61,7 @@ const main = async () => {
   // Get token contract to check current status
   // Use the local interface file
   const token = await ethers.getContractAt(
-    "interfaces/ISuperGoodDollar.sol:ISuperGoodDollar",
+    "contracts/oft/interfaces/ISuperGoodDollar.sol:ISuperGoodDollar",
     tokenAddress
   );
   
