@@ -61,23 +61,44 @@ If you prefer to configure each network individually or need more control, follo
 
 ### Step 1: Deploy OFT Contracts
 
-Deploy the GoodDollarMinterBurner and GoodDollarOFTAdapter contracts on each network:
+Deploy the GoodDollarMinterBurner and GoodDollarOFTAdapter contracts on each network using hardhat-deploy:
 
 ```bash
 # Deploy on XDC
-yarn hardhat run scripts/oft/oft-deploy.ts --network development-xdc
+npx hardhat deploy --tags OFT --network development-xdc
 
 # Deploy on CELO
-yarn hardhat run scripts/oft/oft-deploy.ts --network development-celo
+npx hardhat deploy --tags OFT --network development-celo
 ```
 
-This script will:
+This deployment script will:
 - Deploy `GoodDollarMinterBurner` (upgradeable proxy)
 - Deploy `GoodDollarOFTAdapter` (upgradeable proxy)
-- Set OFT adapter as operator on MinterBurner via DAO
 - Save contract addresses to `release/deployment-oft.json`
+- Save deployments to hardhat-deploy's deployment system
 
-### Step 2: Grant MINTER_ROLE
+**Note**: The deployment uses hardhat-deploy for better deployment management and tracking.
+
+### Step 2: Set OFT Adapter as Operator
+
+Set the OFT adapter as an operator on the MinterBurner contract via DAO governance:
+
+```bash
+# Set operator on XDC
+npx hardhat run scripts/oft/set-oft-operator.ts --network development-xdc
+
+# Set operator on CELO
+npx hardhat run scripts/oft/set-oft-operator.ts --network development-celo
+```
+
+This script:
+- Reads contract addresses from `release/deployment-oft.json`
+- Sets the GoodDollarOFTAdapter as an operator on GoodDollarMinterBurner
+- Executes via DAO governance (Controller/Avatar) since MinterBurner is DAO-controlled
+
+**Note**: This step must be run after deployment and is required for the OFT adapter to mint and burn tokens.
+
+### Step 3: Grant MINTER_ROLE
 
 Grant the MINTER_ROLE to GoodDollarMinterBurner on the GoodDollar token:
 
@@ -91,7 +112,7 @@ yarn hardhat run scripts/oft/grant-minter-role.ts --network development-celo
 
 This executes via DAO governance (Controller/Avatar) to grant the minter role.
 
-### Step 3: Wire LayerZero Connections
+### Step 4: Wire LayerZero Connections
 
 Configure LayerZero messaging libraries, DVNs, executors, and enforced options:
 
@@ -107,7 +128,7 @@ yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network developm
 - Wiring may fail with permission errors (0xc4c52593) if the OApp owner doesn't have delegate permissions on the LayerZero endpoint
 - If wiring fails, you may need to manually configure enforced options or contact LayerZero support
 
-### Step 4: Set Bridge Limits
+### Step 5: Set Bridge Limits
 
 Configure bridge limits using values from `oft.config.json`:
 
@@ -120,20 +141,6 @@ yarn hardhat run scripts/oft/set-minter-burner-limits.ts --network development-c
 ```
 
 The script reads limit values from `oft.config.json` for the specified network and sets them on the OFT adapter.
-
-### Step 5: Transfer Ownership
-
-Transfer OFT adapter ownership to DAO Avatar:
-
-```bash
-# Transfer on XDC
-yarn hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-xdc
-
-# Transfer on CELO
-yarn hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-celo
-```
-
-**Note**: This must be done by the current owner of the OFT adapter (usually the deployer).
 
 ### Step 6: Test Bridge Functionality (Optional)
 
@@ -152,15 +159,30 @@ yarn hardhat run scripts/oft/bridge-oft-token.ts --network development-celo
 - Sufficient native token (XDC/CELO) for gas and LayerZero fees
 - MinterBurner approval for token burning
 
+### Step 7: Transfer Ownership (Last Step)
+
+Transfer OFT adapter ownership to DAO Avatar. This should be done as the final step:
+
+```bash
+# Transfer on XDC
+yarn hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-xdc
+
+# Transfer on CELO
+yarn hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-celo
+```
+
+**Note**: This must be done by the current owner of the OFT adapter (usually the deployer). This step is performed last to ensure all configuration is complete before transferring ownership to the DAO.
+
 ## Configuration Verification
 
 After configuration, verify the setup:
 
 1. **Check contract deployments**: Verify addresses in `release/deployment-oft.json`
-2. **Check MINTER_ROLE**: Verify MinterBurner has minter role on GoodDollar token
-3. **Check ownership**: Verify OFT adapter is owned by DAO Avatar
-4. **Check LayerZero peers**: Verify peer connections are set between chains
-5. **Check limits**: Verify bridge limits are set correctly
+2. **Check operator status**: Verify OFT adapter is set as operator on MinterBurner
+3. **Check MINTER_ROLE**: Verify MinterBurner has minter role on GoodDollar token
+4. **Check ownership**: Verify OFT adapter is owned by DAO Avatar
+5. **Check LayerZero peers**: Verify peer connections are set between chains
+6. **Check limits**: Verify bridge limits are set correctly
 
 ## Troubleshooting
 

@@ -4,11 +4,12 @@
 # 
 # This script automates the complete OFT setup process:
 # 1. Deploy OFT contracts (MinterBurner and OFTAdapter) on both networks
-# 2. Wire LayerZero connections between XDC and CELO
+# 2. Set OFT adapter as operator on MinterBurner via DAO on both networks
 # 3. Grant MINTER_ROLE to MinterBurner on both networks
-# 4. Transfer OFT adapter ownership to DAO Avatar on both networks
+# 4. Wire LayerZero connections between XDC and CELO
 # 5. Set mint/burn limits on MinterBurner for both networks
-# 6. Test bridge functionality (optional, last step)
+# 6. Test bridge functionality (optional)
+# 7. Transfer OFT adapter ownership to DAO Avatar on both networks (last step)
 #
 # Usage:
 #   ./scripts/multichain-deploy/oft/configure-oft-xdc-celo.sh
@@ -67,24 +68,37 @@ echo ""
 print_step "Step 1: Deploying OFT contracts"
 
 print_step "Deploying on development-xdc..."
-yarn hardhat run scripts/oft/oft-deploy.ts --network development-xdc
+npx hardhat deploy --tags OFT --network development-xdc
 print_success "OFT contracts deployed on development-xdc"
 
 print_step "Deploying on development-celo..."
-yarn hardhat run scripts/oft/oft-deploy.ts --network development-celo
+npx hardhat deploy --tags OFT --network development-celo
 print_success "OFT contracts deployed on development-celo"
 
 echo ""
 
-# Step 2: Grant MINTER_ROLE
-print_step "Step 2: Granting MINTER_ROLE to GoodDollarMinterBurner"
+# Step 2: Set OFT adapter as operator on MinterBurner
+print_step "Step 2: Setting OFT adapter as operator on MinterBurner"
+
+print_step "Setting operator on development-xdc..."
+npx hardhat run scripts/oft/set-oft-operator.ts --network development-xdc
+print_success "Operator set on development-xdc"
+
+print_step "Setting operator on development-celo..."
+npx hardhat run scripts/oft/set-oft-operator.ts --network development-celo
+print_success "Operator set on development-celo"
+
+echo ""
+
+# Step 3: Grant MINTER_ROLE
+print_step "Step 3: Granting MINTER_ROLE to GoodDollarMinterBurner"
 
 print_step "Granting MINTER_ROLE on development-xdc..."
-yarn hardhat run scripts/oft/grant-minter-role.ts --network development-xdc
+npx hardhat run scripts/oft/grant-minter-role.ts --network development-xdc
 print_success "MINTER_ROLE granted on development-xdc"
 
 print_step "Granting MINTER_ROLE on development-celo..."
-yarn hardhat run scripts/oft/grant-minter-role.ts --network development-celo
+npx hardhat run scripts/oft/grant-minter-role.ts --network development-celo
 print_success "MINTER_ROLE granted on development-celo"
 
 echo ""
@@ -93,27 +107,27 @@ echo ""
 # print_step "Step 4: Setting LayerZero peer connections"
 
 # print_step "Setting peer on development-xdc..."
-# yarn hardhat run scripts/oft/set-layerzero-peers.ts --network development-xdc
+# npx hardhat run scripts/oft/set-layerzero-peers.ts --network development-xdc
 # print_success "Peer set on development-xdc"
 
 # print_step "Setting peer on development-celo..."
-# yarn hardhat run scripts/oft/set-layerzero-peers.ts --network development-celo
+# npx hardhat run scripts/oft/set-layerzero-peers.ts --network development-celo
 # print_success "Peer set on development-celo"
 
 # echo ""
 
-# Step 5: Wire LayerZero connections (optional - peers already set)
+# Step 4: Wire LayerZero connections (optional - peers already set)
 WIRE_XDC_SUCCESS=false
 WIRE_CELO_SUCCESS=false
 
 if [ "$SKIP_WIRING" != "true" ]; then
-    print_step "Step 5: Wiring LayerZero connections"
+    print_step "Step 4: Wiring LayerZero connections"
     print_warning "Note: Peers are already set. Wiring configures send libraries, DVNs, executors, and enforced options."
     print_warning "If wiring fails due to permissions, we'll set enforced options manually as a fallback."
     
     print_step "Wiring on development-xdc..."
     set +e  # Temporarily disable exit on error
-    yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network development-xdc
+    npx hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network development-xdc
     WIRE_XDC_STATUS=$?
     set -e  # Re-enable exit on error
     if [ $WIRE_XDC_STATUS -eq 0 ]; then
@@ -126,7 +140,7 @@ if [ "$SKIP_WIRING" != "true" ]; then
 
     print_step "Wiring on development-celo..."
     set +e  # Temporarily disable exit on error
-    yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network development-celo
+    npx hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network development-celo
     WIRE_CELO_STATUS=$?
     set -e  # Re-enable exit on error
     if [ $WIRE_CELO_STATUS -eq 0 ]; then
@@ -140,9 +154,9 @@ else
     print_warning "Skipping wiring step (SKIP_WIRING=true)"
 fi
 
-# Step 6: Set bridge limits (optional)
+# Step 5: Set bridge limits (optional)
 if [ "$SKIP_LIMITS" != "true" ]; then
-    print_step "Step 6: Setting bridge limits on OFTAdapter"
+    print_step "Step 5: Setting bridge limits on OFTAdapter"
     
     if [ -z "$DAILY_LIMIT" ] && [ -z "$TX_LIMIT" ] && [ -z "$ACCOUNT_DAILY_LIMIT" ] && [ -z "$MIN_AMOUNT" ] && [ -z "$ONLY_WHITELISTED" ]; then
         print_warning "No limit environment variables set. Skipping limits configuration."
@@ -160,7 +174,7 @@ if [ "$SKIP_LIMITS" != "true" ]; then
         ACCOUNT_DAILY_LIMIT=$ACCOUNT_DAILY_LIMIT \
         MIN_AMOUNT=$MIN_AMOUNT \
         ONLY_WHITELISTED=$ONLY_WHITELISTED \
-        yarn hardhat run scripts/oft/set-minter-burner-limits.ts --network development-xdc
+        npx hardhat run scripts/oft/set-minter-burner-limits.ts --network development-xdc
         print_success "Bridge limits set on development-xdc"
         
         print_step "Setting bridge limits on development-celo..."
@@ -169,7 +183,7 @@ if [ "$SKIP_LIMITS" != "true" ]; then
         ACCOUNT_DAILY_LIMIT=$ACCOUNT_DAILY_LIMIT \
         MIN_AMOUNT=$MIN_AMOUNT \
         ONLY_WHITELISTED=$ONLY_WHITELISTED \
-        yarn hardhat run scripts/oft/set-minter-burner-limits.ts --network development-celo
+        npx hardhat run scripts/oft/set-minter-burner-limits.ts --network development-celo
         print_success "Bridge limits set on development-celo"
     fi
     echo ""
@@ -178,28 +192,15 @@ else
     echo ""
 fi
 
-# Step 3: Transfer ownership (required before setting peers)
-print_step "Step 3: Transferring OFT adapter ownership to DAO Avatar"
-
-print_step "Transferring ownership on development-xdc..."
-yarn hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-xdc
-print_success "Ownership transferred on development-xdc"
-
-print_step "Transferring ownership on development-celo..."
-yarn hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-celo
-print_success "Ownership transferred on development-celo"
-
-echo ""
-
-# Step 7: Test bridge (optional, last step)
+# Step 6: Test bridge (optional)
 if [ "$SKIP_BRIDGE_TEST" != "true" ]; then
-    print_step "Step 7: Testing bridge functionality"
+    print_step "Step 6: Testing bridge functionality"
     print_warning "This step will attempt to bridge 1 G$ from XDC to CELO"
     read -p "Do you want to test the bridge? (y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         print_step "Bridging from development-xdc to development-celo..."
-        yarn hardhat run scripts/oft/bridge-oft-token.ts --network development-xdc || print_warning "Bridge test failed (this is okay if you don't have sufficient balance)"
+        npx hardhat run scripts/oft/bridge-oft-token.ts --network development-xdc || print_warning "Bridge test failed (this is okay if you don't have sufficient balance)"
         echo ""
     else
         print_warning "Skipping bridge test"
@@ -210,14 +211,27 @@ else
     echo ""
 fi
 
+# Step 7: Transfer ownership (last step)
+print_step "Step 7: Transferring OFT adapter ownership to DAO Avatar"
+
+print_step "Transferring ownership on development-xdc..."
+npx hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-xdc
+print_success "Ownership transferred on development-xdc"
+
+print_step "Transferring ownership on development-celo..."
+npx hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-celo
+print_success "Ownership transferred on development-celo"
+
+echo ""
+
 # Summary
 print_step "Configuration Complete!"
 print_success "OFT has been successfully configured on both XDC and CELO networks"
 echo ""
 echo "Summary of completed steps:"
 echo "  ✅ Deployed OFT contracts on both networks"
+echo "  ✅ Set OFT adapter as operator on MinterBurner"
 echo "  ✅ Granted MINTER_ROLE to MinterBurner"
-echo "  ✅ Transferred OFT adapter ownership to DAO Avatar"
 echo "  ✅ Set LayerZero peer connections"
 if [ "$SKIP_WIRING" != "true" ]; then
     if [ "$WIRE_XDC_SUCCESS" = "true" ] && [ "$WIRE_CELO_SUCCESS" = "true" ]; then
@@ -233,7 +247,8 @@ fi
 if [ "$SKIP_BRIDGE_TEST" != "true" ]; then
     echo "  ✅ Tested bridge functionality (if executed)"
 fi
+echo "  ✅ Transferred OFT adapter ownership to DAO Avatar"
 echo ""
 print_success "You can now use the bridge-oft-token.ts script to bridge tokens between chains!"
-print_success "Run: yarn hardhat run scripts/oft/bridge-oft-token.ts --network <network>"
+print_success "Run: npx hardhat run scripts/oft/bridge-oft-token.ts --network <network>"
 

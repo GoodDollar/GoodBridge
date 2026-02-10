@@ -5,9 +5,9 @@
     "skipLimits": false,
     "skipBridgeTest": true,
     "limits": {
-      "dailyLimit": "5000",
-      "txLimit": "1000",
-      "accountDailyLimit": "1000",
+      "dailyLimit": "1000",
+      "txLimit": "100",
+      "accountDailyLimit": "100",
       "minAmount": "1",
       "onlyWhitelisted": false
     }
@@ -18,9 +18,9 @@
     "skipLimits": false,
     "skipBridgeTest": true,
     "limits": {
-      "dailyLimit": "5000",
-      "txLimit": "1000",
-      "accountDailyLimit": "1000",
+      "dailyLimit": "1000",
+      "txLimit": "100",
+      "accountDailyLimit": "100",
       "minAmount": "1",
       "onlyWhitelisted": false
     }
