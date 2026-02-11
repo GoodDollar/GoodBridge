@@ -79,7 +79,7 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
     const AdapterFactory = await ethers.getContractFactory('GoodDollarOFTAdapter');
     const adapter = (await upgrades.deployProxy(
       AdapterFactory,
-      [goodDollarAddress, minterBurner.address, owner.address],
+      [goodDollarAddress, minterBurner.address, owner.address, owner.address],
       {
         kind: 'uups',
         constructorArgs: [goodDollarAddress, CELO_LZ_ENDPOINT],
@@ -120,7 +120,7 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       console.log('Deploying adapter...');
       const adapter = (await upgrades.deployProxy(
         AdapterFactory,
-        [goodDollarAddress, minterBurner.address, owner.address],
+        [goodDollarAddress, minterBurner.address, owner.address, owner.address],
         {
           kind: 'uups',
           constructorArgs: [goodDollarAddress, CELO_LZ_ENDPOINT],
