@@ -107,6 +107,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     /// @dev Event emitted when bridge pause status changes
     event BridgePaused(bool isPaused);
 
+    /// @dev Event emitted when a failed receive request is made
+    event ReceiveRequestFailed(bytes32 indexed guid, address toAddress, uint256 amount, uint32 srcEid);
+
     /// @dev Event emitted when a failed receive request is approved
     event FailedReceiveRequestApproved(bytes32 indexed guid);
 
@@ -344,9 +347,12 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
                 _toLD(_message.amountSD()),
                 _origin.srcEid
             );
-            revert BRIDGE_LIMITS(reason);
+            emit ReceiveRequestFailed(_guid, _message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), _origin.srcEid);
+            // revert BRIDGE_LIMITS(reason);
         }
-        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
+        else {
+            super._lzReceive(_origin, _guid, _message, _executor, _extraData);
+        }
     }
     /**
      * @notice Mints tokens to the specified address upon receiving them
