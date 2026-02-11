@@ -255,7 +255,7 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       expect(error).to.equal('txLimit');
     });
 
-    it('Should return false when daily limit exceeded', async function () {
+    it('Should return false when account daily limit exceeded', async function () {
       const amount = ethers.utils.parseEther('100001'); // Exceeds accountDailyLimit of 100000
       const [canBridgeResult, error] = await adapter.canBridge(user.address, amount);
       expect(canBridgeResult).to.be.false;
