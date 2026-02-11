@@ -58,7 +58,7 @@
     "eth-proof": "^2.1.6",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.*",
-    "hardhat": "2.*",
+    "hardhat": "2.26",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-deploy": "^0.12.4",
     "hardhat-gas-reporter": "^1.0.9",
