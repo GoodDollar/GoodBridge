@@ -19,9 +19,9 @@
     "skipBridgeTest": true,
     "limits": {
       "dailyLimit": "1000",
-      "txLimit": "100",
-      "accountDailyLimit": "100",
-      "minAmount": "1",
+      "txLimit": "95",
+      "accountDailyLimit": "200",
+      "minAmount": "1", 
       "onlyWhitelisted": false
     }
   },

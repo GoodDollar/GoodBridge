@@ -100,7 +100,7 @@ const main = async () => {
   const oftAdapter = await ethers.getContractAt("GoodDollarOFTAdapter", oftAdapterAddress);
 
   // Amount to bridge: 1 G$ = 1e18
-  const amount = ethers.utils.parseEther("1");
+  const amount = ethers.utils.parseEther("50");
   console.log("\nAmount to bridge:", ethers.utils.formatEther(amount), "G$");
 
   // Check token balance
