@@ -68,13 +68,14 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     /// @dev Account-specific daily limit tracking
     mapping(address => AccountLimit) public accountsDailyLimit;
 
-    // struct Request {
-    //     bool approved;
-    //     uint256 amount;
-    //     uint256 fromTimestamp;
-    // }
-    /// @dev A mapping for approved requests above limits
-    mapping(bytes32 => bool) public approvedRequests;
+    struct FailedReceiveRequest {
+        bool failed;
+        address toAddress;
+        uint256 amount;
+        uint32 srcEid;
+    }
+    /// @dev A mapping for failed requests
+    mapping(bytes32 => FailedReceiveRequest) public failedReceiveRequests;
 
     /// @dev A boolean for whether the bridge is closed
     bool public isClosed;
@@ -106,11 +107,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     /// @dev Event emitted when bridge pause status changes
     event BridgePaused(bool isPaused);
 
-    /// @dev Event emitted when a request is approved
-    event RequestApproved(bytes32 indexed requestId, bool approved);
-
-    /// @dev Event emitted when limits are bypassed by request ID
-    event LimitsBypassedByRequestId(address indexed account, bytes32 indexed requestId);
+    /// @dev Event emitted when a failed receive request is approved
+    event FailedReceiveRequestApproved(bytes32 indexed guid);
 
     /**
      * @dev Constructor for the upgradeable contract
@@ -136,8 +134,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     function initialize(
         address _token,
         IMintableBurnable _minterBurner,
-        address _owner,
-        address _feeRecipient
+        address _owner
     ) public initializer {
         // Initialize parent contracts
         __UUPSUpgradeable_init();
@@ -154,7 +151,6 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         // Set state variables
         innerToken = IERC20(_token);
         minterBurner = _minterBurner;
-        feeRecipient = _feeRecipient;
     }
 
     /**
@@ -233,25 +229,21 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     }
 
     /**
-     * @notice Function for approving requests above limits
-     */
-    function approveRequest(bytes32 _requestId, bool approved/*, uint256 _amount, uint256 _fromTimestamp*/) external onlyOwner {
-        // approvedRequests[_requestId] = Request(
-        //     approved, 
-        //     _amount == 0 ? type(uint256).max : _amount, 
-        //     _fromTimestamp == 0 ? block.timestamp : _fromTimestamp
-        // );
-        approvedRequests[_requestId] = approved;
-        emit RequestApproved(_requestId, approved);
-    }
-
-    /**
      * @notice Function for pausing/unpausing the bridge
      * @param _isPaused Whether to pause the bridge or not
      */
     function pauseBridge(bool _isPaused) external onlyOwner {
         isClosed = _isPaused;
         emit BridgePaused(_isPaused);
+    }
+
+    function approveFailedRequest(bytes32 _guid) external onlyOwner {
+        FailedReceiveRequest memory request = failedReceiveRequests[_guid];
+        require(request.failed, 'request not failed');
+        _credit(request.toAddress, request.amount, request.srcEid);
+        request.failed = false;
+        delete failedReceiveRequests[_guid];
+        emit FailedReceiveRequestApproved(_guid);
     }
 
     /**
@@ -293,24 +285,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         return (true, '');
     }
 
-    function _isRequestApproved(bytes32 _requestId, uint256 _amount) internal view returns (bool) {
-        return approvedRequests[_requestId] /*.approved && 
-            approvedRequests[_requestId].fromTimestamp < block.timestamp && 
-            approvedRequests[_requestId].amount >= _amount*/;
-    }
     /**
      * @notice Enforces transfer limits and checks if the transfer is valid
-     * @param _address The address to transfer from
-     * @param _amount The amount to transfer
-     * @param _requestId The request ID (0 to skip approval check)
      * @dev Limits are enforced on both sending and receiving sides
      */
-    function _enforceLimits(address _address, uint256 _amount, bytes32 _requestId) internal {
-        if (_requestId != 0 && _isRequestApproved(_requestId, _amount)) { 
-            emit LimitsBypassedByRequestId(_address, _requestId);
-            return; // skip approval check if request is approved
-        }
-            
+    function _enforceLimits(address _address, uint256 _amount) internal returns (bool isValid, string memory reason) {
         // Reset daily limits if needed
         if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
             bridgeDailyLimit.lastTransferReset = block.timestamp;
@@ -323,12 +302,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         }
 
         // Check limits
-        (bool isValid, string memory reason) = canBridge(_address, _amount);
-        if (!isValid) revert BRIDGE_LIMITS(reason);
-
-        // Update counters
-        bridgeDailyLimit.bridged24Hours += _amount;
-        accountsDailyLimit[_address].bridged24Hours += _amount;
+        (isValid, reason) = canBridge(_address, _amount);
+        if (isValid) {
+            bridgeDailyLimit.bridged24Hours += _amount;
+            accountsDailyLimit[_address].bridged24Hours += _amount;
+        }
     }
     
     /**
@@ -339,8 +317,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         MessagingFee calldata _fee,
         address _refundAddress
     ) internal virtual override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
+        (bool isValid, string memory reason) = _enforceLimits(_sendParam.to.bytes32ToAddress(), _sendParam.amountLD);
+        if (!isValid) {
+            revert BRIDGE_LIMITS(reason);
+        }
         (msgReceipt, oftReceipt) = super._send(_sendParam, _fee, _refundAddress);
-        _enforceLimits(_sendParam.to.bytes32ToAddress(), _sendParam.amountLD, msgReceipt.guid);        
     }
 
     /**
@@ -353,7 +334,16 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         address _executor,
         bytes calldata _extraData
     ) internal virtual override {
-        _enforceLimits(_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), _guid);
+        (bool isValid, string memory reason) = _enforceLimits(_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()));
+        if (!isValid) {
+            failedReceiveRequests[_guid] = FailedReceiveRequest(
+                true, 
+                _message.sendTo().bytes32ToAddress(), 
+                _toLD(_message.amountSD()),
+                _origin.srcEid
+            );
+            revert BRIDGE_LIMITS(reason);
+        }
         super._lzReceive(_origin, _guid, _message, _executor, _extraData);
     }
     /**
