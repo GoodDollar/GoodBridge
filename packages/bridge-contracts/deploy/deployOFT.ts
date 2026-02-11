@@ -18,6 +18,8 @@ import { ethers, upgrades } from 'hardhat';
 import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import fse from 'fs-extra';
 import release from '../release/deployment-oft.json';
+import { getImplementationAddress } from '@openzeppelin/upgrades-core';
+import { verifyContract } from './utils/verifyContract';
 
 // Network-specific LayerZero endpoints
 const lzEndpoints: { [key: string]: string } = {
@@ -28,15 +30,13 @@ const lzEndpoints: { [key: string]: string } = {
 };
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const { deployments, network, getNamedAccounts } = hre;
-  const { deployer } = await getNamedAccounts();
+  const { deployments, network } = hre;
   const [root] = await ethers.getSigners();
 
   const networkName = network.name;
 
   console.log('Deployment signer:', {
     networkName,
-    deployer,
     root: root.address,
     balance: await ethers.provider.getBalance(root.address).then((_) => _.toString()),
   });
@@ -109,6 +109,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   // Deploy GoodDollarMinterBurner (upgradeable)
   let minterBurnerAddress: string;
+  let minterBurnerImplAddress: string | undefined;
   if (!currentRelease.GoodDollarMinterBurner) {
     console.log('Deploying GoodDollarMinterBurner as upgradeable contract...');
     const MinterBurnerFactory = await ethers.getContractFactory('GoodDollarMinterBurner');
@@ -119,6 +120,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     await MinterBurner.deployed();
     minterBurnerAddress = MinterBurner.address;
     console.log('GoodDollarMinterBurner deployed to:', minterBurnerAddress);
+
+    // Get implementation address for verification
+    minterBurnerImplAddress = await getImplementationAddress(ethers.provider, minterBurnerAddress);
+    console.log('GoodDollarMinterBurner implementation address:', minterBurnerImplAddress);
 
     // Save to hardhat-deploy
     await deployments.save('GoodDollarMinterBurner', {
@@ -132,14 +137,28 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
     release[networkName].GoodDollarMinterBurner = minterBurnerAddress;
     await fse.writeJSON('release/deployment-oft.json', release, { spaces: 2 });
+
+    // Verify GoodDollarMinterBurner implementation
+    // No constructor args - initialized via initialize() function
+    await verifyContract(hre, minterBurnerImplAddress, [], 'GoodDollarMinterBurner');
   } else {
     minterBurnerAddress = currentRelease.GoodDollarMinterBurner;
     console.log('GoodDollarMinterBurner already deployed at:', minterBurnerAddress);
+    // Get implementation address even if already deployed (for verification if needed)
+    try {
+      minterBurnerImplAddress = await getImplementationAddress(ethers.provider, minterBurnerAddress);
+      console.log('GoodDollarMinterBurner implementation address:', minterBurnerImplAddress);
+      await verifyContract(hre, minterBurnerImplAddress, [], 'GoodDollarMinterBurner');
+      console.log('GoodDollarMinterBurner verified successfully');
+    } catch (error) {
+      console.log('⚠️  Could not get implementation address for GoodDollarMinterBurner');
+    }
   }
 
   // Deploy GoodDollarOFTAdapter (upgradeable via proxy)
   // Constructor takes (token, lzEndpoint) - initialize() is called automatically by proxy
   let oftAdapterAddress: string;
+  let oftAdapterImplAddress: string | undefined;
   if (!currentRelease.GoodDollarOFTAdapter) {
     console.log('Deploying GoodDollarOFTAdapter as upgradeable proxy...');
     console.log('Constructor parameters: token, lzEndpoint');
@@ -164,6 +183,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log('✅ GoodDollarOFTAdapter proxy deployed to:', oftAdapterAddress);
     console.log('Fee recipient:', root.address);
 
+    // Get implementation address for verification
+    oftAdapterImplAddress = await getImplementationAddress(ethers.provider, oftAdapterAddress);
+    console.log('GoodDollarOFTAdapter implementation address:', oftAdapterImplAddress);
+
     // Save to hardhat-deploy
     await deployments.save('GoodDollarOFTAdapter', {
       address: oftAdapterAddress,
@@ -173,15 +196,44 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Update release file
     release[networkName].GoodDollarOFTAdapter = oftAdapterAddress;
     await fse.writeJSON('release/deployment-oft.json', release, { spaces: 2 });
+
+    // Verify GoodDollarOFTAdapter implementation
+    // Constructor args: tokenAddress, lzEndpoint
+    await verifyContract(
+      hre,
+      oftAdapterImplAddress,
+      [tokenAddress, lzEndpoint],
+      'GoodDollarOFTAdapter',
+    );
   } else {
     oftAdapterAddress = currentRelease.GoodDollarOFTAdapter;
     console.log('GoodDollarOFTAdapter already deployed at:', oftAdapterAddress);
+    // Get implementation address even if already deployed (for verification if needed)
+    try {
+      oftAdapterImplAddress = await getImplementationAddress(ethers.provider, oftAdapterAddress);
+      console.log('GoodDollarOFTAdapter implementation address:', oftAdapterImplAddress);
+      await verifyContract(
+        hre,
+        oftAdapterImplAddress,
+        [tokenAddress, lzEndpoint],
+        'GoodDollarOFTAdapter',
+      );
+      console.log('GoodDollarOFTAdapter verified successfully');
+    } catch (error) {
+      console.log('⚠️  Could not get implementation address for GoodDollarOFTAdapter');
+    }
   }
 
   console.log('\n=== Deployment Summary ===');
   console.log('Network:', networkName);
   console.log('GoodDollarMinterBurner:', minterBurnerAddress, '(upgradeable)');
+  if (minterBurnerImplAddress) {
+    console.log('  Implementation:', minterBurnerImplAddress);
+  }
   console.log('GoodDollarOFTAdapter:', oftAdapterAddress, '(upgradeable)');
+  if (oftAdapterImplAddress) {
+    console.log('  Implementation:', oftAdapterImplAddress);
+  }
   console.log('Token:', tokenAddress);
   console.log('OFT Adapter Owner (Avatar):', avatarAddress);
   console.log('LayerZero Endpoint:', lzEndpoint);
