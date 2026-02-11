@@ -302,15 +302,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         }
 
         // Check limits
-        (bool isValid, string memory reason) = canBridge(_address, _amount);
-        if (!isValid) {
-            return (false, reason);
+        (isValid, reason) = canBridge(_address, _amount);
+        if (isValid) {
+            bridgeDailyLimit.bridged24Hours += _amount;
+            accountsDailyLimit[_address].bridged24Hours += _amount;
         }
-
-        // Update counters
-        bridgeDailyLimit.bridged24Hours += _amount;
-        accountsDailyLimit[_address].bridged24Hours += _amount;
-        return (true, '');
     }
     
     /**
