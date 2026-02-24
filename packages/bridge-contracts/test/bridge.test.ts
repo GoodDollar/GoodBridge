@@ -1,4 +1,5 @@
-import { ethers, waffle, upgrades } from 'hardhat';
+import { ethers, upgrades } from 'hardhat';
+import { deployMockContract } from 'ethereum-waffle';
 import { expect } from 'chai';
 import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers';
 import { TokenBridge } from '../typechain-types';
@@ -13,8 +14,8 @@ describe('Bridge', () => {
     const validators = signers.slice(0, 5).map((_) => _.address);
     const requiredValidators = validators.slice(0, 2);
     token = await (await ethers.getContractFactory('TestToken')).deploy();
-    const ns = await waffle.deployMockContract(signers[0], ['function getAddress(string) returns(address)']);
-    const id = await waffle.deployMockContract(signers[0], ['function isWhitelisted(address) returns(bool)']);
+    const ns = await deployMockContract(signers[0], ['function getAddress(string) returns(address)']);
+    const id = await deployMockContract(signers[0], ['function isWhitelisted(address) returns(bool)']);
 
     await ns.mock.getAddress.withArgs('IDENTITY').returns(id.address);
     await id.mock.isWhitelisted.returns(true);
@@ -781,7 +782,7 @@ describe('Bridge', () => {
 
     it('should call topgas and not fail on revert', async () => {
       const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
-      const faucet = await waffle.deployMockContract(signers[0], [
+      const faucet = await deployMockContract(signers[0], [
         'function canTop(address account ) view returns (bool valid)',
         'function topWallet(address account)',
       ]);
@@ -811,7 +812,7 @@ describe('Bridge', () => {
 
     it('should call topgas', async () => {
       const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
-      const faucet = await waffle.deployMockContract(signers[0], [
+      const faucet = await deployMockContract(signers[0], [
         'function canTop(address account ) view returns (bool valid)',
         'function topWallet(address account)',
       ]);
