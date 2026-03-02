@@ -71,11 +71,14 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     struct FailedReceiveRequest {
         bool failed;
         address toAddress;
+        uint64 timestamp;
         uint256 amount;
         uint32 srcEid;
     }
     /// @dev A mapping for failed requests
     mapping(bytes32 => FailedReceiveRequest) public failedReceiveRequests;
+
+    uint64 public constant OPTIMISTIC_WINDOW = 3 days;
 
     /// @dev A boolean for whether the bridge is closed
     bool public isClosed;
@@ -244,9 +247,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
 
     function approveFailedRequest(bytes32 _guid) external onlyOwner {
         FailedReceiveRequest memory request = failedReceiveRequests[_guid];
+        require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp, 'optimistic period not ended');
         require(request.failed, 'request not failed');
         _credit(request.toAddress, request.amount, request.srcEid);
-        request.failed = false;
         delete failedReceiveRequests[_guid];
         emit FailedReceiveRequestApproved(_guid);
     }
@@ -344,6 +347,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
             failedReceiveRequests[_guid] = FailedReceiveRequest(
                 true, 
                 _message.sendTo().bytes32ToAddress(), 
+                block.timestamp,
                 _toLD(_message.amountSD()),
                 _origin.srcEid
             );
