@@ -379,13 +379,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
                 _origin.srcEid
             );
             emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid);
-            revert BRIDGE_LIMITS(reason);
+        } else{
+            bridgeDailyLimit.bridged24Hours += amountLD;
+            accountsDailyLimit[toAddress].bridged24Hours += amountLD;
+            super._lzReceive(_origin, _guid, _message, _executor, _extraData);
         }
-
-        // 4. Passed both checks: update counters and complete receive
-        bridgeDailyLimit.bridged24Hours += amountLD;
-        accountsDailyLimit[toAddress].bridged24Hours += amountLD;
-        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
     }
     /**
      * @notice Mints tokens to the specified address upon receiving them
