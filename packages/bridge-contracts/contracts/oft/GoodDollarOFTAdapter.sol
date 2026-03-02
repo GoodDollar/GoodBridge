@@ -89,6 +89,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     /// @dev Error for bridge limits violations
     error BRIDGE_LIMITS(string reason);
 
+    /// @dev Error for bridge limits violations
+    error BRIDGE_NOT_ALLOWED(string reason);
+
     /// @dev Event emitted when bridge fees are updated
     event BridgeFeesSet(uint256 minFee, uint256 maxFee, uint256 fee);
 
@@ -255,15 +258,25 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     }
 
     /**
-     * @notice Check if bridging is allowed for a given address and amount
-     * @param _from The address of the sender
-     * @param _amount The amount to bridge
-     * @return isWithinLimit Whether the bridge is within the limit
-     * @return error The error message, if any
+     * @notice Bridge closed / whitelist check only (no limit checks).
+     * @dev Revert on this path does not store to failedReceiveRequests.
      */
-    function canBridge(address _from, uint256 _amount) public view returns (bool isWithinLimit, string memory error) {
+    function _checkBridgeClosedAndWhitelisted(address _from) internal view returns (bool ok, string memory reason) {
         if (isClosed) return (false, 'closed');
+        if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
+            IIdentity id = IIdentity(nameService.getAddress("IDENTITY"));
+            if (address(id) != address(0) && !id.isWhitelisted(_from)) {
+                return (false, 'not whitelisted');
+            }
+        }
+        return (true, '');
+    }
 
+    /**
+     * @notice Bridge limits check only (minAmount, accountDailyLimit, txLimit, dailyLimit).
+     * @dev Assumes daily limit resets have already been applied. Failure on receive is stored in failedReceiveRequests.
+     */
+    function _checkBridgeLimits(address _from, uint256 _amount) internal view returns (bool ok, string memory reason) {
         if (_amount < bridgeLimits.minAmount) return (false, 'minAmount');
 
         uint256 account24hours = accountsDailyLimit[_from].bridged24Hours;
@@ -272,14 +285,6 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         } else {
             account24hours += _amount;
         }
-
-        if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
-            IIdentity id = IIdentity(nameService.getAddress("IDENTITY"));
-            if (address(id) != address(0)) {
-                if (!id.isWhitelisted(_from)) return (false, 'not whitelisted');
-            }
-        }
-
         if (account24hours > bridgeLimits.accountDailyLimit) return (false, 'accountDailyLimit');
 
         if (_amount > bridgeLimits.txLimit) return (false, 'txLimit');
@@ -289,16 +294,14 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         } else {
             if (bridgeDailyLimit.bridged24Hours + _amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
         }
-
         return (true, '');
     }
 
     /**
-     * @notice Enforces transfer limits and checks if the transfer is valid
-     * @dev Limits are enforced on both sending and receiving sides
+     * @notice Resets bridge and account daily limit counters if the 24h window has elapsed.
+     * @param _address The account address for which to reset account daily limit.
      */
-    function _enforceLimits(address _address, uint256 _amount) internal returns (bool isValid, string memory reason) {
-        // Reset daily limits if needed
+    function _resetDailyLimitsIfNeeded(address _address) internal {
         if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
             bridgeDailyLimit.lastTransferReset = block.timestamp;
             bridgeDailyLimit.bridged24Hours = 0;
@@ -308,13 +311,26 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
             accountsDailyLimit[_address].lastTransferReset = block.timestamp;
             accountsDailyLimit[_address].bridged24Hours = 0;
         }
+    }
 
-        // Check limits
-        (isValid, reason) = canBridge(_address, _amount);
-        if (isValid) {
-            bridgeDailyLimit.bridged24Hours += _amount;
-            accountsDailyLimit[_address].bridged24Hours += _amount;
-        }
+    /**
+     * @notice Enforces transfer limits: bridge closed/whitelisted check then bridge limits check.
+     * @dev Used on send path. Resets daily windows, then checks; on success updates counters.
+     */
+    function _enforceLimits(address _address, uint256 _amount) internal returns (bool isValid, string memory reason) {
+        _resetDailyLimitsIfNeeded(_address);
+
+        // Bridge closed / whitelisted check
+        (isValid, reason) = _checkBridgeClosedAndWhitelisted(_address);
+        if (!isValid) return (false, reason);
+
+        // Bridge limits check
+        (isValid, reason) = _checkBridgeLimits(_address, _amount);
+        if (!isValid) return (false, reason);
+
+        bridgeDailyLimit.bridged24Hours += _amount;
+        accountsDailyLimit[_address].bridged24Hours += _amount;
+        return (true, '');
     }
     
     /**
@@ -333,7 +349,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     }
 
     /**
-     * @notice Overrides the default _lzReceive function to enforce limits on receiving side
+     * @notice Overrides the default _lzReceive function to enforce limits on receiving side.
+     * @dev Bridge closed/whitelisted check: revert only. Bridge limits check: store in failedReceiveRequests then revert.
      */
     function _lzReceive(
         Origin calldata _origin,
@@ -342,21 +359,33 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         address _executor,
         bytes calldata _extraData
     ) internal virtual override {
-        (bool isValid, string memory reason) = _enforceLimits(_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()));
-        if (!isValid) {
+        address toAddress = _message.sendTo().bytes32ToAddress();
+        uint256 amountLD = _toLD(_message.amountSD());
+
+        (bool ok, string memory reason) = _checkBridgeClosedAndWhitelisted(toAddress);
+        if (!ok) {
+            revert BRIDGE_NOT_ALLOWED(reason);
+        }
+
+        _resetDailyLimitsIfNeeded(toAddress);
+
+        (ok, reason) = _checkBridgeLimits(toAddress, amountLD);
+        if (!ok) {
             failedReceiveRequests[_guid] = FailedReceiveRequest(
-                true, 
-                _message.sendTo().bytes32ToAddress(), 
-                block.timestamp,
-                _toLD(_message.amountSD()),
+                true,
+                toAddress,
+                uint64(block.timestamp),
+                amountLD,
                 _origin.srcEid
             );
-            emit ReceiveRequestFailed(_guid, _message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), _origin.srcEid);
-            // revert BRIDGE_LIMITS(reason);
+            emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid);
+            revert BRIDGE_LIMITS(reason);
         }
-        else {
-            super._lzReceive(_origin, _guid, _message, _executor, _extraData);
-        }
+
+        // 4. Passed both checks: update counters and complete receive
+        bridgeDailyLimit.bridged24Hours += amountLD;
+        accountsDailyLimit[toAddress].bridged24Hours += amountLD;
+        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
     }
     /**
      * @notice Mints tokens to the specified address upon receiving them
