@@ -2,8 +2,8 @@
  * Script to transfer ownership of GoodDollarOFTAdapter from DAO Avatar to current signer
  * 
  * Usage:
- *   yarn hardhat run scripts/oft/transfer-oft-adapter-ownership-from-avatar.ts --network development-celo
- *   yarn hardhat run scripts/oft/transfer-oft-adapter-ownership-from-avatar.ts --network development-xdc
+ *   yarn hardhat run test/oft/transfer-oft-adapter-ownership-from-avatar.ts --network development-celo
+ *   yarn hardhat run test/oft/transfer-oft-adapter-ownership-from-avatar.ts --network development-xdc
  * 
  * Note: This script must be run by an account that can execute DAO proposals.
  * If the Avatar owns the contract, ownership transfer must go through the Controller.
@@ -164,5 +164,4 @@ main()
     console.error(error);
     process.exit(1);
   });
-
 

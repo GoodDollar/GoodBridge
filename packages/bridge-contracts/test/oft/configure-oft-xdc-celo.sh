@@ -12,7 +12,7 @@
 # 7. Transfer OFT adapter ownership to DAO Avatar on both networks (last step)
 #
 # Usage:
-#   ./scripts/multichain-deploy/oft/configure-oft-xdc-celo.sh
+#   ./test/oft/configure-oft-xdc-celo.sh
 #
 # Environment variables (optional):
 #   DAILY_LIMIT=1000000                      # Daily bridge limit in G$ (e.g., 1M G$ - will be converted to wei automatically)
@@ -81,11 +81,11 @@ echo ""
 print_step "Step 2: Setting OFT adapter as operator on MinterBurner"
 
 print_step "Setting operator on development-xdc..."
-npx hardhat run scripts/oft/set-oft-operator.ts --network development-xdc
+npx hardhat run test/oft/set-oft-operator.ts --network development-xdc
 print_success "Operator set on development-xdc"
 
 print_step "Setting operator on development-celo..."
-npx hardhat run scripts/oft/set-oft-operator.ts --network development-celo
+npx hardhat run test/oft/set-oft-operator.ts --network development-celo
 print_success "Operator set on development-celo"
 
 echo ""
@@ -94,11 +94,11 @@ echo ""
 print_step "Step 3: Granting MINTER_ROLE to GoodDollarMinterBurner"
 
 print_step "Granting MINTER_ROLE on development-xdc..."
-npx hardhat run scripts/oft/grant-minter-role.ts --network development-xdc
+npx hardhat run test/oft/grant-minter-role.ts --network development-xdc
 print_success "MINTER_ROLE granted on development-xdc"
 
 print_step "Granting MINTER_ROLE on development-celo..."
-npx hardhat run scripts/oft/grant-minter-role.ts --network development-celo
+npx hardhat run test/oft/grant-minter-role.ts --network development-celo
 print_success "MINTER_ROLE granted on development-celo"
 
 echo ""
@@ -107,11 +107,11 @@ echo ""
 # print_step "Step 4: Setting LayerZero peer connections"
 
 # print_step "Setting peer on development-xdc..."
-# npx hardhat run scripts/oft/set-layerzero-peers.ts --network development-xdc
+# npx hardhat run test/oft/set-layerzero-peers.ts --network development-xdc
 # print_success "Peer set on development-xdc"
 
 # print_step "Setting peer on development-celo..."
-# npx hardhat run scripts/oft/set-layerzero-peers.ts --network development-celo
+# npx hardhat run test/oft/set-layerzero-peers.ts --network development-celo
 # print_success "Peer set on development-celo"
 
 # echo ""
@@ -164,7 +164,7 @@ if [ "$SKIP_LIMITS" != "true" ]; then
         print_warning "  DAILY_LIMIT=1000000 TX_LIMIT=100000 \\"
         print_warning "  ACCOUNT_DAILY_LIMIT=50000 MIN_AMOUNT=10 \\"
         print_warning "  ONLY_WHITELISTED=false \\"
-        print_warning "  ./scripts/oft/configure-oft-xdc-celo.sh"
+        print_warning "  ./test/oft/configure-oft-xdc-celo.sh"
         print_warning ""
         print_warning "Note: Values are in G$ (e.g., '1000000' = 1M G$). The script automatically converts to wei."
     else
@@ -174,7 +174,7 @@ if [ "$SKIP_LIMITS" != "true" ]; then
         ACCOUNT_DAILY_LIMIT=$ACCOUNT_DAILY_LIMIT \
         MIN_AMOUNT=$MIN_AMOUNT \
         ONLY_WHITELISTED=$ONLY_WHITELISTED \
-        npx hardhat run scripts/oft/set-minter-burner-limits.ts --network development-xdc
+        npx hardhat run test/oft/set-minter-burner-limits.ts --network development-xdc
         print_success "Bridge limits set on development-xdc"
         
         print_step "Setting bridge limits on development-celo..."
@@ -183,7 +183,7 @@ if [ "$SKIP_LIMITS" != "true" ]; then
         ACCOUNT_DAILY_LIMIT=$ACCOUNT_DAILY_LIMIT \
         MIN_AMOUNT=$MIN_AMOUNT \
         ONLY_WHITELISTED=$ONLY_WHITELISTED \
-        npx hardhat run scripts/oft/set-minter-burner-limits.ts --network development-celo
+        npx hardhat run test/oft/set-minter-burner-limits.ts --network development-celo
         print_success "Bridge limits set on development-celo"
     fi
     echo ""
@@ -200,7 +200,7 @@ if [ "$SKIP_BRIDGE_TEST" != "true" ]; then
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         print_step "Bridging from development-xdc to development-celo..."
-        npx hardhat run scripts/oft/bridge-oft-token.ts --network development-xdc || print_warning "Bridge test failed (this is okay if you don't have sufficient balance)"
+        npx hardhat run test/oft/bridge-oft-token.ts --network development-xdc || print_warning "Bridge test failed (this is okay if you don't have sufficient balance)"
         echo ""
     else
         print_warning "Skipping bridge test"
@@ -215,11 +215,11 @@ fi
 print_step "Step 7: Transferring OFT adapter ownership to DAO Avatar"
 
 print_step "Transferring ownership on development-xdc..."
-npx hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-xdc
+npx hardhat run test/oft/transfer-oft-adapter-ownership.ts --network development-xdc
 print_success "Ownership transferred on development-xdc"
 
 print_step "Transferring ownership on development-celo..."
-npx hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-celo
+npx hardhat run test/oft/transfer-oft-adapter-ownership.ts --network development-celo
 print_success "Ownership transferred on development-celo"
 
 echo ""
@@ -250,5 +250,5 @@ fi
 echo "  ✅ Transferred OFT adapter ownership to DAO Avatar"
 echo ""
 print_success "You can now use the bridge-oft-token.ts script to bridge tokens between chains!"
-print_success "Run: npx hardhat run scripts/oft/bridge-oft-token.ts --network <network>"
+print_success "Run: npx hardhat run test/oft/bridge-oft-token.ts --network <network>"
 

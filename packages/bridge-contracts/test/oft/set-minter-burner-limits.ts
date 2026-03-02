@@ -5,10 +5,10 @@
  * Note: Limits are now managed in GoodDollarOFTAdapter, not GoodDollarMinterBurner
  * 
  * Usage:
- *   npx hardhat run scripts/oft/set-minter-burner-limits.ts --network development-celo
+ *   npx hardhat run test/oft/set-minter-burner-limits.ts --network development-celo
  * 
  * Configuration:
- *   All limit values are read from scripts/oft/oft.config.json
+ *   All limit values are read from test/oft/oft.config.json
  *   Each network/env has its entry in the config file.
  * 
  * Note: This script must be run by a guardian or address with permissions to execute via Controller
@@ -80,7 +80,7 @@ const main = async () => {
   const networkConfig = (config as any)[networkName];
   if (!networkConfig || !networkConfig.limits) {
     console.log("\n⚠️  No limits configuration found for this network.");
-    console.log(`Please add a "limits" entry for "${networkName}" in scripts/oft/oft.config.json`);
+    console.log(`Please add a "limits" entry for "${networkName}" in test/oft/oft.config.json`);
     return;
   }
 
@@ -182,4 +182,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-

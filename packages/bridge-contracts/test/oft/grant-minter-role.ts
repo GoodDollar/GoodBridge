@@ -3,7 +3,7 @@
  * Uses genericCall through Avatar/Controller to execute the transaction
  * 
  * Usage:
- *   npx hardhat run scripts/multichain-deploy/oft/grant-minter-role.ts --network development-celo
+ *   npx hardhat run test/oft/grant-minter-role.ts --network development-celo
  * 
  * Note: This script must be run by a guardian or address with permissions to execute via Controller
  */
@@ -136,4 +136,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-

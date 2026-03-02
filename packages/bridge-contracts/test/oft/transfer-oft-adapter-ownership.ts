@@ -2,7 +2,7 @@
  * Script to transfer ownership of GoodDollarOFTAdapter to DAO Avatar
  * 
  * Usage:
- *   npx hardhat run scripts/multichain-deploy/oft/transfer-oft-adapter-ownership.ts --network development-celo
+ *   npx hardhat run test/oft/transfer-oft-adapter-ownership.ts --network development-celo
  * 
  * Note: This script must be run by the current owner of the OFT adapter.
  * If the current owner is not the signer, you'll need to run this script from the owner's account.
@@ -249,4 +249,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-

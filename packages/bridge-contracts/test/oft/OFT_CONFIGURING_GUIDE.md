@@ -9,7 +9,7 @@ The OFT bridge enables cross-chain transfers of GoodDollar (G$) tokens between X
 
 ## Configuration File
 
-All configuration values are stored in `scripts/oft/oft.config.json`. Each network has its own configuration entry.
+All configuration values are stored in `test/oft/oft.config.json`. Each network has its own configuration entry.
 
 ### Configuration Structure
 
@@ -85,10 +85,10 @@ Set the OFT adapter as an operator on the MinterBurner contract via DAO governan
 
 ```bash
 # Set operator on XDC
-npx hardhat run scripts/oft/set-oft-operator.ts --network development-xdc
+npx hardhat run test/oft/set-oft-operator.ts --network development-xdc
 
 # Set operator on CELO
-npx hardhat run scripts/oft/set-oft-operator.ts --network development-celo
+npx hardhat run test/oft/set-oft-operator.ts --network development-celo
 ```
 
 This script:
@@ -104,10 +104,10 @@ Grant the MINTER_ROLE to GoodDollarMinterBurner on the GoodDollar token:
 
 ```bash
 # Grant on XDC
-yarn hardhat run scripts/oft/grant-minter-role.ts --network development-xdc
+yarn hardhat run test/oft/grant-minter-role.ts --network development-xdc
 
 # Grant on CELO
-yarn hardhat run scripts/oft/grant-minter-role.ts --network development-celo
+yarn hardhat run test/oft/grant-minter-role.ts --network development-celo
 ```
 
 This executes via DAO governance (Controller/Avatar) to grant the minter role.
@@ -134,10 +134,10 @@ Configure bridge limits using values from `oft.config.json`:
 
 ```bash
 # Set limits on XDC
-yarn hardhat run scripts/oft/set-minter-burner-limits.ts --network development-xdc
+yarn hardhat run test/oft/set-minter-burner-limits.ts --network development-xdc
 
 # Set limits on CELO
-yarn hardhat run scripts/oft/set-minter-burner-limits.ts --network development-celo
+yarn hardhat run test/oft/set-minter-burner-limits.ts --network development-celo
 ```
 
 The script reads limit values from `oft.config.json` for the specified network and sets them on the OFT adapter.
@@ -148,10 +148,10 @@ Test the bridge by sending tokens from one chain to another:
 
 ```bash
 # Bridge from XDC to CELO
-yarn hardhat run scripts/oft/bridge-oft-token.ts --network development-xdc
+yarn hardhat run test/oft/bridge-oft-token.ts --network development-xdc
 
 # Bridge from CELO to XDC
-yarn hardhat run scripts/oft/bridge-oft-token.ts --network development-celo
+yarn hardhat run test/oft/bridge-oft-token.ts --network development-celo
 ```
 
 **Requirements**:
@@ -165,10 +165,10 @@ Transfer OFT adapter ownership to DAO Avatar. This should be done as the final s
 
 ```bash
 # Transfer on XDC
-yarn hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-xdc
+yarn hardhat run test/oft/transfer-oft-adapter-ownership.ts --network development-xdc
 
 # Transfer on CELO
-yarn hardhat run scripts/oft/transfer-oft-adapter-ownership.ts --network development-celo
+yarn hardhat run test/oft/transfer-oft-adapter-ownership.ts --network development-celo
 ```
 
 **Note**: This must be done by the current owner of the OFT adapter (usually the deployer). This step is performed last to ensure all configuration is complete before transferring ownership to the DAO.
@@ -210,4 +210,3 @@ After configuration, verify the setup:
 - Ensure `oft.config.json` has an entry for your network
 - Verify the `limits` object is properly formatted
 - Check that `skipLimits` is not set to `true`
-
