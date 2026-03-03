@@ -415,20 +415,6 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         minterBurner.burn(_from, amountSentLD);
     }
 
-    /**
-     * @notice Predicts the GUID that will be used for the next message to a destination
-     */
-    function predictNextGuid(uint32 _dstEid, address _sender, address _receiver) public view returns (bytes32) {
-        bytes32 receiverBytes32 = _toBytes32(_receiver);
-        return generateGuid(
-            endpoint.outboundNonce(_sender, _dstEid, receiverBytes32) + 1, 
-            endpoint.eid(), 
-            _sender, 
-            _dstEid, 
-            receiverBytes32
-        );
-    }
-
     function generateGuid(
         uint64 _nonce,
         uint32 _srcEid,
@@ -439,13 +425,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         return keccak256(abi.encodePacked(_nonce, _srcEid, _toBytes32(_sender), _dstEid, _receiver));
     }
 
-    function _toBytes32(address _address) internal pure returns (bytes32 result) {
-        result = bytes32(uint256(uint160(_address)));
+    function _toBytes32(address _address) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(_address)));
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner {}
-
-
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
      * variables without shifting down storage in the inheritance chain.

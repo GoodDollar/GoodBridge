@@ -4,10 +4,6 @@ pragma solidity >=0.8;
 import {ISuperGoodDollar} from "./interfaces/ISuperGoodDollar.sol";
 import {DAOUpgradeableContract, INameService} from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 
-interface IIdentity {
-    function isWhitelisted(address) external view returns (bool);
-}
-
 /**
  * @title GoodDollarMinterBurner
  * @dev DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT; used by GoodDollarOFTAdapter for cross-chain transfers via LayerZero.
