@@ -224,16 +224,26 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
     });
   });
 
-  describe('canBridge Function Tests', () => {
+  describe('Bridge limits enforcement (send)', () => {
     let adapter: GoodDollarOFTAdapter;
     let minterBurner: any;
+
+    const makeSendParam = (amountLD: any) => ({
+      dstEid: 1,
+      to: ethers.utils.hexZeroPad(user.address, 32),
+      amountLD,
+      minAmountLD: amountLD,
+      extraOptions: '0x',
+      composeMsg: '0x',
+      oftCmd: '0x',
+    });
+    const messagingFee = { nativeFee: 0, lzTokenFee: 0 };
 
     beforeEach(async function () {
       const { adapter: fixtureAdapter, minterBurner: fixtureMinterBurner } = await loadFixture(setupFixture);
       adapter = fixtureAdapter;
       minterBurner = fixtureMinterBurner;
 
-      // Set up basic limits
       await adapter.setBridgeLimits({
         dailyLimit: ethers.utils.parseEther('1000000'),
         txLimit: ethers.utils.parseEther('10000'),
@@ -243,26 +253,26 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       });
     });
 
-    it('Should return false when amount is below minAmount', async function () {
-      const [canBridgeResult, error] = await adapter.canBridge(user.address, ethers.utils.parseEther('50'));
-      expect(canBridgeResult).to.be.false;
-      expect(error).to.equal('minAmount');
+    it('Should revert with minAmount when amount is below minAmount', async function () {
+      await expect(
+        adapter.connect(user).send(makeSendParam(ethers.utils.parseEther('50')), messagingFee, user.address, { value: 0 })
+      ).to.be.revertedWithCustomError(adapter, 'BRIDGE_LIMITS').withArgs('minAmount');
     });
 
-    it('Should return false when amount exceeds txLimit', async function () {
-      const [canBridgeResult, error] = await adapter.canBridge(user.address, ethers.utils.parseEther('20000'));
-      expect(canBridgeResult).to.be.false;
-      expect(error).to.equal('txLimit');
+    it('Should revert with txLimit when amount exceeds txLimit', async function () {
+      await expect(
+        adapter.connect(user).send(makeSendParam(ethers.utils.parseEther('20000')), messagingFee, user.address, { value: 0 })
+      ).to.be.revertedWithCustomError(adapter, 'BRIDGE_LIMITS').withArgs('txLimit');
     });
 
-    it('Should return false when account daily limit exceeded', async function () {
-      const amount = ethers.utils.parseEther('100001'); // Exceeds accountDailyLimit of 100000
-      const [canBridgeResult, error] = await adapter.canBridge(user.address, amount);
-      expect(canBridgeResult).to.be.false;
-      expect(error).to.equal('accountDailyLimit');
+    it('Should revert with accountDailyLimit when account daily limit exceeded', async function () {
+      const amount = ethers.utils.parseEther('100001');
+      await expect(
+        adapter.connect(user).send(makeSendParam(amount), messagingFee, user.address, { value: 0 })
+      ).to.be.revertedWithCustomError(adapter, 'BRIDGE_LIMITS').withArgs('accountDailyLimit');
     });
 
-    it('Should return false when bridge daily limit exceeded (after account limit check)', async function () {
+    it('Should revert with dailyLimit when bridge daily limit exceeded', async function () {
       await adapter.setBridgeLimits({
         dailyLimit: ethers.utils.parseEther('1000'),
         txLimit: ethers.utils.parseEther('10000'),
@@ -270,11 +280,10 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
         minAmount: ethers.utils.parseEther('100'),
         onlyWhitelisted: false,
       });
-
-      const amount = ethers.utils.parseEther('1001'); // Exceeds dailyLimit of 1000, but within accountDailyLimit
-      const [canBridgeResult, error] = await adapter.canBridge(user.address, amount);
-      expect(canBridgeResult).to.be.false;
-      expect(error).to.equal('dailyLimit');
+      const amount = ethers.utils.parseEther('1001');
+      await expect(
+        adapter.connect(user).send(makeSendParam(amount), messagingFee, user.address, { value: 0 })
+      ).to.be.revertedWithCustomError(adapter, 'BRIDGE_LIMITS').withArgs('dailyLimit');
     });
   });
 
