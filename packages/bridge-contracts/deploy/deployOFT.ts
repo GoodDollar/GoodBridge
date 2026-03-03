@@ -103,9 +103,13 @@ const func: DeployFunction = async function (hre) {
   }
   console.log('✅ Verified Avatar address:', avatarAddress);
 
+  let isDevelopment = false;
+  if (network.name.includes('development')) {
+    isDevelopment = true;
+  }
   // --- GoodDollarMinterBurner (hardhat-deploy: deterministic proxy + implementation + execute initialize) ---
   const minterBurnerProxySalt = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes('GoodDollarMinterBurnerV1'),
+    ethers.utils.toUtf8Bytes(isDevelopment ? 'Development-GoodDollarMinterBurnerV1' : 'Production-GoodDollarMinterBurnerV1'),
   );
   const minterBurnerProxyDeploy = await deployments.deterministic('GoodDollarMinterBurner', {
     contract: 'ERC1967Proxy',
@@ -162,7 +166,7 @@ const func: DeployFunction = async function (hre) {
 
   // --- GoodDollarOFTAdapter (hardhat-deploy: deterministic proxy + implementation with constructor + execute initialize) ---
   const oftAdapterProxySalt = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes('GoodDollarOFTAdapterV1'),
+    ethers.utils.toUtf8Bytes(isDevelopment ? 'Development-GoodDollarOFTAdapterV1' : 'Production-GoodDollarOFTAdapterV1'),
   );
   const oftAdapterProxyDeploy = await deployments.deterministic('GoodDollarOFTAdapter', {
     contract: 'ERC1967Proxy',
