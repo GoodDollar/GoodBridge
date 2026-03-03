@@ -1,10 +1,10 @@
 {
   "development-xdc": {
-    "GoodDollarMinterBurner": "0xB937421FD27d8C7848Ae8da16cF2B9D2ba9b5A62",
-    "GoodDollarOFTAdapter": "0x8B72D79be1E2A8d4c82B9B86E539fB2f4b298C1c"
+    "GoodDollarMinterBurner": "0xb1C650B848df596Ab622AEB01FE1796dE04D827F",
+    "GoodDollarOFTAdapter": "0x85d5F87EDf80e01Ba5a46aB4b98F0f31d7C6a3e4"
   },
   "development-celo": {
-    "GoodDollarMinterBurner": "0x4952d1ab3956145c3411A3ebB32ed1Eece7BC89B",
-    "GoodDollarOFTAdapter": "0x4e2a6583ab861A64BE02865257eC4C6A310e4696"
+    "GoodDollarMinterBurner": "0xb1C650B848df596Ab622AEB01FE1796dE04D827F",
+    "GoodDollarOFTAdapter": "0x85d5F87EDf80e01Ba5a46aB4b98F0f31d7C6a3e4"
   }
 }
