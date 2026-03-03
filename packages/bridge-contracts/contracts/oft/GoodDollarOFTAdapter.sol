@@ -120,25 +120,22 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     event FailedReceiveRequestApproved(bytes32 indexed guid);
 
     /**
-     * @dev Constructor for the upgradeable contract
-     * @param _token The address of the underlying ERC20 token (used to get decimals)
+     * @dev Constructor for the upgradeable implementation; token is used for decimals, init is disabled.
+     * @param _token The underlying ERC20 token (used to get decimals for parent)
      * @param _lzEndpoint The LayerZero endpoint address
-     * @dev The constructor is called when deploying the implementation contract
-     * @dev The token address is only used here to get decimals for the parent constructor
      */
     constructor(address _token, address _lzEndpoint) 
         OFTCoreUpgradeable(IERC20Metadata(_token).decimals(), _lzEndpoint) 
     {
-        // Disable initialization in the constructor to prevent initialization of the implementation
         _disableInitializers();
     }
 
     /**
      * @notice Initializes the GoodDollarOFTAdapter contract
-     * @param _token The address of the underlying ERC20 token
+     * @param _token The underlying ERC20 token
      * @param _minterBurner The contract responsible for minting and burning tokens
      * @param _owner The contract owner
-     * @dev The LayerZero endpoint is set in the constructor and cannot be changed per proxy
+     * @param _feeRecipient The address to receive bridge fees
      */
     function initialize(
         address _token,
@@ -146,19 +143,13 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         address _owner,
         address _feeRecipient
     ) public initializer {
-        // Initialize parent contracts
         __UUPSUpgradeable_init();
-        // __Ownable_init_unchained();
-        // __OAppSender_init_unchained();
-        // __OAppReceiver_init_unchained();
         __Ownable_init();
         __OAppSender_init(_owner);
         __OAppReceiver_init(_owner);
         __OFTCore_init(_owner);
-        
         _transferOwnership(_owner);
 
-        // Set state variables
         innerToken = IERC20(_token);
         minterBurner = _minterBurner;
         feeRecipient = _feeRecipient;
@@ -206,8 +197,6 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
      */
     function _takeFee(uint256 amount) internal view returns (uint256 fee) {
         fee = (amount * bridgeFees.fee) / 10000;
-        
-        // Enforce minFee and maxFee bounds
         if (bridgeFees.minFee > 0 && fee < bridgeFees.minFee) {
             fee = bridgeFees.minFee;
         }
@@ -319,12 +308,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
      */
     function _enforceLimits(address _address, uint256 _amount) internal returns (bool isValid, string memory reason) {
         _resetDailyLimitsIfNeeded(_address);
-
-        // Bridge closed / whitelisted check
         (isValid, reason) = _checkBridgeClosedAndWhitelisted(_address);
         if (!isValid) return (false, reason);
-
-        // Bridge limits check
         (isValid, reason) = _checkBridgeLimits(_address, _amount);
         if (!isValid) return (false, reason);
 
@@ -381,8 +366,6 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
             emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid);
             revert BRIDGE_LIMITS(reason);
         }
-
-        // 4. Passed both checks: update counters and complete receive
         bridgeDailyLimit.bridged24Hours += amountLD;
         accountsDailyLimit[toAddress].bridged24Hours += amountLD;
         super._lzReceive(_origin, _guid, _message, _executor, _extraData);
@@ -399,18 +382,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         uint256 _amountLD,
         uint32 /* _srcEid */
     ) internal virtual override returns (uint256 amountReceivedLD) {
-        if (_to == address(0x0)) _to = address(0xdead); // _mint(...) does not support address(0x0)
-        
-        
-        // Calculate fee (fee is deducted on destination chain, matching MessagePassingBridge)
         uint256 fee = _takeFee(_amountLD);
-        
-        // Mint tokens to recipient (amount minus fee)
         uint256 recipientAmount = _amountLD - fee;
         bool success = minterBurner.mint(_to, recipientAmount);
         require(success, "GoodDollarOFTAdapter: Mint failed");
-        
-        // Mint fee to fee recipient if set
+
         if (fee > 0 && feeRecipient != address(0)) {
             bool feeSuccess = minterBurner.mint(feeRecipient, fee);
             require(feeSuccess, "GoodDollarOFTAdapter: Fee mint failed");
@@ -436,7 +412,6 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
-        // Burns tokens from the caller
         minterBurner.burn(_from, amountSentLD);
     }
 
@@ -468,11 +443,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         result = bytes32(uint256(uint160(_address)));
     }
 
-    /**
-     * @dev Only the owner can authorize upgrades (enforced by onlyOwner modifier)
-     */
-    function _authorizeUpgrade(address impl) internal virtual override onlyOwner {
-    }
+    function _authorizeUpgrade(address) internal virtual override onlyOwner {}
 
 
     /**

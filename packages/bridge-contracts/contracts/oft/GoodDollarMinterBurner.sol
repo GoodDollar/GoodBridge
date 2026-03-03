@@ -10,17 +10,7 @@ interface IIdentity {
 
 /**
  * @title GoodDollarMinterBurner
- * @dev DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT
- * 
- * This contract is used by the GoodDollarOFTAdapter to mint and burn tokens during
- * cross-chain transfers via LayerZero. It is upgradeable and controlled by the DAO.
- * 
- * Key functionalities:
- * - Mint tokens when receiving cross-chain transfers
- * - Burn tokens when sending cross-chain transfers
- * - Manage operators (like OFT adapter) that can mint/burn
- * - Pause functionality for emergency situations
- * - Upgradeable via DAO governance
+ * @dev DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT; used by GoodDollarOFTAdapter for cross-chain transfers via LayerZero.
  */
 contract GoodDollarMinterBurner is DAOUpgradeableContract {
     ISuperGoodDollar public token;
@@ -55,8 +45,6 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
      * @dev Set or remove an operator that can mint/burn tokens
      * @param _operator The address of the operator (e.g., OFT adapter)
      * @param _status True to enable, false to disable
-     * 
-     * Only the DAO avatar can call this function.
      */
     function setOperator(address _operator, bool _status) external {
         _onlyAvatar();
@@ -66,14 +54,10 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
 
 
     /**
-     * @dev Burn tokens from an address
+     * @dev Burn tokens from an address. Limits are not enforced on the sending side (burning); limits are enforced on the receiving side (minting).
      * @param _from The address to burn tokens from
      * @param _amount The amount of tokens to burn
      * @return success True if the burn was successful
-     * 
-     * Only authorized operators (like OFT adapter) or the DAO avatar can call this.
-     * Note: Limits are NOT enforced on the sending side (burning), matching MessagePassingBridge behavior.
-     * Limits are only enforced on the receiving side (minting) when tokens are received.
      */
     function burn(address _from, uint256 _amount) external onlyOperators returns (bool) {
         token.burnFrom(_from, _amount);
@@ -87,8 +71,6 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
      * @param _to The address to mint tokens to
      * @param _amount The amount of tokens to mint
      * @return success True if the mint was successful
-     * 
-     * Only authorized operators (like OFT adapter) or the DAO avatar can call this.
      */
     function mint(address _to, uint256 _amount) external onlyOperators returns (bool) {
         bool success = token.mint(_to, _amount);
@@ -99,9 +81,7 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
     }
 
     /**
-     * @dev Pause all mint and burn operations
-     * 
-     * Only the DAO avatar can call this. Useful for emergency situations.
+     * @dev Pause all mint and burn operations (emergency use)
      */
     function pause() external {
         _onlyAvatar();
@@ -112,8 +92,6 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
 
     /**
      * @dev Unpause mint and burn operations
-     * 
-     * Only the DAO avatar can call this.
      */
     function unpause() external {
         _onlyAvatar();
