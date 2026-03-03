@@ -237,7 +237,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         emit BridgePaused(_isPaused);
     }
 
-    function approveFailedRequest(bytes32 _guid) external onlyOwner {
+    function approveFailedRequest(bytes32 _guid) external {
         FailedReceiveRequest memory request = failedReceiveRequests[_guid];
         require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp, 'optimistic period not ended');
         require(request.failed, 'request not failed');
