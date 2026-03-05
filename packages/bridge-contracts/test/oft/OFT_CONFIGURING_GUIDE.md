@@ -40,21 +40,6 @@ All configuration values are stored in `test/oft/oft.config.json`. Each network 
 }
 ```
 
-### Configuration Options
-
-- **skipTransferOwnership**: Skip transferring OFT adapter ownership to DAO Avatar
-- **skipWiring**: Skip LayerZero wiring (requires manual configuration)
-- **skipLimits**: Skip setting bridge limits
-- **skipBridgeTest**: Skip bridge functionality test
-- **limits**: Bridge limit configuration
-  - **dailyLimit**: Daily bridge limit in G$ (converted to wei automatically)
-  - **txLimit**: Per-transaction limit in G$ (converted to wei automatically)
-  - **accountDailyLimit**: Per-account daily limit in G$ (converted to wei automatically)
-  - **minAmount**: Minimum bridge amount in G$ (converted to wei automatically)
-  - **onlyWhitelisted**: Whether to restrict bridging to whitelisted addresses
-
-**Note**: Limit values can be specified in decimal format (e.g., "5000" for 5,000 G$). The scripts automatically convert them to wei (18 decimals).
-
 ## Manual Configuration: Step-by-Step
 
 If you prefer to configure each network individually or need more control, follow these steps:
@@ -183,30 +168,3 @@ After configuration, verify the setup:
 4. **Check ownership**: Verify OFT adapter is owned by DAO Avatar
 5. **Check LayerZero peers**: Verify peer connections are set between chains
 6. **Check limits**: Verify bridge limits are set correctly
-
-## Troubleshooting
-
-### Bridge Test Fails
-
-**Error**: `NoPeer` or peer not configured
-
-**Solution**:
-- Ensure LayerZero wiring completed successfully
-- Verify peer addresses are set correctly in `layerzero.config.ts`
-- Check that OFT adapters are deployed on both networks
-
-**Error**: Insufficient balance
-
-**Solution**:
-- Ensure you have sufficient G$ tokens on the source chain
-- Ensure you have sufficient native tokens (XDC/CELO) for gas and fees
-- Approve MinterBurner to burn tokens if needed
-
-### Limits Not Set
-
-**Error**: No limits configuration found
-
-**Solution**:
-- Ensure `oft.config.json` has an entry for your network
-- Verify the `limits` object is properly formatted
-- Check that `skipLimits` is not set to `true`
