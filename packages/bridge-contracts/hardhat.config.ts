@@ -12,8 +12,8 @@ import { HttpNetworkAccountsConfig } from 'hardhat/types';
 import { configDotenv } from 'dotenv';
 import * as envEnc from '@chainlink/env-enc';
 
-import '@layerzerolabs/toolbox-hardhat'
-import { EndpointId } from '@layerzerolabs/lz-definitions'
+import '@layerzerolabs/toolbox-hardhat';
+import { EndpointId } from '@layerzerolabs/lz-definitions';
 
 configDotenv();
 envEnc.config();
@@ -109,7 +109,7 @@ const config: HardhatUserConfig = {
     xdc: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
-      url: 'https://rpc.xinfin.network',
+      url: 'https://rpc.ankr.com/xdc',
       verify: {
         etherscan: {
           apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
@@ -121,7 +121,7 @@ const config: HardhatUserConfig = {
     xdc_testnet: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
-      url: 'https://rpc.xdc.network',
+      url: 'https://rpc.ankr.com/xdc',
       verify: {
         etherscan: {
           apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
