@@ -237,7 +237,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         emit BridgePaused(_isPaused);
     }
 
-    function approveFailedRequest(bytes32 _guid) external onlyOwner {
+    function approveFailedRequest(bytes32 _guid) external {
         FailedReceiveRequest memory request = failedReceiveRequests[_guid];
         require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp, 'optimistic period not ended');
         require(request.failed, 'request not failed');
@@ -364,11 +364,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
                 _origin.srcEid
             );
             emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid);
-            revert BRIDGE_LIMITS(reason);
+        } else{
+            bridgeDailyLimit.bridged24Hours += amountLD;
+            accountsDailyLimit[toAddress].bridged24Hours += amountLD;
+            super._lzReceive(_origin, _guid, _message, _executor, _extraData);
         }
-        bridgeDailyLimit.bridged24Hours += amountLD;
-        accountsDailyLimit[toAddress].bridged24Hours += amountLD;
-        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
     }
     /**
      * @notice Mints tokens to the specified address upon receiving them
