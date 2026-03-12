@@ -2096,8 +2096,11 @@ __metadata:
     "@axelar-network/axelarjs-sdk": "npm:^0.13.6"
     "@chainlink/env-enc": "npm:^1.0.5"
     "@gooddollar/goodprotocol": "npm:2.1.0"
+    "@layerzerolabs/devtools-evm-hardhat": "npm:^4.0.4"
     "@layerzerolabs/lz-definitions": "npm:^3.0.151"
     "@layerzerolabs/lz-evm-protocol-v2": "npm:^3.0.151"
+    "@layerzerolabs/lz-v2-utilities": "npm:^3.0.156"
+    "@layerzerolabs/metadata-tools": "npm:^3.0.3"
     "@layerzerolabs/oapp-evm": "npm:^0.4.1"
     "@layerzerolabs/oapp-evm-upgradeable": "npm:^0.1.3"
     "@layerzerolabs/oft-evm": "npm:^4.0.0"
@@ -2105,6 +2108,7 @@ __metadata:
     "@layerzerolabs/scan-client": "npm:^0.0.6"
     "@layerzerolabs/solidity-examples": "npm:^0.0.13"
     "@layerzerolabs/toolbox-hardhat": "npm:~0.6.13"
+    "@layerzerolabs/ua-devtools": "npm:^5.0.2"
     "@nomicfoundation/hardhat-chai-matchers": "npm:^1.0.5"
     "@nomicfoundation/hardhat-network-helpers": "npm:^1.0.6"
     "@nomicfoundation/hardhat-verify": "npm:^2.1.0"
@@ -2126,7 +2130,7 @@ __metadata:
     ethers: "npm:^5.*"
     hardhat: "npm:2.26"
     hardhat-contract-sizer: "npm:^2.6.1"
-    hardhat-deploy: "npm:^1.0.4"
+    hardhat-deploy: "npm:^0.12.4"
     hardhat-gas-reporter: "npm:^1.0.9"
     merkle-patricia-tree: "npm:^2.*"
     prettier: "npm:^2.5.1"
@@ -2631,7 +2635,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@layerzerolabs/devtools-evm-hardhat@npm:~4.0.4":
+"@layerzerolabs/devtools-evm-hardhat@npm:^4.0.4, @layerzerolabs/devtools-evm-hardhat@npm:~4.0.4":
   version: 4.0.4
   resolution: "@layerzerolabs/devtools-evm-hardhat@npm:4.0.4"
   dependencies:
@@ -2803,7 +2807,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@layerzerolabs/lz-v2-utilities@npm:^3.0.148":
+"@layerzerolabs/lz-v2-utilities@npm:^3.0.148, @layerzerolabs/lz-v2-utilities@npm:^3.0.156":
   version: 3.0.156
   resolution: "@layerzerolabs/lz-v2-utilities@npm:3.0.156"
   dependencies:
@@ -2816,6 +2820,16 @@ __metadata:
     bs58: "npm:^5.0.0"
     tiny-invariant: "npm:^1.3.1"
   checksum: 10/ad6ab1f9c2443e5c12fc4f4df3a22687734cdd8b6d5f5c8c2a98ed44f6dcf247278b3388647eb7f2909697fc8c62c8087c89c4a651c54f95b089419da0115b59
+  languageName: node
+  linkType: hard
+
+"@layerzerolabs/metadata-tools@npm:^3.0.3":
+  version: 3.0.3
+  resolution: "@layerzerolabs/metadata-tools@npm:3.0.3"
+  peerDependencies:
+    "@layerzerolabs/devtools-evm-hardhat": ~4.0.0
+    "@layerzerolabs/ua-devtools": ~5.0.1
+  checksum: 10/82e75265a744bdd5ada327b9d1cc6414b5e9f1fa7736662bc393704665e8527fe7e2d665246310d31f970d774c5671f5b2d53dc68d43d505681882ffaef59a0c
   languageName: node
   linkType: hard
 
@@ -3039,7 +3053,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@layerzerolabs/ua-devtools@npm:~5.0.2":
+"@layerzerolabs/ua-devtools@npm:^5.0.2, @layerzerolabs/ua-devtools@npm:~5.0.2":
   version: 5.0.2
   resolution: "@layerzerolabs/ua-devtools@npm:5.0.2"
   peerDependencies:
@@ -12418,9 +12432,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hardhat-deploy@npm:^1.0.4":
-  version: 1.0.4
-  resolution: "hardhat-deploy@npm:1.0.4"
+"hardhat-deploy@npm:^0.12.4":
+  version: 0.12.4
+  resolution: "hardhat-deploy@npm:0.12.4"
   dependencies:
     "@ethersproject/abi": "npm:^5.7.0"
     "@ethersproject/abstract-signer": "npm:^5.7.0"
@@ -12433,6 +12447,7 @@ __metadata:
     "@ethersproject/solidity": "npm:^5.7.0"
     "@ethersproject/transactions": "npm:^5.7.0"
     "@ethersproject/wallet": "npm:^5.7.0"
+    "@types/qs": "npm:^6.9.7"
     axios: "npm:^0.21.1"
     chalk: "npm:^4.1.2"
     chokidar: "npm:^3.5.2"
@@ -12443,9 +12458,9 @@ __metadata:
     fs-extra: "npm:^10.0.0"
     match-all: "npm:^1.2.6"
     murmur-128: "npm:^0.2.1"
-    neoqs: "npm:^6.13.0"
+    qs: "npm:^6.9.4"
     zksync-ethers: "npm:^5.0.0"
-  checksum: 10/41b4784703a29a1690578a34fd8bb75c463347e7050c55ef39ca1d183fef5463bc8a1f679d57e5f7228524fc6abf8e499f8edbe1bcbc801abd10e3ac3299f9f3
+  checksum: 10/127feddc4f95eaa530e7fe77021f7634e23f7f182a8a2e6d51ef5c7254037b05862c54aaa79dd7e07cac627dbae6bff68f8439851ca048ccc571110704998f9d
   languageName: node
   linkType: hard
 
@@ -16398,13 +16413,6 @@ __metadata:
   dependencies:
     ansi-regex: "npm:^2.0.0"
   checksum: 10/c4b6d3a8eea1150e06f775d105be1c3fac5b23d161c5be6a9db71b2de223fcaeaf5887be4153d9e0d2295033c82e867568b3c81c9815993ad28a6f29560f789e
-  languageName: node
-  linkType: hard
-
-"neoqs@npm:^6.13.0":
-  version: 6.13.0
-  resolution: "neoqs@npm:6.13.0"
-  checksum: 10/222ac1cc370a3906c24cbc3e384dea47f993d593200b35d5f97ccb03e7248b405889d480a668ddb131898ec3d5049dffc4ddc1910d75f96772ded9c6a33f103a
   languageName: node
   linkType: hard
 

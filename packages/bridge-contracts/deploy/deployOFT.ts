@@ -1,0 +1,249 @@
+/***
+ * Hardhat-deploy script for GoodDollar OFT (Omnichain Fungible Token) contracts
+ *
+ * Deploys (same pattern as MessageBridge: deterministic proxy + implementation + execute initialize):
+ * 1. GoodDollarMinterBurner - DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT
+ * 2. GoodDollarOFTAdapter - Upgradeable LayerZero OFT adapter that wraps GoodDollar token for cross-chain transfers
+ *
+ * Steps:
+ * 1. Deploy ERC1967Proxy (deterministic) for GoodDollarMinterBurner, deploy implementation, execute initialize(nameService)
+ * 2. Deploy ERC1967Proxy (deterministic) for GoodDollarOFTAdapter, deploy implementation (constructor: token, lzEndpoint), execute initialize(token, minterBurner, owner, feeRecipient)
+ *
+ * Note: Setting OFT adapter as operator on GoodDollarMinterBurner must be done separately via DAO governance
+ */
+
+import { DeployFunction } from 'hardhat-deploy/types';
+import { ethers } from 'hardhat';
+import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
+import fse from 'fs-extra';
+import release from '../release/deployment-oft.json';
+import { getImplementationAddress } from '@openzeppelin/upgrades-core';
+import { verifyContract } from './utils/verifyContract';
+
+// Network-specific LayerZero endpoints
+const lzEndpoints: { [key: string]: string } = {
+  'development-celo': '0x1a44076050125825900e736c501f859c50fE728c',
+  'production-celo': '0x1a44076050125825900e736c501f859c50fE728c',
+  'development-xdc': '0xcb566e3B6934Fa77258d68ea18E931fa75e1aaAa',
+  'production-xdc': '0xcb566e3B6934Fa77258d68ea18E931fa75e1aaAa',
+};
+
+const func: DeployFunction = async function (hre) {
+  const { deployments, network } = hre;
+  const [root] = await ethers.getSigners();
+
+  const networkName = network.name;
+
+  console.log('Deployment signer:', {
+    networkName,
+    root: root.address,
+    balance: await ethers.provider.getBalance(root.address).then((_) => _.toString()),
+  });
+
+  // Get contract addresses from GoodProtocol deployment
+  const goodProtocolContracts = Contracts[networkName as keyof typeof Contracts] as any;
+  if (!goodProtocolContracts) {
+    throw new Error(
+      `No GoodProtocol contracts found for network ${networkName}. Please check @gooddollar/goodprotocol/releases/deployment.json`,
+    );
+  }
+
+  // Get token address from GoodProtocol
+  const tokenAddress = goodProtocolContracts.GoodDollar;
+  if (!tokenAddress) {
+    throw new Error(
+      `Token address not found in GoodProtocol deployment for network ${networkName}. Please deploy SuperGoodDollar or GoodDollar first.`,
+    );
+  }
+
+  // Get NameService for DAO integration from GoodProtocol
+  const nameServiceAddress = goodProtocolContracts.NameService;
+  if (!nameServiceAddress) {
+    throw new Error(
+      `NameService address not found in GoodProtocol deployment for network ${networkName}. Please deploy NameService first.`,
+    );
+  }
+
+  // Get Controller address directly from GoodProtocol contracts (or via NameService if needed)
+  let controllerAddress = goodProtocolContracts.Controller;
+  if (!controllerAddress) {
+    // Fallback: try to get Controller via NameService interface
+    const INameService = await ethers.getContractAt(
+      '@gooddollar/goodprotocol/contracts/Interfaces.sol:INameService',
+      nameServiceAddress,
+    );
+    controllerAddress = await INameService.getAddress('CONTROLLER');
+    if (!controllerAddress || controllerAddress === ethers.constants.AddressZero) {
+      throw new Error(`Controller address not found in GoodProtocol deployment for network ${networkName}`);
+    }
+  }
+
+  // Get LayerZero endpoint
+  const lzEndpoint = lzEndpoints[networkName] || process.env.LAYERZERO_ENDPOINT;
+  if (!lzEndpoint) {
+    throw new Error(
+      `LayerZero endpoint not found. Please set LAYERZERO_ENDPOINT environment variable or add default for network ${networkName}`,
+    );
+  }
+
+  console.log('Deployment parameters:', {
+    tokenAddress,
+    nameServiceAddress,
+    controllerAddress,
+    lzEndpoint,
+    networkName,
+  });
+
+  // Get Controller and Avatar addresses (used for OFT adapter owner)
+  const Controller = await ethers.getContractAt('Controller', controllerAddress);
+  const avatarAddress = await Controller.avatar();
+
+  if (!avatarAddress || avatarAddress === ethers.constants.AddressZero) {
+    throw new Error(`Avatar address is invalid: ${avatarAddress}`);
+  }
+  console.log('✅ Verified Avatar address:', avatarAddress);
+
+  let isDevelopment = false;
+  if (network.name.includes('development')) {
+    isDevelopment = true;
+  }
+  // --- GoodDollarMinterBurner (hardhat-deploy: deterministic proxy + implementation + execute initialize) ---
+  const minterBurnerProxySalt = ethers.utils.keccak256(
+    ethers.utils.toUtf8Bytes(isDevelopment ? 'Development-GoodDollarMinterBurnerV1' : 'Production-GoodDollarMinterBurnerV1'),
+  );
+  const minterBurnerProxyDeploy = await deployments.deterministic('GoodDollarMinterBurner', {
+    contract: 'ERC1967Proxy',
+    from: root.address,
+    salt: minterBurnerProxySalt,
+    log: true,
+  });
+  const minterBurnerProxy = await minterBurnerProxyDeploy.deploy();
+  const minterBurnerAddress = minterBurnerProxy.address;
+  console.log('GoodDollarMinterBurner proxy', minterBurnerAddress);
+
+  const minterBurnerImpl = await deployments.deploy('GoodDollarMinterBurner_Implementation', {
+    contract: 'GoodDollarMinterBurner',
+    from: root.address,
+    deterministicDeployment: true,
+    log: true,
+  });
+  console.log('GoodDollarMinterBurner implementation', minterBurnerImpl.address);
+
+  const minterBurnerContract = await ethers.getContractAt('GoodDollarMinterBurner', minterBurnerAddress);
+  const minterBurnerInitialized = await minterBurnerContract
+    .token()
+    .then((addr: string) => addr !== ethers.constants.AddressZero)
+    .catch(() => false);
+
+  if (!minterBurnerInitialized) {
+    console.log('Initializing GoodDollarMinterBurner...');
+    const minterBurnerInitData = minterBurnerContract.interface.encodeFunctionData('initialize', [
+      nameServiceAddress,
+    ]);
+    await deployments.execute(
+      'GoodDollarMinterBurner',
+      { from: root.address },
+      'initialize',
+      minterBurnerImpl.address,
+      minterBurnerInitData,
+    );
+    console.log('GoodDollarMinterBurner initialized');
+  } else {
+    console.log('GoodDollarMinterBurner already initialized');
+  }
+
+  // Update release file for MinterBurner
+  if (!release[networkName]) {
+    release[networkName] = {};
+  }
+  release[networkName].GoodDollarMinterBurner = minterBurnerAddress;
+  await fse.writeJSON('release/deployment-oft.json', release, { spaces: 2 });
+
+  // Verify GoodDollarMinterBurner implementation (no constructor args)
+  if (!['hardhat', 'localhost', 'develop'].includes(networkName)) {
+    await verifyContract(hre as any, minterBurnerImpl.address, [], 'GoodDollarMinterBurner');
+  }
+
+  // --- GoodDollarOFTAdapter (hardhat-deploy: deterministic proxy + implementation with constructor + execute initialize) ---
+  const oftAdapterProxySalt = ethers.utils.keccak256(
+    ethers.utils.toUtf8Bytes(isDevelopment ? 'Development-GoodDollarOFTAdapterV1' : 'Production-GoodDollarOFTAdapterV1'),
+  );
+  const oftAdapterProxyDeploy = await deployments.deterministic('GoodDollarOFTAdapter', {
+    contract: 'ERC1967Proxy',
+    from: root.address,
+    salt: oftAdapterProxySalt,
+    log: true,
+  });
+  const oftAdapterProxy = await oftAdapterProxyDeploy.deploy();
+  const oftAdapterAddress = oftAdapterProxy.address;
+  console.log('GoodDollarOFTAdapter proxy', oftAdapterAddress);
+
+  const oftAdapterImpl = await deployments.deploy('GoodDollarOFTAdapter_Implementation', {
+    contract: 'GoodDollarOFTAdapter',
+    from: root.address,
+    deterministicDeployment: true,
+    log: true,
+    args: [tokenAddress, lzEndpoint],
+  });
+  console.log('GoodDollarOFTAdapter implementation', oftAdapterImpl.address);
+
+  const oftAdapterContract = await ethers.getContractAt('GoodDollarOFTAdapter', oftAdapterAddress);
+  const oftAdapterInitialized = await oftAdapterContract
+    .minterBurner()
+    .then((addr: string) => addr !== ethers.constants.AddressZero)
+    .catch(() => false);
+
+  if (!oftAdapterInitialized) {
+    console.log('Initializing GoodDollarOFTAdapter...');
+    const oftAdapterInitData = oftAdapterContract.interface.encodeFunctionData('initialize', [
+      tokenAddress,
+      minterBurnerAddress,
+      root.address,
+      root.address,
+    ]);
+    await deployments.execute(
+      'GoodDollarOFTAdapter',
+      { from: root.address },
+      'initialize',
+      oftAdapterImpl.address,
+      oftAdapterInitData,
+    );
+    console.log('GoodDollarOFTAdapter initialized');
+    console.log('Fee recipient:', root.address);
+  } else {
+    console.log('GoodDollarOFTAdapter already initialized');
+  }
+
+  release[networkName].GoodDollarOFTAdapter = oftAdapterAddress;
+  await fse.writeJSON('release/deployment-oft.json', release, { spaces: 2 });
+
+  // Verify GoodDollarOFTAdapter implementation (constructor: tokenAddress, lzEndpoint)
+  if (!['hardhat', 'localhost', 'develop'].includes(networkName)) {
+    await verifyContract(hre as any, oftAdapterImpl.address, [tokenAddress, lzEndpoint], 'GoodDollarOFTAdapter');
+  }
+
+  const minterBurnerImplAddress = await getImplementationAddress(ethers.provider, minterBurnerAddress).catch(
+    () => undefined,
+  );
+  const oftAdapterImplAddress = await getImplementationAddress(ethers.provider, oftAdapterAddress).catch(
+    () => undefined,
+  );
+
+  console.log('\n=== Deployment Summary ===');
+  console.log('Network:', networkName);
+  console.log('GoodDollarMinterBurner:', minterBurnerAddress, '(upgradeable)');
+  if (minterBurnerImplAddress) {
+    console.log('  Implementation:', minterBurnerImplAddress);
+  }
+  console.log('GoodDollarOFTAdapter:', oftAdapterAddress, '(upgradeable)');
+  if (oftAdapterImplAddress) {
+    console.log('  Implementation:', oftAdapterImplAddress);
+  }
+  console.log('Token:', tokenAddress);
+  console.log('OFT Adapter Owner (Avatar):', avatarAddress);
+  console.log('LayerZero Endpoint:', lzEndpoint);
+  console.log('========================\n');
+};
+
+export default func;
+func.tags = ['OFT', 'GoodDollar'];

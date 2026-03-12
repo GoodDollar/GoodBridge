@@ -14,7 +14,7 @@ import type { OmniPointHardhat } from "@layerzerolabs/toolbox-hardhat";
 import { OAppEnforcedOption } from "@layerzerolabs/toolbox-hardhat";
 import { ExecutorOptionType } from "@layerzerolabs/lz-v2-utilities";
 import { TwoWayConfig, generateConnectionsConfig } from "@layerzerolabs/metadata-tools";
-import dao from "./releases/deployment.json";
+import dao from "./release/deployment-oft.json";
 
 // Network names - adjust these based on your deployment
 const XDC_NETWORK = "development-xdc";
@@ -24,26 +24,18 @@ const CELO_NETWORK = "development-celo";
 const xdcOftAdapterAddress = (dao[XDC_NETWORK] as any)?.GoodDollarOFTAdapter;
 const celoOftAdapterAddress = (dao[CELO_NETWORK] as any)?.GoodDollarOFTAdapter;
 
-if (!xdcOftAdapterAddress || !celoOftAdapterAddress) {
-  throw new Error(
-    `OFT Adapter addresses not found in deployment.json. ` +
-    `XDC: ${xdcOftAdapterAddress || "missing"}, CELO: ${celoOftAdapterAddress || "missing"}. ` +
-    `Please deploy them first or adjust XDC_NETWORK and CELO_NETWORK constants.`
-  );
-}
-
 // XDC Network contract
 const xdcContract: OmniPointHardhat = {
   eid: EndpointId.XDC_V2_MAINNET, // XDC endpoint ID
   contractName: "GoodDollarOFTAdapter",
-  address: xdcOftAdapterAddress,
+  address: xdcOftAdapterAddress, // Will be updated after deployment
 };
 
 // CELO Network contract
 const celoContract: OmniPointHardhat = {
   eid: EndpointId.CELO_V2_MAINNET, // CELO endpoint ID
   contractName: "GoodDollarOFTAdapter",
-  address: celoOftAdapterAddress,
+  address: celoOftAdapterAddress, // Will be updated after deployment
 };
 
 // Enforced execution options for EVM chains

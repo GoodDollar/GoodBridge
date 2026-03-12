@@ -1,0 +1,10 @@
+{
+  "development-xdc": {
+    "GoodDollarMinterBurner": "0xc10A3215b7228f702997274a0D2AB7445Dd37813",
+    "GoodDollarOFTAdapter": "0x4857E893d6C77B12e9c724f8E12D5F37E17697FF"
+  },
+  "development-celo": {
+    "GoodDollarMinterBurner": "0xc10A3215b7228f702997274a0D2AB7445Dd37813",
+    "GoodDollarOFTAdapter": "0x4857E893d6C77B12e9c724f8E12D5F37E17697FF"
+  }
+}
