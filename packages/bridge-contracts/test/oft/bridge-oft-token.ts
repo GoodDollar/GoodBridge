@@ -185,6 +185,7 @@ const main = async () => {
   
   console.log(`✅ ${destNetwork} peer is configured correctly`);
 
+  await token.approve(minterBurnerAddress, amount);
   // Double-check MinterBurner approval before calling quoteSend
   console.log("\nVerifying MinterBurner approval before quoteSend...");
   const finalMinterBurnerAllowance = await token.allowance(sender.address, minterBurnerAddress);
