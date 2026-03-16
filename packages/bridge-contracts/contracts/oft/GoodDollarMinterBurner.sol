@@ -50,7 +50,7 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
 
 
     /**
-     * @dev Burn tokens from an address. Limits are not enforced on the sending side (burning); limits are enforced on the receiving side (minting).
+     * @dev Burn tokens from an address
      * @param _from The address to burn tokens from
      * @param _amount The amount of tokens to burn
      * @return success True if the burn was successful
