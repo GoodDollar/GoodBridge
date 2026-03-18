@@ -106,7 +106,6 @@ const main = async () => {
         lzEndpoint,
         avatarAddress, // Set Avatar as owner during initialization
         feeRecipient,
-        nameServiceAddress
       );
       await initTx.wait();
       console.log("✅ Contract initialized successfully!");
@@ -130,54 +129,6 @@ const main = async () => {
       const errorMsg = initError.message || initError.reason || "";
       if (errorMsg.includes("already initialized") || errorMsg.includes("Initializable: contract is already initialized")) {
         console.log("⚠️  Contract is already initialized (detected via error)");
-        // Re-read owner
-        try {
-          currentOwner = await oftAdapter.owner();
-          console.log("Current owner after checking initialization:", currentOwner);
-          
-          // If owner is still zero after initialization, try to use reinitializer
-          if (currentOwner === ethers.constants.AddressZero) {
-            console.log("\n⚠️  Contract is initialized but owner is zero. Attempting to fix with reinitializer...");
-            try {
-              // Try to call reinitializeOwner if it exists (for upgradeable contracts)
-              const reinitTx = await oftAdapter.reinitializeOwner(avatarAddress);
-              await reinitTx.wait();
-              console.log("✅ Successfully reinitialized owner!");
-              
-              // Verify owner was set
-              const newOwner = await oftAdapter.owner();
-              if (newOwner.toLowerCase() === avatarAddress.toLowerCase()) {
-                console.log("✅ Owner fixed! Contract is now owned by Avatar.");
-                return;
-              } else {
-                throw new Error(`Owner reinitialization completed but owner is still incorrect: ${newOwner}`);
-              }
-            } catch (reinitError: any) {
-              const reinitErrorMsg = reinitError.message || reinitError.reason || "";
-              if (reinitErrorMsg.includes("reinitializer") || reinitErrorMsg.includes("not a proxy")) {
-                // Contract is not deployed as a proxy, must redeploy
-                throw new Error(
-                  "❌ CRITICAL: Contract is initialized but owner is zero address!\n" +
-                  "The contract is upgradeable-compatible but was deployed directly (not as a proxy).\n" +
-                  "Reinitialization is not possible for direct deployments.\n\n" +
-                  "SOLUTION: You must redeploy the contract:\n" +
-                  "1. Remove the GoodDollarOFTAdapter address from release/deployment-oft.json\n" +
-                  "2. Run the deployment script again to deploy a new contract\n" +
-                  "3. The new contract will be initialized with the correct owner (Avatar)\n\n" +
-                  `Current OFTAdapter address: ${oftAdapterAddress}\n` +
-                  `This contract is unusable and must be replaced.`
-                );
-              } else {
-                throw reinitError;
-              }
-            }
-          }
-        } catch (e: any) {
-          if (e.message && e.message.includes("CRITICAL")) {
-            throw e; // Re-throw the critical error
-          }
-          throw new Error("Contract appears initialized but owner() call failed: " + e.message);
-        }
       } else {
         console.error("❌ Initialization failed:", errorMsg);
         throw initError;

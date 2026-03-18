@@ -113,9 +113,9 @@ yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network developm
 - Wiring may fail with permission errors (0xc4c52593) if the OApp owner doesn't have delegate permissions on the LayerZero endpoint
 - If wiring fails, you may need to manually configure enforced options or contact LayerZero support
 
-### Step 5: Set Bridge Limits
+### Step 5: Set Bridge Limits (Optional)
 
-Configure bridge limits using values from `oft.config.json`:
+Configure bridge limits using values from `oft.config.json` (only needed if you want to set the bridge limits):
 
 ```bash
 # Set limits on XDC
@@ -144,7 +144,7 @@ yarn hardhat run test/oft/bridge-oft-token.ts --network development-celo
 - Sufficient native token (XDC/CELO) for gas and LayerZero fees
 - MinterBurner approval for token burning
 
-### Step 7: Transfer Ownership (Last Step)
+### Step 7: Transfer Ownership (Optional)
 
 Transfer OFT adapter ownership to DAO Avatar. This should be done as the final step:
 
@@ -156,7 +156,7 @@ yarn hardhat run test/oft/transfer-oft-adapter-ownership.ts --network developmen
 yarn hardhat run test/oft/transfer-oft-adapter-ownership.ts --network development-celo
 ```
 
-**Note**: This must be done by the current owner of the OFT adapter (usually the deployer). This step is performed last to ensure all configuration is complete before transferring ownership to the DAO.
+**Note**: Only transfer ownership if you want the DAO Avatar to be the long-term owner (recommended for production). This must be done by the current owner of the OFT adapter (usually the deployer), and is performed after all other configuration.
 
 ## Configuration Verification
 
