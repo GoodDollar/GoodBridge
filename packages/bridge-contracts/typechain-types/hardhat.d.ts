@@ -473,9 +473,25 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ConsensusMock__factory>;
     getContractFactory(
+      name: "ControllerMock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ControllerMock__factory>;
+    getContractFactory(
+      name: "LayerZeroEndpointMock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.LayerZeroEndpointMock__factory>;
+    getContractFactory(
+      name: "MockGoodDollar",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.MockGoodDollar__factory>;
+    getContractFactory(
       name: "Multicall",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Multicall__factory>;
+    getContractFactory(
+      name: "NameServiceMock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.NameServiceMock__factory>;
     getContractFactory(
       name: "TestRLPParser",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -1085,10 +1101,30 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.ConsensusMock>;
     getContractAt(
+      name: "ControllerMock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ControllerMock>;
+    getContractAt(
+      name: "LayerZeroEndpointMock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.LayerZeroEndpointMock>;
+    getContractAt(
+      name: "MockGoodDollar",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.MockGoodDollar>;
+    getContractAt(
       name: "Multicall",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.Multicall>;
+    getContractAt(
+      name: "NameServiceMock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.NameServiceMock>;
     getContractAt(
       name: "TestRLPParser",
       address: string,

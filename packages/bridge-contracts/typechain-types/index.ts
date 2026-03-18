@@ -230,8 +230,16 @@ export type { ISuperGoodDollar } from "./contracts/oft/interfaces/ISuperGoodDoll
 export { ISuperGoodDollar__factory } from "./factories/contracts/oft/interfaces/ISuperGoodDollar__factory";
 export type { ConsensusMock } from "./contracts/test/ConsensusMock";
 export { ConsensusMock__factory } from "./factories/contracts/test/ConsensusMock__factory";
+export type { ControllerMock } from "./contracts/test/ControllerMock";
+export { ControllerMock__factory } from "./factories/contracts/test/ControllerMock__factory";
+export type { LayerZeroEndpointMock } from "./contracts/test/LayerZeroEndpointMock";
+export { LayerZeroEndpointMock__factory } from "./factories/contracts/test/LayerZeroEndpointMock__factory";
+export type { MockGoodDollar } from "./contracts/test/MockGoodDollar";
+export { MockGoodDollar__factory } from "./factories/contracts/test/MockGoodDollar__factory";
 export type { Multicall } from "./contracts/test/MultiCall.sol/Multicall";
 export { Multicall__factory } from "./factories/contracts/test/MultiCall.sol/Multicall__factory";
+export type { NameServiceMock } from "./contracts/test/NameServiceMock";
+export { NameServiceMock__factory } from "./factories/contracts/test/NameServiceMock__factory";
 export type { TestRLPParser } from "./contracts/test/TestRLPParser";
 export { TestRLPParser__factory } from "./factories/contracts/test/TestRLPParser__factory";
 export type { TestToken } from "./contracts/test/TestToken.sol/TestToken";

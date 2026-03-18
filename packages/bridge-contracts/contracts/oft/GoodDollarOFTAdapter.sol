@@ -329,6 +329,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         MessagingFee calldata _fee,
         address _refundAddress
     ) internal virtual override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
+        /// @dev revert if sending to zero address
+        require(_sendParam.to.bytes32ToAddress() != address(0), 'GoodDollarOFTAdapter: sending to zero address');
         (bool isValid, string memory reason) = _enforceLimits(_sendParam.to.bytes32ToAddress(), _sendParam.amountLD);
         if (!isValid) {
             revert BRIDGE_LIMITS(reason);
