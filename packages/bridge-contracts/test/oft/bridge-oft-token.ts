@@ -22,7 +22,7 @@ import { network, ethers } from "hardhat";
 import { Contract } from "ethers";
 import { EndpointId } from "@layerzerolabs/lz-definitions";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment-oft.json";
+import { getOftDeploymentAddresses } from "../../deploy/utils/getOftDeploymentAddresses";
 
 // IERC20 interface for token operations
 const IERC20_ABI = [
@@ -67,28 +67,20 @@ const main = async () => {
   console.log(`Sender balance: ${ethers.utils.formatEther(await ethers.provider.getBalance(sender.address))} ${nativeTokenName}`);
 
   // Get deployment info for source network
-  const currentRelease = release[networkName] || {};
+  const { GoodDollarOFTAdapter: oftAdapterAddress, GoodDollarMinterBurner: minterBurnerAddress } =
+    getOftDeploymentAddresses(networkName);
   const goodProtocolContracts = Contracts[networkName as keyof typeof Contracts] as any;
   
   if (!goodProtocolContracts) {
     throw new Error(`No GoodProtocol contracts found for network: ${networkName}`);
   }
 
-  const oftAdapterAddress = currentRelease.GoodDollarOFTAdapter;
   const tokenAddress = goodProtocolContracts.GoodDollar || goodProtocolContracts.SuperGoodDollar;
-  const minterBurnerAddress = currentRelease.GoodDollarMinterBurner;
-
-  if (!oftAdapterAddress) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
-  }
 
   if (!tokenAddress) {
     throw new Error(`GoodDollar token not found in GoodProtocol deployment.json for ${networkName}`);
   }
 
-  if (!minterBurnerAddress) {
-    throw new Error(`GoodDollarMinterBurner not found in deployment-oft.json for ${networkName}`);
-  }
 
   console.log("\nSource chain contract addresses:");
   console.log("OFT Adapter:", oftAdapterAddress);
@@ -141,21 +133,7 @@ const main = async () => {
     destNetworkName = "development-xdc";
   }
 
-  const destRelease = release[destNetworkName] || {};
-  if (!destRelease.GoodDollarOFTAdapter) {
-    throw new Error(`No deployment found for destination network: ${destNetworkName}`);
-  }
-
-  const destOFTAdapter = destRelease.GoodDollarOFTAdapter;
-  
-  if (!destOFTAdapter) {
-    throw new Error(
-      `${destNetwork} OFT adapter address not found in deployment-oft.json.\n` +
-      `Please either:\n` +
-      `  1. Deploy OFT adapter on ${destNetwork} and add it to deployment-oft.json, or\n` +
-      `  2. Manually set the peer using: test/oft/set-oft-peer.ts`
-    );
-  }
+  const { GoodDollarOFTAdapter: destOFTAdapter } = getOftDeploymentAddresses(destNetworkName);
 
   console.log(`\nDestination chain (${destNetwork}):`);
   console.log(`OFT Adapter: ${destOFTAdapter}`);

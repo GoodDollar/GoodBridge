@@ -14,15 +14,15 @@ import type { OmniPointHardhat } from "@layerzerolabs/toolbox-hardhat";
 import { OAppEnforcedOption } from "@layerzerolabs/toolbox-hardhat";
 import { ExecutorOptionType } from "@layerzerolabs/lz-v2-utilities";
 import { TwoWayConfig, generateConnectionsConfig } from "@layerzerolabs/metadata-tools";
-import dao from "./release/deployment-oft.json";
+import { getOftDeploymentAddresses } from "./deploy/utils/getOftDeploymentAddresses";
 
 // Network names - adjust these based on your deployment
 const XDC_NETWORK = "development-xdc";
 const CELO_NETWORK = "development-celo";
 
-// Get contract addresses from deployment.json
-const xdcOftAdapterAddress = (dao[XDC_NETWORK] as any)?.GoodDollarOFTAdapter;
-const celoOftAdapterAddress = (dao[CELO_NETWORK] as any)?.GoodDollarOFTAdapter;
+// Get contract addresses from hardhat-deploy artifacts (`deployments/`)
+const { GoodDollarOFTAdapter: xdcOftAdapterAddress } = getOftDeploymentAddresses(XDC_NETWORK);
+const { GoodDollarOFTAdapter: celoOftAdapterAddress } = getOftDeploymentAddresses(CELO_NETWORK);
 
 // XDC Network contract
 const xdcContract: OmniPointHardhat = {

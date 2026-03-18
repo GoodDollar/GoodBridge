@@ -59,7 +59,7 @@ npx hardhat deploy --tags OFT --network development-celo
 This deployment script will:
 - Deploy `GoodDollarMinterBurner` (upgradeable proxy)
 - Deploy `GoodDollarOFTAdapter` (upgradeable proxy)
-- Save contract addresses to `release/deployment-oft.json`
+- Save contract addresses to hardhat-deploy's `deployments/` artifacts
 - Save deployments to hardhat-deploy's deployment system
 
 **Note**: The deployment uses hardhat-deploy for better deployment management and tracking.
@@ -77,7 +77,7 @@ npx hardhat run test/oft/set-oft-operator.ts --network development-celo
 ```
 
 This script:
-- Reads contract addresses from `release/deployment-oft.json`
+- Reads contract addresses from hardhat-deploy's `deployments/` artifacts
 - Sets the GoodDollarOFTAdapter as an operator on GoodDollarMinterBurner
 - Executes via DAO governance (Controller/Avatar) since MinterBurner is DAO-controlled
 
@@ -162,7 +162,7 @@ yarn hardhat run test/oft/transfer-oft-adapter-ownership.ts --network developmen
 
 After configuration, verify the setup:
 
-1. **Check contract deployments**: Verify addresses in `release/deployment-oft.json`
+1. **Check contract deployments**: Verify addresses in hardhat-deploy's `deployments/` artifacts
 2. **Check operator status**: Verify OFT adapter is set as operator on MinterBurner
 3. **Check MINTER_ROLE**: Verify MinterBurner has minter role on GoodDollar token
 4. **Check ownership**: Verify OFT adapter is owned by DAO Avatar

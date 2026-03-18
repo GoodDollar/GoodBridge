@@ -10,7 +10,7 @@
 
 import { network, ethers } from "hardhat";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment-oft.json";
+import { getOftDeploymentAddresses } from "../../deploy/utils/getOftDeploymentAddresses";
 
 const main = async () => {
   const networkName = network.name;
@@ -30,9 +30,8 @@ const main = async () => {
     throw new Error(`No GoodProtocol contracts found for network: ${networkName}`);
   }
 
-  const currentRelease = release[networkName] || {};
   const tokenAddress = goodProtocolContracts.GoodDollar || goodProtocolContracts.SuperGoodDollar;
-  const minterBurnerAddress = currentRelease.GoodDollarMinterBurner;
+  const { GoodDollarMinterBurner: minterBurnerAddress } = getOftDeploymentAddresses(networkName);
   const controllerAddress = goodProtocolContracts.Controller;
   const avatarAddress = goodProtocolContracts.Avatar;
 
@@ -40,9 +39,7 @@ const main = async () => {
     throw new Error(`GoodDollar token not found in GoodProtocol deployment.json for ${networkName}`);
   }
 
-  if (!minterBurnerAddress) {
-    throw new Error(`GoodDollarMinterBurner not found in deployment-oft.json for ${networkName}`);
-  }
+  // `getOftDeploymentAddresses` throws if missing
 
   if (!controllerAddress) {
     throw new Error(`Controller not found in GoodProtocol deployment.json for ${networkName}`);

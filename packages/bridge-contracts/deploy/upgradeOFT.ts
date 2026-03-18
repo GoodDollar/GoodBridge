@@ -2,7 +2,7 @@
  * Hardhat-deploy script to upgrade existing GoodDollar OFT contracts.
  *
  * Same flow as deployOFT.ts (no hardhat-upgrades):
- *  - Reads proxy addresses from release/deployment-oft.json for the current network
+ *  - Reads proxy addresses from hardhat-deploy artifacts (`deployments/`) for the current network
  *  - Resolves token and LayerZero endpoint from GoodProtocol deployment (same as deployOFT)
  *  - Deploys new implementations (OFT adapter with constructor args, MinterBurner with none)
  *  - Calls upgradeTo(newImplementation) on each proxy (UUPS)
@@ -17,8 +17,8 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { ethers } from "hardhat";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../release/deployment-oft.json";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
+import { getOftDeploymentAddresses } from "./utils/getOftDeploymentAddresses";
 
 const lzEndpoints: { [key: string]: string } = {
   "development-celo": "0x1a44076050125825900e736c501f859c50fE728c",
@@ -40,22 +40,10 @@ const func: DeployFunction = async function (hre) {
     (await ethers.provider.getBalance(root.address)).toString()
   );
 
-  const currentRelease = (release as any)[networkName] || {};
-  const oftAdapterProxy = currentRelease.GoodDollarOFTAdapter as string | undefined;
-  const minterBurnerProxy = currentRelease.GoodDollarMinterBurner as string | undefined;
+  const { GoodDollarOFTAdapter: oftAdapterProxy, GoodDollarMinterBurner: minterBurnerProxy } =
+    getOftDeploymentAddresses(networkName);
 
-  if (!oftAdapterProxy) {
-    throw new Error(
-      `GoodDollarOFTAdapter not found in deployment-oft.json for network "${networkName}".`
-    );
-  }
-  if (!minterBurnerProxy) {
-    throw new Error(
-      `GoodDollarMinterBurner not found in deployment-oft.json for network "${networkName}".`
-    );
-  }
-
-  console.log("\nExisting proxy addresses (from deployment-oft.json):");
+  console.log("\nExisting proxy addresses (from hardhat-deploy artifacts):");
   console.log("GoodDollarOFTAdapter proxy:", oftAdapterProxy);
   console.log("GoodDollarMinterBurner proxy:", minterBurnerProxy);
 

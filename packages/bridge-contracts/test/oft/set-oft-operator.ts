@@ -10,7 +10,7 @@
 
 import { network, ethers } from 'hardhat';
 import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
-import release from '../../release/deployment-oft.json';
+import { getOftDeploymentAddresses } from '../../deploy/utils/getOftDeploymentAddresses';
 
 const { name: networkName } = network;
 
@@ -51,22 +51,9 @@ export const setOFTOperator = async () => {
     }
   }
 
-  // Get deployed contract addresses
-  const currentRelease = release[networkName] || {};
-  const minterBurnerAddress = currentRelease.GoodDollarMinterBurner;
-  const oftAdapterAddress = currentRelease.GoodDollarOFTAdapter;
-
-  if (!minterBurnerAddress) {
-    throw new Error(
-      `GoodDollarMinterBurner not found in deployment for network ${networkName}. Please deploy OFT contracts first.`,
-    );
-  }
-
-  if (!oftAdapterAddress) {
-    throw new Error(
-      `GoodDollarOFTAdapter not found in deployment for network ${networkName}. Please deploy OFT contracts first.`,
-    );
-  }
+  // Get deployed contract addresses (from hardhat-deploy `deployments/` artifacts)
+  const { GoodDollarMinterBurner: minterBurnerAddress, GoodDollarOFTAdapter: oftAdapterAddress } =
+    getOftDeploymentAddresses(networkName);
 
   console.log('Contract addresses:', {
     MinterBurner: minterBurnerAddress,

@@ -17,7 +17,7 @@
 import { network, ethers } from "hardhat";
 import { BigNumber } from "ethers";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment-oft.json";
+import { getOftDeploymentAddresses } from "../../deploy/utils/getOftDeploymentAddresses";
 import config from "./oft.config.json";
 
 const main = async () => {
@@ -32,11 +32,8 @@ const main = async () => {
   const nativeTokenName = networkName.includes("celo") ? "CELO" : networkName.includes("xdc") ? "XDC" : "native token";
   console.log("Signer balance:", ethers.utils.formatEther(await ethers.provider.getBalance(signer.address)), nativeTokenName);
 
-  // Get deployment info
-  const currentRelease = release[networkName] || {};
-  if (!currentRelease.GoodDollarOFTAdapter) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
-  }
+  // Get deployment info (from hardhat-deploy artifacts)
+  const { GoodDollarOFTAdapter: oftAdapterAddress } = getOftDeploymentAddresses(networkName);
 
   // Get GoodProtocol contracts for Controller and Avatar
   const goodProtocolContracts = Contracts[networkName as keyof typeof Contracts] as any;
@@ -44,13 +41,8 @@ const main = async () => {
     throw new Error(`No GoodProtocol contracts found for network: ${networkName}`);
   }
 
-  const oftAdapterAddress = currentRelease.GoodDollarOFTAdapter;
   const controllerAddress = goodProtocolContracts.Controller;
   const avatarAddress = goodProtocolContracts.Avatar;
-
-  if (!oftAdapterAddress) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
-  }
 
   if (!controllerAddress) {
     throw new Error(`Controller not found in GoodProtocol deployment.json for ${networkName}`);

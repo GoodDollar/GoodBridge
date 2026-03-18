@@ -10,7 +10,7 @@
 
 import { network, ethers } from "hardhat";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
-import release from "../../release/deployment-oft.json";
+import { getOftDeploymentAddresses } from "../../deploy/utils/getOftDeploymentAddresses";
 
 const main = async () => {
   const networkName = network.name;
@@ -22,19 +22,16 @@ const main = async () => {
   console.log("Signer balance:", ethers.utils.formatEther(await ethers.provider.getBalance(signer.address)), "ETH/CELO");
 
   // Get deployment info
-  const currentRelease = release[networkName] || {};
+  const { GoodDollarOFTAdapter: oftAdapterAddress, GoodDollarMinterBurner: minterBurnerAddress } =
+    getOftDeploymentAddresses(networkName);
   const goodProtocolContracts = Contracts[networkName as keyof typeof Contracts] as any;
   
   if (!goodProtocolContracts) {
     throw new Error(`No GoodProtocol contracts found for network: ${networkName}`);
   }
 
-  const oftAdapterAddress = currentRelease.GoodDollarOFTAdapter;
   const avatarAddress = goodProtocolContracts.Avatar;
-
-  if (!oftAdapterAddress) {
-    throw new Error(`GoodDollarOFTAdapter not found in deployment-oft.json for ${networkName}`);
-  }
+  
 
   if (!avatarAddress) {
     throw new Error(`Avatar not found in GoodProtocol deployment.json for ${networkName}`);
@@ -73,7 +70,7 @@ const main = async () => {
     
     // Get required addresses for initialization
     const tokenAddress = goodProtocolContracts.GoodDollar || goodProtocolContracts.SuperGoodDollar;
-    const minterBurnerAddress = currentRelease.GoodDollarMinterBurner;
+    // Loaded from hardhat-deploy artifacts
     const nameServiceAddress = goodProtocolContracts.NameService;
     const controllerAddress = goodProtocolContracts.Controller;
     

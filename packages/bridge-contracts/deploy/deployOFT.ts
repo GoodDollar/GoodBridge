@@ -15,8 +15,6 @@
 import { DeployFunction } from 'hardhat-deploy/types';
 import { ethers } from 'hardhat';
 import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
-import fse from 'fs-extra';
-import release from '../release/deployment-oft.json';
 import { getImplementationAddress } from '@openzeppelin/upgrades-core';
 import { verifyContract } from './utils/verifyContract';
 
@@ -162,13 +160,6 @@ const func: DeployFunction = async function (hre) {
     console.log('GoodDollarMinterBurner already initialized');
   }
 
-  // Update release file for MinterBurner
-  if (!release[networkName]) {
-    release[networkName] = {};
-  }
-  release[networkName].GoodDollarMinterBurner = minterBurnerAddress;
-  await fse.writeJSON('release/deployment-oft.json', release, { spaces: 2 });
-
   // Verify GoodDollarMinterBurner implementation (no constructor args) on non-local networks (skip: 'hardhat', 'localhost')
   if (!['hardhat', 'localhost'].includes(networkName)) {
     await verifyContract(hre as any, minterBurnerImpl.address, [], 'GoodDollarMinterBurner');
@@ -223,9 +214,6 @@ const func: DeployFunction = async function (hre) {
   } else {
     console.log('GoodDollarOFTAdapter already initialized');
   }
-
-  release[networkName].GoodDollarOFTAdapter = oftAdapterAddress;
-  await fse.writeJSON('release/deployment-oft.json', release, { spaces: 2 });
 
   // Verify GoodDollarOFTAdapter implementation (constructor: tokenAddress, lzEndpoint) on non-local networks (skip: 'hardhat', 'localhost')
   if (!['hardhat', 'localhost'].includes(networkName)) {
