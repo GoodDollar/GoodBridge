@@ -169,8 +169,8 @@ const func: DeployFunction = async function (hre) {
   release[networkName].GoodDollarMinterBurner = minterBurnerAddress;
   await fse.writeJSON('release/deployment-oft.json', release, { spaces: 2 });
 
-  // Verify GoodDollarMinterBurner implementation (no constructor args)
-  if (!['hardhat', 'localhost', 'develop'].includes(networkName)) {
+  // Verify GoodDollarMinterBurner implementation (no constructor args) on non-local networks (skip: 'hardhat', 'localhost')
+  if (!['hardhat', 'localhost'].includes(networkName)) {
     await verifyContract(hre as any, minterBurnerImpl.address, [], 'GoodDollarMinterBurner');
   }
 
@@ -227,8 +227,8 @@ const func: DeployFunction = async function (hre) {
   release[networkName].GoodDollarOFTAdapter = oftAdapterAddress;
   await fse.writeJSON('release/deployment-oft.json', release, { spaces: 2 });
 
-  // Verify GoodDollarOFTAdapter implementation (constructor: tokenAddress, lzEndpoint)
-  if (!['hardhat', 'localhost', 'develop'].includes(networkName)) {
+  // Verify GoodDollarOFTAdapter implementation (constructor: tokenAddress, lzEndpoint) on non-local networks (skip: 'hardhat', 'localhost')
+  if (!['hardhat', 'localhost'].includes(networkName)) {
     await verifyContract(hre as any, oftAdapterImpl.address, [tokenAddress, lzEndpoint], 'GoodDollarOFTAdapter');
   }
 

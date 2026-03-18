@@ -19,7 +19,7 @@ export async function verifyContract(
   const displayName = contractName || contractAddress;
 
   // Skip verification for local networks
-  if (['hardhat', 'localhost', 'develop'].includes(networkName)) {
+  if (['hardhat', 'localhost'].includes(networkName)) {
     console.log(`ℹ️  Skipping verification for ${displayName} on local network: ${networkName}`);
     return;
   }
