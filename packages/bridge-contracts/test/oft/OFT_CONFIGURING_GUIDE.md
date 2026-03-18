@@ -119,10 +119,10 @@ Configure bridge limits using values from `oft.config.json`:
 
 ```bash
 # Set limits on XDC
-yarn hardhat run test/oft/set-minter-burner-limits.ts --network development-xdc
+yarn hardhat run test/oft/set-bridge-limits.ts --network development-xdc
 
 # Set limits on CELO
-yarn hardhat run test/oft/set-minter-burner-limits.ts --network development-celo
+yarn hardhat run test/oft/set-bridge-limits.ts --network development-celo
 ```
 
 The script reads limit values from `oft.config.json` for the specified network and sets them on the OFT adapter.

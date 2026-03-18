@@ -5,7 +5,7 @@
  * Note: Limits are now managed in GoodDollarOFTAdapter, not GoodDollarMinterBurner
  * 
  * Usage:
- *   npx hardhat run test/oft/set-minter-burner-limits.ts --network development-celo
+ *   npx hardhat run test/oft/set-bridge-limits.ts --network development-celo
  * 
  * Configuration:
  *   All limit values are read from test/oft/oft.config.json
