@@ -107,6 +107,16 @@ const func: DeployFunction = async function (hre) {
   if (network.name.includes('development')) {
     isDevelopment = true;
   }
+
+  // CREATE2 salt for implementations:
+  // hardhat-deploy uses `deterministicDeployment` as the CREATE2 salt.
+  // We derive it from the contract's compiled bytecode so version changes
+  // map to different deterministic implementation addresses.
+  const minterBurnerArtifact = await hre.artifacts.readArtifact('GoodDollarMinterBurner');
+  const minterBurnerImplSalt = ethers.utils.keccak256(minterBurnerArtifact.bytecode);
+  const oftAdapterArtifact = await hre.artifacts.readArtifact('GoodDollarOFTAdapter');
+  const oftAdapterImplSalt = ethers.utils.keccak256(oftAdapterArtifact.bytecode);
+
   // --- GoodDollarMinterBurner (hardhat-deploy: deterministic proxy + implementation + execute initialize) ---
   const minterBurnerProxySalt = ethers.utils.keccak256(
     ethers.utils.toUtf8Bytes(isDevelopment ? 'Development-GoodDollarMinterBurnerV1' : 'Production-GoodDollarMinterBurnerV1'),
@@ -124,7 +134,7 @@ const func: DeployFunction = async function (hre) {
   const minterBurnerImpl = await deployments.deploy('GoodDollarMinterBurner_Implementation', {
     contract: 'GoodDollarMinterBurner',
     from: root.address,
-    deterministicDeployment: true,
+    deterministicDeployment: minterBurnerImplSalt,
     log: true,
   });
   console.log('GoodDollarMinterBurner implementation', minterBurnerImpl.address);
@@ -181,7 +191,7 @@ const func: DeployFunction = async function (hre) {
   const oftAdapterImpl = await deployments.deploy('GoodDollarOFTAdapter_Implementation', {
     contract: 'GoodDollarOFTAdapter',
     from: root.address,
-    deterministicDeployment: true,
+    deterministicDeployment: oftAdapterImplSalt,
     log: true,
     args: [tokenAddress, lzEndpoint],
   });
