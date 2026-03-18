@@ -116,9 +116,11 @@ const func: DeployFunction = async function (hre) {
 
   // --- GoodDollarOFTAdapter: deploy new implementation via hardhat-deploy, then upgrade proxy ---
   console.log("\nDeploying new GoodDollarOFTAdapter implementation...");
-  const oftAdapterImpl = await deployments.deploy("GoodDollarOFTAdapter_Implementation_Upgrade", {
+
+  const oftAdapterImpl = await deployments.deploy("GoodDollarOFTAdapter_Implementation", {
     contract: "GoodDollarOFTAdapter",
     from: root.address,
+    deterministicDeployment: true,
     log: true,
     args: [tokenAddress, lzEndpoint],
   });
@@ -136,10 +138,11 @@ const func: DeployFunction = async function (hre) {
   // --- GoodDollarMinterBurner: deploy new implementation via hardhat-deploy, then upgrade proxy ---
   console.log("\nDeploying new GoodDollarMinterBurner implementation...");
   const minterBurnerImpl = await deployments.deploy(
-    "GoodDollarMinterBurner_Implementation_Upgrade",
+    "GoodDollarMinterBurner_Implementation",
     {
       contract: "GoodDollarMinterBurner",
       from: root.address,
+      deterministicDeployment: true,
       log: true,
     }
   );
