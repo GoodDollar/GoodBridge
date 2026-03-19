@@ -5,13 +5,14 @@ import {ISuperGoodDollar} from "./interfaces/ISuperGoodDollar.sol";
 import {DAOUpgradeableContract, INameService} from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 
 /**
- * @title GoodDollarMinterBurner
- * @dev DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT; used by GoodDollarOFTAdapter for cross-chain transfers via LayerZero.
+ * @title GoodDollarOFTMinterBurner
+ * @dev DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT; used by
+ * GoodDollarOFTAdapter for cross-chain transfers via LayerZero.
  */
-contract GoodDollarMinterBurner is DAOUpgradeableContract {
+contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
     ISuperGoodDollar public token;
     mapping(address => bool) public operators;
-    
+
     bool public paused;
 
     event OperatorSet(address indexed operator, bool status);
@@ -19,22 +20,26 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
     event Unpaused(address indexed account);
     event TokensMinted(address indexed to, uint256 amount, address indexed operator);
     event TokensBurned(address indexed from, uint256 amount, address indexed operator);
-    
+
     modifier onlyOperators() {
         require(operators[msg.sender] || msg.sender == avatar, "Not authorized");
         require(!paused, "Contract is paused");
         _;
     }
-    
+
     /**
      * @dev Initialize the MinterBurner contract
      * @param _nameService The NameService contract for DAO integration
+     * @param _adapter The OFT adapter address that should be authorized as operator
      */
-    function initialize(
-        INameService _nameService
-    ) public initializer {
+    function initialize(INameService _nameService, address _adapter) public initializer {
+        require(_adapter != address(0), "adapter required");
+
         setDAO(_nameService);
         token = ISuperGoodDollar(address(nativeToken()));
+
+        operators[_adapter] = true;
+        emit OperatorSet(_adapter, true);
     }
 
     /**
@@ -48,7 +53,6 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
         emit OperatorSet(_operator, _status);
     }
 
-
     /**
      * @dev Burn tokens from an address
      * @param _from The address to burn tokens from
@@ -57,7 +61,7 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
      */
     function burn(address _from, uint256 _amount) external onlyOperators returns (bool) {
         token.burnFrom(_from, _amount);
-        
+
         emit TokensBurned(_from, _amount, msg.sender);
         return true;
     }
@@ -103,3 +107,4 @@ contract GoodDollarMinterBurner is DAOUpgradeableContract {
      */
     uint256[50] private __gap;
 }
+

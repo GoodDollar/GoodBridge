@@ -465,6 +465,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IIdentity__factory>;
     getContractFactory(
+      name: "GoodDollarOFTMinterBurner",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.GoodDollarOFTMinterBurner__factory>;
+    getContractFactory(
       name: "ISuperGoodDollar",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ISuperGoodDollar__factory>;
@@ -1090,6 +1094,11 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IIdentity>;
+    getContractAt(
+      name: "GoodDollarOFTMinterBurner",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.GoodDollarOFTMinterBurner>;
     getContractAt(
       name: "ISuperGoodDollar",
       address: string,

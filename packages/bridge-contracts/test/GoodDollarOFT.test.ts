@@ -27,11 +27,10 @@ describe("OFT (unit, no fork)", () => {
     const endpoint = await Endpoint.deploy();
     await endpoint.deployed();
 
-    // Deploy MinterBurner (can be direct-deployed; initialize is an initializer)
-    const MinterBurner = await ethers.getContractFactory("GoodDollarMinterBurner");
+    // Deploy minter/burner (do not initialize yet; adapter address is required)
+    const MinterBurner = await ethers.getContractFactory("GoodDollarOFTMinterBurner");
     const minterBurner = await MinterBurner.deploy();
     await minterBurner.deployed();
-    await minterBurner.initialize(nameService.address);
 
     // Deploy adapter via UUPS proxy (implementation disables initializers)
     const Adapter = await ethers.getContractFactory("GoodDollarOFTAdapter");
@@ -45,13 +44,21 @@ describe("OFT (unit, no fork)", () => {
       }
     );
 
+    // Now that adapter exists, initialize the minter/burner and authorize adapter as operator
+    await minterBurner.initialize(nameService.address, adapter.address);
+
     return { owner, user, feeRecipient, avatar, nameService, controller, token, endpoint, minterBurner, adapter };
   }
 
-  describe("GoodDollarMinterBurner", () => {
+  describe("GoodDollarOFTMinterBurner", () => {
     it("initializes token from NameService GOODDOLLAR", async () => {
       const { minterBurner, token } = await loadFixture(fixture);
       expect(await minterBurner.token()).to.equal(token.address);
+    });
+
+    it("authorizes the adapter as operator on initialize", async () => {
+      const { minterBurner, adapter } = await loadFixture(fixture);
+      expect(await minterBurner.operators(adapter.address)).to.equal(true);
     });
 
     it("only avatar can setOperator", async () => {
