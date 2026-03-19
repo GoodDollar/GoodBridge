@@ -67,13 +67,10 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
     ];
     const nameService = await ethers.getContractAt(nameServiceAbi, nameServiceAddress);
 
-    // Deploy MinterBurner using production NameService
-    const MinterBurnerFactory = await ethers.getContractFactory('GoodDollarMinterBurner');
-    const minterBurner = await upgrades.deployProxy(
-      MinterBurnerFactory,
-      [celoContracts.NameService],
-      { kind: 'uups' }
-    );
+    // Deploy minter/burner without initializing yet (adapter address is required)
+    const MinterBurnerFactory = await ethers.getContractFactory('GoodDollarOFTMinterBurner');
+    const minterBurner = await MinterBurnerFactory.deploy();
+    await minterBurner.deployed();
 
     // Deploy adapter using upgrades plugin with constructor args
     const AdapterFactory = await ethers.getContractFactory('GoodDollarOFTAdapter');
@@ -91,6 +88,9 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       }
     )) as GoodDollarOFTAdapter;
 
+    // Now that adapter exists, initialize the minter/burner and authorize adapter as operator
+    await minterBurner.initialize(nameService.address, adapter.address);
+
     return {
       token,
       nameService,
@@ -107,12 +107,9 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
 
       // Deploy MinterBurner using production NameService
       // Note: This requires NameService to have GOODDOLLAR registered
-      const MinterBurnerFactory = await ethers.getContractFactory('GoodDollarMinterBurner');
-      const minterBurner = await upgrades.deployProxy(
-        MinterBurnerFactory,
-        [celoContracts.NameService],
-        { kind: 'uups' }
-      );
+      const MinterBurnerFactory = await ethers.getContractFactory('GoodDollarOFTMinterBurner');
+      const minterBurner = await MinterBurnerFactory.deploy();
+      await minterBurner.deployed();
 
       // Deploy adapter using upgrades plugin with constructor args
       const AdapterFactory = await ethers.getContractFactory('GoodDollarOFTAdapter');
@@ -132,6 +129,9 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
         }
       )) as GoodDollarOFTAdapter;
       console.log('Adapter deployed:', adapter.address);
+
+      // Initialize minter/burner after adapter deployment
+      await minterBurner.initialize(celoContracts.NameService, adapter.address);
 
       // Verify deployment
       expect(await adapter.token()).to.equal(goodDollarAddress);

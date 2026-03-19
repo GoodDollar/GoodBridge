@@ -226,6 +226,8 @@ export type { GoodDollarMinterBurner } from "./contracts/oft/GoodDollarMinterBur
 export { GoodDollarMinterBurner__factory } from "./factories/contracts/oft/GoodDollarMinterBurner__factory";
 export type { GoodDollarOFTAdapter } from "./contracts/oft/GoodDollarOFTAdapter.sol/GoodDollarOFTAdapter";
 export { GoodDollarOFTAdapter__factory } from "./factories/contracts/oft/GoodDollarOFTAdapter.sol/GoodDollarOFTAdapter__factory";
+export type { GoodDollarOFTMinterBurner } from "./contracts/oft/GoodDollarOFTMinterBurner";
+export { GoodDollarOFTMinterBurner__factory } from "./factories/contracts/oft/GoodDollarOFTMinterBurner__factory";
 export type { ISuperGoodDollar } from "./contracts/oft/interfaces/ISuperGoodDollar";
 export { ISuperGoodDollar__factory } from "./factories/contracts/oft/interfaces/ISuperGoodDollar__factory";
 export type { ConsensusMock } from "./contracts/test/ConsensusMock";
