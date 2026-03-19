@@ -67,7 +67,7 @@ const main = async () => {
   console.log(`Sender balance: ${ethers.utils.formatEther(await ethers.provider.getBalance(sender.address))} ${nativeTokenName}`);
 
   // Get deployment info for source network
-  const { GoodDollarOFTAdapter: oftAdapterAddress, GoodDollarMinterBurner: minterBurnerAddress } =
+  const { GoodDollarOFTAdapter: oftAdapterAddress, GoodDollarOFTMinterBurner: minterBurnerAddress } =
     getOftDeploymentAddresses(networkName);
   const goodProtocolContracts = Contracts[networkName as keyof typeof Contracts] as any;
   
@@ -390,9 +390,11 @@ const main = async () => {
   }
 };
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

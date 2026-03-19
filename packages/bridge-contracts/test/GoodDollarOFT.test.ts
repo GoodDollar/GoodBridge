@@ -6,7 +6,7 @@ describe("OFT (unit, no fork)", () => {
   async function fixture() {
     const [owner, user, feeRecipient, avatar] = await ethers.getSigners();
 
-    // Mocks for DAO stack used by GoodDollarMinterBurner
+    // Mocks for DAO stack used by GoodDollarOFTMinterBurner
     const NameService = await ethers.getContractFactory("NameServiceMock");
     const nameService = await NameService.deploy();
     await nameService.deployed();

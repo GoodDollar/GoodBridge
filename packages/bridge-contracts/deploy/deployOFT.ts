@@ -2,14 +2,15 @@
  * Hardhat-deploy script for GoodDollar OFT (Omnichain Fungible Token) contracts
  *
  * Deploys (same pattern as MessageBridge: deterministic proxy + implementation + execute initialize):
- * 1. GoodDollarMinterBurner - DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT
+ * 1. GoodDollarOFTMinterBurner - DAO-upgradeable contract that handles minting and burning of GoodDollar tokens for OFT
  * 2. GoodDollarOFTAdapter - Upgradeable LayerZero OFT adapter that wraps GoodDollar token for cross-chain transfers
  *
  * Steps:
- * 1. Deploy ERC1967Proxy (deterministic) for GoodDollarMinterBurner, deploy implementation, execute initialize(nameService)
+ * 1. Deploy ERC1967Proxy (deterministic) for GoodDollarOFTMinterBurner, deploy implementation
+ *    then execute initialize(nameService, adapter) once the adapter proxy address is known
  * 2. Deploy ERC1967Proxy (deterministic) for GoodDollarOFTAdapter, deploy implementation (constructor: token, lzEndpoint), execute initialize(token, minterBurner, owner, feeRecipient)
  *
- * Note: Setting OFT adapter as operator on GoodDollarMinterBurner must be done separately via DAO governance
+ * Note: GoodDollarOFTMinterBurner.initialize wires the adapter as operator.
  */
 
 import { DeployFunction } from 'hardhat-deploy/types';
@@ -110,16 +111,18 @@ const func: DeployFunction = async function (hre) {
   // hardhat-deploy uses `deterministicDeployment` as the CREATE2 salt.
   // We derive it from the contract's compiled bytecode so version changes
   // map to different deterministic implementation addresses.
-  const minterBurnerArtifact = await hre.artifacts.readArtifact('GoodDollarMinterBurner');
+  const minterBurnerArtifact = await hre.artifacts.readArtifact('GoodDollarOFTMinterBurner');
   const minterBurnerImplSalt = ethers.utils.keccak256(minterBurnerArtifact.bytecode);
   const oftAdapterArtifact = await hre.artifacts.readArtifact('GoodDollarOFTAdapter');
   const oftAdapterImplSalt = ethers.utils.keccak256(oftAdapterArtifact.bytecode);
 
-  // --- GoodDollarMinterBurner (hardhat-deploy: deterministic proxy + implementation + execute initialize) ---
+  // --- GoodDollarOFTMinterBurner (hardhat-deploy: deterministic proxy + implementation + execute initialize) ---
   const minterBurnerProxySalt = ethers.utils.keccak256(
-    ethers.utils.toUtf8Bytes(isDevelopment ? 'Development-GoodDollarMinterBurnerV1' : 'Production-GoodDollarMinterBurnerV1'),
+    ethers.utils.toUtf8Bytes(
+      isDevelopment ? 'Development-GoodDollarOFTMinterBurnerV1' : 'Production-GoodDollarOFTMinterBurnerV1'
+    ),
   );
-  const minterBurnerProxyDeploy = await deployments.deterministic('GoodDollarMinterBurner', {
+  const minterBurnerProxyDeploy = await deployments.deterministic('GoodDollarOFTMinterBurner', {
     contract: 'ERC1967Proxy',
     from: root.address,
     salt: minterBurnerProxySalt,
@@ -127,42 +130,31 @@ const func: DeployFunction = async function (hre) {
   });
   const minterBurnerProxy = await minterBurnerProxyDeploy.deploy();
   const minterBurnerAddress = minterBurnerProxy.address;
-  console.log('GoodDollarMinterBurner proxy', minterBurnerAddress);
+  console.log('GoodDollarOFTMinterBurner proxy', minterBurnerAddress);
 
-  const minterBurnerImpl = await deployments.deploy('GoodDollarMinterBurner_Implementation', {
-    contract: 'GoodDollarMinterBurner',
+  const minterBurnerImpl = await deployments.deploy('GoodDollarOFTMinterBurner_Implementation', {
+    contract: 'GoodDollarOFTMinterBurner',
     from: root.address,
     deterministicDeployment: minterBurnerImplSalt,
     log: true,
   });
-  console.log('GoodDollarMinterBurner implementation', minterBurnerImpl.address);
+  console.log('GoodDollarOFTMinterBurner implementation', minterBurnerImpl.address);
 
-  const minterBurnerContract = await ethers.getContractAt('GoodDollarMinterBurner', minterBurnerAddress);
+  const minterBurnerContract = await ethers.getContractAt('GoodDollarOFTMinterBurner', minterBurnerAddress);
   const minterBurnerInitialized = await minterBurnerContract
     .token()
     .then((addr: string) => addr !== ethers.constants.AddressZero)
     .catch(() => false);
 
   if (!minterBurnerInitialized) {
-    console.log('Initializing GoodDollarMinterBurner...');
-    const minterBurnerInitData = minterBurnerContract.interface.encodeFunctionData('initialize', [
-      nameServiceAddress,
-    ]);
-    await deployments.execute(
-      'GoodDollarMinterBurner',
-      { from: root.address },
-      'initialize',
-      minterBurnerImpl.address,
-      minterBurnerInitData,
-    );
-    console.log('GoodDollarMinterBurner initialized');
+    console.log('GoodDollarOFTMinterBurner not initialized yet; will initialize after deploying adapter...');
   } else {
-    console.log('GoodDollarMinterBurner already initialized');
+    console.log('GoodDollarOFTMinterBurner already initialized');
   }
 
-  // Verify GoodDollarMinterBurner implementation (no constructor args) on non-local networks (skip: 'hardhat', 'localhost')
+  // Verify GoodDollarOFTMinterBurner implementation (no constructor args) on non-local networks (skip: 'hardhat', 'localhost')
   if (!['hardhat', 'localhost'].includes(networkName)) {
-    await verifyContract(hre as any, minterBurnerImpl.address, [], 'GoodDollarMinterBurner');
+    await verifyContract(hre as any, minterBurnerImpl.address, [], 'GoodDollarOFTMinterBurner');
   }
 
   // --- GoodDollarOFTAdapter (hardhat-deploy: deterministic proxy + implementation with constructor + execute initialize) ---
@@ -178,6 +170,23 @@ const func: DeployFunction = async function (hre) {
   const oftAdapterProxy = await oftAdapterProxyDeploy.deploy();
   const oftAdapterAddress = oftAdapterProxy.address;
   console.log('GoodDollarOFTAdapter proxy', oftAdapterAddress);
+
+  // Initialize minter/burner after we know the adapter address
+  if (!minterBurnerInitialized) {
+    console.log('Initializing GoodDollarOFTMinterBurner with adapter address...');
+    const minterBurnerInitData = minterBurnerContract.interface.encodeFunctionData('initialize', [
+      nameServiceAddress,
+      oftAdapterAddress,
+    ]);
+    await deployments.execute(
+      'GoodDollarOFTMinterBurner',
+      { from: root.address },
+      'initialize',
+      minterBurnerImpl.address,
+      minterBurnerInitData,
+    );
+    console.log('GoodDollarOFTMinterBurner initialized');
+  }
 
   const oftAdapterImpl = await deployments.deploy('GoodDollarOFTAdapter_Implementation', {
     contract: 'GoodDollarOFTAdapter',
@@ -229,7 +238,7 @@ const func: DeployFunction = async function (hre) {
 
   console.log('\n=== Deployment Summary ===');
   console.log('Network:', networkName);
-  console.log('GoodDollarMinterBurner:', minterBurnerAddress, '(upgradeable)');
+  console.log('GoodDollarOFTMinterBurner:', minterBurnerAddress, '(upgradeable)');
   if (minterBurnerImplAddress) {
     console.log('  Implementation:', minterBurnerImplAddress);
   }

@@ -1,5 +1,5 @@
 /***
- * Script to grant MINTER_ROLE to GoodDollarMinterBurner contract on development-celo
+ * Script to grant MINTER_ROLE to GoodDollarOFTMinterBurner contract on development-celo
  * Uses genericCall through Avatar/Controller to execute the transaction
  * 
  * Usage:
@@ -16,7 +16,7 @@ const main = async () => {
   const networkName = network.name;
   const [signer] = await ethers.getSigners();
 
-  console.log("=== Grant MINTER_ROLE to GoodDollarMinterBurner ===");
+  console.log("=== Grant MINTER_ROLE to GoodDollarOFTMinterBurner ===");
   console.log("Network:", networkName);
   console.log("Signer:", signer.address);
   
@@ -31,7 +31,7 @@ const main = async () => {
   }
 
   const tokenAddress = goodProtocolContracts.GoodDollar || goodProtocolContracts.SuperGoodDollar;
-  const { GoodDollarMinterBurner: minterBurnerAddress } = getOftDeploymentAddresses(networkName);
+  const { GoodDollarOFTMinterBurner: minterBurnerAddress } = getOftDeploymentAddresses(networkName);
   const controllerAddress = goodProtocolContracts.Controller;
   const avatarAddress = goodProtocolContracts.Avatar;
 
@@ -51,7 +51,7 @@ const main = async () => {
 
   console.log("\nContract addresses:");
   console.log("GoodDollar token:", tokenAddress);
-  console.log("GoodDollarMinterBurner:", minterBurnerAddress);
+  console.log("GoodDollarOFTMinterBurner:", minterBurnerAddress);
   console.log("Controller:", controllerAddress);
   console.log("Avatar:", avatarAddress);
 
@@ -68,7 +68,7 @@ const main = async () => {
   console.log("MinterBurner has MINTER_ROLE:", isMinter);
 
   if (isMinter) {
-    console.log("\n✅ GoodDollarMinterBurner already has MINTER_ROLE. No action needed.");
+    console.log("\n✅ GoodDollarOFTMinterBurner already has MINTER_ROLE. No action needed.");
     return;
   }
 
@@ -110,7 +110,7 @@ const main = async () => {
     console.log("MinterBurner has MINTER_ROLE:", isMinterAfter);
 
     if (isMinterAfter) {
-      console.log("\n✅ Successfully granted MINTER_ROLE to GoodDollarMinterBurner via Avatar!");
+      console.log("\n✅ Successfully granted MINTER_ROLE to GoodDollarOFTMinterBurner via Avatar!");
     } else {
       console.log("\n⚠️  Warning: MINTER_ROLE was not granted. Please check the transaction.");
     }
@@ -127,9 +127,11 @@ const main = async () => {
   }
 };
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

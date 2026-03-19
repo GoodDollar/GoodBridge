@@ -40,12 +40,12 @@ const func: DeployFunction = async function (hre) {
     (await ethers.provider.getBalance(root.address)).toString()
   );
 
-  const { GoodDollarOFTAdapter: oftAdapterProxy, GoodDollarMinterBurner: minterBurnerProxy } =
+  const { GoodDollarOFTAdapter: oftAdapterProxy, GoodDollarOFTMinterBurner: minterBurnerProxy } =
     getOftDeploymentAddresses(networkName);
 
   console.log("\nExisting proxy addresses (from hardhat-deploy artifacts):");
   console.log("GoodDollarOFTAdapter proxy:", oftAdapterProxy);
-  console.log("GoodDollarMinterBurner proxy:", minterBurnerProxy);
+  console.log("GoodDollarOFTMinterBurner proxy:", minterBurnerProxy);
 
   const goodProtocolContracts = (Contracts as any)[networkName] as any;
   if (!goodProtocolContracts) {
@@ -105,7 +105,7 @@ const func: DeployFunction = async function (hre) {
   // CREATE2 salt for implementations:
   // hardhat-deploy uses `deterministicDeployment` as the CREATE2 salt.
   // We derive it from the contract's compiled bytecode.
-  const minterBurnerArtifact = await hre.artifacts.readArtifact("GoodDollarMinterBurner");
+  const minterBurnerArtifact = await hre.artifacts.readArtifact("GoodDollarOFTMinterBurner");
   const minterBurnerImplSalt = ethers.utils.keccak256(minterBurnerArtifact.bytecode);
   const oftAdapterArtifact = await hre.artifacts.readArtifact("GoodDollarOFTAdapter");
   const oftAdapterImplSalt = ethers.utils.keccak256(oftAdapterArtifact.bytecode);
@@ -131,22 +131,22 @@ const func: DeployFunction = async function (hre) {
   await txOft.wait();
   console.log("✅ GoodDollarOFTAdapter upgraded");
 
-  // --- GoodDollarMinterBurner: deploy new implementation via hardhat-deploy, then upgrade proxy ---
-  console.log("\nDeploying new GoodDollarMinterBurner implementation...");
+  // --- GoodDollarOFTMinterBurner: deploy new implementation via hardhat-deploy, then upgrade proxy ---
+  console.log("\nDeploying new GoodDollarOFTMinterBurner implementation...");
   const minterBurnerImpl = await deployments.deploy(
-    "GoodDollarMinterBurner_Implementation",
+    "GoodDollarOFTMinterBurner_Implementation",
     {
-      contract: "GoodDollarMinterBurner",
+      contract: "GoodDollarOFTMinterBurner",
       from: root.address,
       deterministicDeployment: minterBurnerImplSalt,
       log: true,
     }
   );
-  console.log("GoodDollarMinterBurner implementation", minterBurnerImpl.address);
+  console.log("GoodDollarOFTMinterBurner implementation", minterBurnerImpl.address);
 
-  console.log("Upgrading GoodDollarMinterBurner proxy via Controller.genericCall (avatar)...");
+  console.log("Upgrading GoodDollarOFTMinterBurner proxy via Controller.genericCall (avatar)...");
   const minterBurnerProxyContract = await ethers.getContractAt(
-    "GoodDollarMinterBurner",
+    "GoodDollarOFTMinterBurner",
     minterBurnerProxy
   );
   const upgradeData = minterBurnerProxyContract.interface.encodeFunctionData("upgradeTo", [
@@ -159,7 +159,7 @@ const func: DeployFunction = async function (hre) {
     0
   );
   await txMb.wait();
-  console.log("✅ GoodDollarMinterBurner upgraded via DAO avatar");
+  console.log("✅ GoodDollarOFTMinterBurner upgraded via DAO avatar");
 
   const minterBurnerImplAddress = await getImplementationAddress(
     ethers.provider,
@@ -172,7 +172,7 @@ const func: DeployFunction = async function (hre) {
 
   console.log("\n=== Upgrade Summary ===");
   console.log("Network:", networkName);
-  console.log("GoodDollarMinterBurner:", minterBurnerProxy, "(upgradeable)");
+  console.log("GoodDollarOFTMinterBurner:", minterBurnerProxy, "(upgradeable)");
   if (minterBurnerImplAddress) {
     console.log("  Implementation:", minterBurnerImplAddress);
   }
@@ -191,7 +191,7 @@ const func: DeployFunction = async function (hre) {
     lzEndpoint
   );
   console.log(
-    "GoodDollarMinterBurner implementation (no constructor args):\n  npx hardhat verify --network",
+    "GoodDollarOFTMinterBurner implementation (no constructor args):\n  npx hardhat verify --network",
     networkName,
     minterBurnerImpl.address
   );

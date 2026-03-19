@@ -22,7 +22,7 @@ const main = async () => {
   console.log("Signer balance:", ethers.utils.formatEther(await ethers.provider.getBalance(signer.address)), "ETH/CELO");
 
   // Get deployment info
-  const { GoodDollarOFTAdapter: oftAdapterAddress, GoodDollarMinterBurner: minterBurnerAddress } =
+  const { GoodDollarOFTAdapter: oftAdapterAddress, GoodDollarOFTMinterBurner: minterBurnerAddress } =
     getOftDeploymentAddresses(networkName);
   const goodProtocolContracts = Contracts[networkName as keyof typeof Contracts] as any;
   
@@ -191,9 +191,11 @@ const main = async () => {
   }
 };
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

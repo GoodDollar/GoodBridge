@@ -2,7 +2,7 @@
  * Script to set bridge limits for GoodDollarOFTAdapter contract
  * Uses genericCall through Avatar/Controller to execute the transaction
  * 
- * Note: Limits are now managed in GoodDollarOFTAdapter, not GoodDollarMinterBurner
+ * Note: Limits are now managed in GoodDollarOFTAdapter, not GoodDollarOFTMinterBurner
  * 
  * Usage:
  *   npx hardhat run test/oft/set-bridge-limits.ts --network development-celo
@@ -168,9 +168,11 @@ const main = async () => {
   }
 };
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

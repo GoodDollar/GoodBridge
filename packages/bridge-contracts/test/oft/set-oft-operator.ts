@@ -1,8 +1,8 @@
 /***
- * Script to set OFT adapter as operator on GoodDollarMinterBurner via DAO governance
+ * Script to set OFT adapter as operator on GoodDollarOFTMinterBurner via DAO governance
  * 
  * This script must be run after deploying the OFT contracts.
- * It sets the GoodDollarOFTAdapter as an operator on GoodDollarMinterBurner,
+ * It sets the GoodDollarOFTAdapter as an operator on GoodDollarOFTMinterBurner,
  * which allows the adapter to mint and burn tokens for cross-chain transfers.
  * 
  * This operation requires DAO governance since MinterBurner is DAO-controlled.
@@ -52,7 +52,7 @@ export const setOFTOperator = async () => {
   }
 
   // Get deployed contract addresses (from hardhat-deploy `deployments/` artifacts)
-  const { GoodDollarMinterBurner: minterBurnerAddress, GoodDollarOFTAdapter: oftAdapterAddress } =
+  const { GoodDollarOFTMinterBurner: minterBurnerAddress, GoodDollarOFTAdapter: oftAdapterAddress } =
     getOftDeploymentAddresses(networkName);
 
   console.log('Contract addresses:', {
@@ -69,7 +69,7 @@ export const setOFTOperator = async () => {
   }
 
   // Get MinterBurner contract
-  const MinterBurner = await ethers.getContractAt('GoodDollarMinterBurner', minterBurnerAddress);
+  const MinterBurner = await ethers.getContractAt('GoodDollarOFTMinterBurner', minterBurnerAddress);
 
   // Check if OFT adapter is already an operator
   const isOperator = await MinterBurner.operators(oftAdapterAddress);
@@ -112,7 +112,7 @@ export const setOFTOperator = async () => {
 
   console.log('\n=== Operator Setup Summary ===');
   console.log('Network:', networkName);
-  console.log('GoodDollarMinterBurner:', minterBurnerAddress);
+  console.log('GoodDollarOFTMinterBurner:', minterBurnerAddress);
   console.log('GoodDollarOFTAdapter:', oftAdapterAddress);
   console.log('Operator Status:', isOperator ? 'Already set' : 'Set successfully');
   console.log('==============================\n');
