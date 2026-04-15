@@ -6,7 +6,7 @@ describe("OFT (unit, no fork)", () => {
   async function fixture() {
     const [owner, user, feeRecipient, avatar] = await ethers.getSigners();
 
-    // Mocks for DAO stack used by GoodDollarMinterBurner
+    // Mocks for DAO stack used by GoodDollarOFTMinterBurner
     const NameService = await ethers.getContractFactory("NameServiceMock");
     const nameService = await NameService.deploy();
     await nameService.deployed();
@@ -155,6 +155,52 @@ describe("OFT (unit, no fork)", () => {
 
       await expect(adapter.pauseBridge(true)).to.emit(adapter, "BridgePaused").withArgs(true);
       expect(await adapter.isClosed()).to.equal(true);
+    });
+
+    it("reverts when setting zero feeRecipient", async () => {
+      const { adapter } = await loadFixture(fixture);
+
+      await expect(adapter.setFeeRecipient(ethers.constants.AddressZero)).to.be.revertedWith("feeRecipient required");
+    });
+
+    it("reverts initialize when feeRecipient is zero", async () => {
+      const [owner, , , avatar] = await ethers.getSigners();
+
+      const NameService = await ethers.getContractFactory("NameServiceMock");
+      const nameService = await NameService.deploy();
+      await nameService.deployed();
+
+      const Controller = await ethers.getContractFactory("ControllerMock");
+      const controller = await Controller.deploy(avatar.address);
+      await controller.deployed();
+
+      const Token = await ethers.getContractFactory("MockGoodDollar");
+      const token = await Token.deploy("GoodDollar", "G$");
+      await token.deployed();
+
+      await nameService.setAddress("CONTROLLER", controller.address);
+      await nameService.setAddress("GOODDOLLAR", token.address);
+
+      const Endpoint = await ethers.getContractFactory("LayerZeroEndpointMock");
+      const endpoint = await Endpoint.deploy();
+      await endpoint.deployed();
+
+      const MinterBurner = await ethers.getContractFactory("GoodDollarOFTMinterBurner");
+      const minterBurner = await MinterBurner.deploy();
+      await minterBurner.deployed();
+
+      const Adapter = await ethers.getContractFactory("GoodDollarOFTAdapter");
+      await expect(
+        upgrades.deployProxy(
+          Adapter,
+          [token.address, minterBurner.address, owner.address, ethers.constants.AddressZero],
+          {
+            kind: "uups",
+            constructorArgs: [token.address, endpoint.address],
+            unsafeAllow: ["constructor", "state-variable-immutable", "duplicate-initializer-call"],
+          }
+        )
+      ).to.be.revertedWith("feeRecipient required");
     });
   });
 

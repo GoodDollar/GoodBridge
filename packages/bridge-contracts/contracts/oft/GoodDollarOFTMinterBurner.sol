@@ -49,6 +49,7 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
      */
     function setOperator(address _operator, bool _status) external {
         _onlyAvatar();
+        require(_operator != address(0), "operator required");
         operators[_operator] = _status;
         emit OperatorSet(_operator, _status);
     }
