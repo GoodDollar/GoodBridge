@@ -453,10 +453,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.MessagePassingBridge__factory>;
     getContractFactory(
-      name: "GoodDollarMinterBurner",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.GoodDollarMinterBurner__factory>;
-    getContractFactory(
       name: "GoodDollarOFTAdapter",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.GoodDollarOFTAdapter__factory>;
@@ -1079,11 +1075,6 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.MessagePassingBridge>;
-    getContractAt(
-      name: "GoodDollarMinterBurner",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.GoodDollarMinterBurner>;
     getContractAt(
       name: "GoodDollarOFTAdapter",
       address: string,

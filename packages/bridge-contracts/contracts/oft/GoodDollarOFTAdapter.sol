@@ -143,6 +143,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         address _owner,
         address _feeRecipient
     ) public initializer {
+        require(_token != address(0), "token required");
+        require(address(_minterBurner) != address(0), "minterBurner required");
+        require(_owner != address(0), "owner required");
+        require(_feeRecipient != address(0), "feeRecipient required");
+        require(IERC20Metadata(_token).decimals() == IERC20Metadata(_token).decimals(), 'token decimals mismatch');
         __UUPSUpgradeable_init();
         __Ownable_init();
         __OAppSender_init(_owner);
@@ -186,6 +191,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
      * @param _feeRecipient The address to receive bridge fees
      */
     function setFeeRecipient(address _feeRecipient) external onlyOwner {
+        require(_feeRecipient != address(0), "feeRecipient required");
         feeRecipient = _feeRecipient;
         emit FeeRecipientSet(_feeRecipient);
     }
@@ -331,7 +337,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     ) internal virtual override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
         /// @dev revert if sending to zero address
         require(_sendParam.to.bytes32ToAddress() != address(0), 'GoodDollarOFTAdapter: sending to zero address');
-        (bool isValid, string memory reason) = _enforceLimits(_sendParam.to.bytes32ToAddress(), _sendParam.amountLD);
+        (bool isValid, string memory reason) = _enforceLimits(msg.sender, _sendParam.amountLD);
         if (!isValid) {
             revert BRIDGE_LIMITS(reason);
         }

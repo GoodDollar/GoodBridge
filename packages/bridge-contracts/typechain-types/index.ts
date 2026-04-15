@@ -222,8 +222,6 @@ export type { LZHandlerUpgradeable } from "./contracts/messagePassingBridge/LZHa
 export { LZHandlerUpgradeable__factory } from "./factories/contracts/messagePassingBridge/LZHandlerUpgradeable__factory";
 export type { MessagePassingBridge } from "./contracts/messagePassingBridge/MessagePassingBridge.sol/MessagePassingBridge";
 export { MessagePassingBridge__factory } from "./factories/contracts/messagePassingBridge/MessagePassingBridge.sol/MessagePassingBridge__factory";
-export type { GoodDollarMinterBurner } from "./contracts/oft/GoodDollarMinterBurner";
-export { GoodDollarMinterBurner__factory } from "./factories/contracts/oft/GoodDollarMinterBurner__factory";
 export type { GoodDollarOFTAdapter } from "./contracts/oft/GoodDollarOFTAdapter.sol/GoodDollarOFTAdapter";
 export { GoodDollarOFTAdapter__factory } from "./factories/contracts/oft/GoodDollarOFTAdapter.sol/GoodDollarOFTAdapter__factory";
 export type { GoodDollarOFTMinterBurner } from "./contracts/oft/GoodDollarOFTMinterBurner";
