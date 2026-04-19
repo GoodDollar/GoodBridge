@@ -209,7 +209,7 @@ const func: DeployFunction = async function (hre) {
       tokenAddress,
       minterBurnerAddress,
       root.address,
-      root.address,
+      avatarAddress,
     ]);
     await deployments.execute(
       'GoodDollarOFTAdapter',
@@ -219,7 +219,7 @@ const func: DeployFunction = async function (hre) {
       oftAdapterInitData,
     );
     console.log('GoodDollarOFTAdapter initialized');
-    console.log('Fee recipient:', root.address);
+    console.log('Fee recipient:', avatarAddress);
   } else {
     console.log('GoodDollarOFTAdapter already initialized');
   }

@@ -1,6 +1,5 @@
 /***
  * Script to set bridge limits for GoodDollarOFTAdapter contract
- * Uses genericCall through Avatar/Controller to execute the transaction
  * 
  * Note: Limits are now managed in GoodDollarOFTAdapter, not GoodDollarOFTMinterBurner
  * 
@@ -11,7 +10,7 @@
  *   All limit values are read from test/oft/oft.config.json
  *   Each network/env has its entry in the config file.
  * 
- * Note: This script must be run by a guardian or address with permissions to execute via Controller
+ * Note: This script must be run by the OFT adapter owner (usually the deployer or DAO Avatar)
  */
 
 import { network, ethers } from "hardhat";
@@ -130,15 +129,9 @@ const main = async () => {
   console.log("Min Amount:", ethers.utils.formatEther(newLimits.minAmount), "G$");
   console.log("Only Whitelisted:", newLimits.onlyWhitelisted);
 
-  // Prepare transaction
-  const abiCoder = ethers.utils.defaultAbiCoder;
-  // const setBridgeLimitsEncoded = oftAdapter.interface.encodeFunctionData("setBridgeLimits", [newLimits]);
-
-
-  // Execute via Controller/Avatar
+  // Execute setBridgeLimits directly (signer must be the OFT adapter owner)
   try {
-    console.log("\nExecuting via Controller/Avatar...");
-    const Controller = await ethers.getContractAt("Controller", controllerAddress);
+    console.log("\nExecuting setBridgeLimits...");
     const tx = await oftAdapter.setBridgeLimits(newLimits);
     await tx.wait();
     console.log("✅ Transaction confirmed:", tx.hash);
@@ -154,7 +147,7 @@ const main = async () => {
     console.log("Min Amount:", ethers.utils.formatEther(updatedLimits.minAmount), "G$");
     console.log("Only Whitelisted:", updatedLimits.onlyWhitelisted);
 
-    console.log("\n✅ Successfully set bridge limits via Avatar!");
+    console.log("\n✅ Successfully set bridge limits!");
 
   } catch (error: any) {
     console.error("\n❌ Error setting limits:");
