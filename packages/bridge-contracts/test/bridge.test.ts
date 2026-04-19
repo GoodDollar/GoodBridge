@@ -51,7 +51,7 @@ describe('Bridge', () => {
       [
         validators,
         1,
-        requiredValidators.slice(2, 4),
+        requiredValidators.slice(0, 1),
         0,
         token.address,
         {
@@ -120,7 +120,7 @@ describe('Bridge', () => {
       [
         validators,
         1,
-        requiredValidators.slice(2, 3),
+        requiredValidators.slice(0, 1),
         0,
         ten.address,
         {
@@ -147,7 +147,7 @@ describe('Bridge', () => {
       [
         validators,
         1,
-        requiredValidators.slice(2, 3),
+        requiredValidators.slice(0, 1),
         0,
         ray.address,
         {
@@ -204,8 +204,12 @@ describe('Bridge', () => {
       }),
     );
     const parentRlps = parents.map((_) => _.rlpHeader);
-    await tenBridge.verifyParentBlocks(1337, rayTx.blockNumber, parentRlps, blockHeader.rlpHeader);
-    await rayBridge.verifyParentBlocks(1337, rayTx.blockNumber, parentRlps, blockHeader.rlpHeader);
+    await tenBridge
+      .verifyParentBlocks(1337, rayTx.blockNumber, parentRlps, blockHeader.rlpHeader)
+      .then((_) => _.wait());
+    await rayBridge
+      .verifyParentBlocks(1337, rayTx.blockNumber, parentRlps, blockHeader.rlpHeader)
+      .then((_) => _.wait());
 
     return { ten, ray, tenBridge, rayBridge, tenTx, rayTx };
   };
@@ -243,7 +247,7 @@ describe('Bridge', () => {
     it('should release tokens in normalized down to local token decimals', async () => {
       const { ten, tenBridge, rayBridge, rayTx } = await loadFixture(decimalsFixture);
 
-      const proof = await SignUtils.receiptProof(rayTx.transactionHash, ethers.provider);
+      const proof = await SignUtils.receiptProof(rayTx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
       const receiptRlp = proof.receiptRlp;
@@ -272,7 +276,7 @@ describe('Bridge', () => {
     it('should release tokens in normalized up to local token decimals', async () => {
       const { ray, rayBridge, tenTx } = await loadFixture(decimalsFixture);
 
-      const proof = await SignUtils.receiptProof(tenTx.transactionHash, ethers.provider);
+      const proof = await SignUtils.receiptProof(tenTx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
       const receiptRlp = proof.receiptRlp;
@@ -294,7 +298,8 @@ describe('Bridge', () => {
 
       //verifying that 1e10 was converted to ray
       const rayClaimedEvent = tx.events?.find((_) => _.event === 'ExecutedTransfer');
-      expect(rayClaimedEvent?.args?.amount).eq(ethers.constants.WeiPerEther.mul(1e9));
+      console.log('claimed amount', rayClaimedEvent);
+      expect(rayClaimedEvent?.args?.amount).eq(ethers.utils.parseEther('1000000000'));
       expect(await ray.balanceOf(signers[1].address)).eq(ethers.constants.WeiPerEther.mul(1e9));
     });
   });
@@ -328,7 +333,7 @@ describe('Bridge', () => {
           minAmount: 1,
           onlyWhitelisted: true,
         }),
-      ).revertedWith('Ownable: caller is not the owner');
+      ).revertedWith('not owner or admin');
     });
 
     it('should set fees only by owner', async () => {
@@ -350,7 +355,7 @@ describe('Bridge', () => {
           maxFee: 1,
           minFee: 1,
         }),
-      ).revertedWith('Ownable: caller is not the owner');
+      ).revertedWith('not owner or admin');
     });
 
     it('should set faucet only by owner', async () => {
@@ -360,7 +365,7 @@ describe('Bridge', () => {
       expect(await bridgeA.faucet()).eq(signers[1].address);
 
       await expect(bridgeA.connect(signers[1]).setFaucet(ethers.constants.AddressZero)).revertedWith(
-        'Ownable: caller is not the owner',
+        'not owner or admin',
       );
     });
 
@@ -373,7 +378,7 @@ describe('Bridge', () => {
 
       await expect(
         bridgeA.connect(signers[1]).setSourceBridges([signers[1].address, signers[2].address], [1, 1]),
-      ).revertedWith('Ownable: caller is not the owner');
+      ).revertedWith('not owner or admin');
     });
 
     it('should set consensus ratio only by owner', async () => {
@@ -561,7 +566,7 @@ describe('Bridge', () => {
       );
       const parentRlps = parents.map((_) => _.rlpHeader);
 
-      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       const receiptRlp = proof.receiptRlp;
 
@@ -629,7 +634,8 @@ describe('Bridge', () => {
 
     it('execute receipt should fail for various reasons', async () => {
       const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
-      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const otherSigner = signers[9];
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
       const receiptRlp = proof.receiptRlp;
@@ -656,26 +662,32 @@ describe('Bridge', () => {
       ).revertedWith('not start index');
 
       mptProof.keyIndex = 0;
-      mptProof.expectedRoot = expectedRoot.slice(0, -2) + '00';
+      mptProof.expectedRoot = expectedRoot.slice(0, -2) + '04';
+
+      console.log("other signer's address", otherSigner.address);
       await expect(
-        bridgeB.executeReceipts(1337, [
-          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
-        ]),
+        bridgeB
+          .connect(otherSigner)
+          .executeReceipts(1337, [
+            { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+          ]),
       ).revertedWith('receiptRoot mismatch');
 
       mptProof.expectedRoot = expectedRoot;
       const copy = mptProof.proof[0];
-      mptProof.proof[0] = mptProof.proof[0].slice(0, -2) + '00';
+      mptProof.proof[0] = mptProof.proof[0].slice(0, -2) + '04';
       await expect(
-        bridgeB.executeReceipts(1337, [
-          { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
-        ]),
+        bridgeB
+          .connect(otherSigner)
+          .executeReceipts(1337, [
+            { receiptProofs: [mptProof], blockHeaderRlp: proof.headerRlp, blockNumber: tx.blockNumber },
+          ]),
       ).revertedWith('verifyTrieProof root node hash invalid');
     });
 
     it('should receive from bridge with valid proof', async () => {
       const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
-      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
       const receiptRlp = proof.receiptRlp;
@@ -706,7 +718,7 @@ describe('Bridge', () => {
 
     it('should not receive from bridge with used proof', async () => {
       const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
-      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
       const receiptRlp = proof.receiptRlp;
@@ -742,7 +754,7 @@ describe('Bridge', () => {
   describe('token bridge', () => {
     it('should skip old receipt', async () => {
       const { bridgeFromAToBTx: tx } = await loadFixture(withCheckpointFixutre);
-      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
       const receiptRlp = proof.receiptRlp;
@@ -789,7 +801,7 @@ describe('Bridge', () => {
       await faucet.mock.canTop.returns(true);
       await faucet.mock.topWallet.revertsWithReason('xxx');
       await bridgeB.setFaucet(faucet.address);
-      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
       const receiptRlp = proof.receiptRlp;
@@ -820,7 +832,7 @@ describe('Bridge', () => {
       await faucet.mock.topWallet.returns();
       await bridgeB.setFaucet(faucet.address);
 
-      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider);
+      const proof = await SignUtils.receiptProof(tx.transactionHash, ethers.provider, 1337);
       const expectedRoot = proof.receiptsRoot;
       //    console.log({root: proof.receiptsRoot,expectedRoot, proofRoot: ethers.utils.keccak256(ethers.utils.RLP.encode(proof.orgProof[0]))})
       const receiptRlp = proof.receiptRlp;
