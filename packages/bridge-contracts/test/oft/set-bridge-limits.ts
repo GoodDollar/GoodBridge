@@ -1,5 +1,6 @@
 /***
  * Script to set bridge limits for GoodDollarOFTAdapter contract
+ * Calls setBridgeLimits directly on the OFT adapter (not via Controller/Avatar).
  * 
  * Note: Limits are now managed in GoodDollarOFTAdapter, not GoodDollarOFTMinterBurner
  * 
