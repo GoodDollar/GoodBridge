@@ -24,7 +24,7 @@ interface IIdentity {
     function isWhitelisted(address) external view returns (bool);
 }
 
-contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
+contract SimpleBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
     struct BridgeFees {
         uint256 minFee;
         uint256 maxFee;
@@ -62,7 +62,7 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
     address public bridgedToken;
 
     // 0 means soureBridge no longer valid. other wise accept only receipts with block number of source chain > blockstart
-    mapping(address => uint256) public sourceBridgeToBlockstart;
+    mapping(address => uint256) private _sourceBridgeToBlockstart;
 
     bool public isClosed;
 
@@ -82,6 +82,7 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
 
     address public admin;
 
+    mapping(uint256 => uint256) public lastChainExecutedBlock;
     event BridgeRequest(
         address indexed from,
         address indexed to,
@@ -107,17 +108,12 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
     );
 
     function initialize(
-        address[] memory _validators,
-        uint256 _cycleEnd,
-        address[] memory _requiredValidators,
-        uint32 _consensusRatio,
         address _bridgedToken,
         BridgeFees memory _fees,
         BridgeLimits memory _limits,
         IFaucet _faucet,
         INameService _nameService
     ) public virtual initializer {
-        initialize_consensus(_validators, _cycleEnd, _requiredValidators, _consensusRatio);
         bridgedToken = _bridgedToken;
         bridgeFees = _fees;
         bridgeLimits = _limits;
@@ -154,10 +150,6 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         faucet = _faucet;
     }
 
-    function setSourceBridges(address[] calldata bridges, uint256[] calldata blockstart) external onlyAdmin {
-        for (uint256 i = 0; i < bridges.length; i++) sourceBridgeToBlockstart[bridges[i]] = blockstart[i];
-    }
-
     function canBridge(address from, uint256 amount) public view returns (bool isWithinLimit, string memory error) {
         if (isClosed) return (false, 'closed');
 
@@ -188,10 +180,6 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         }
 
         return (true, '');
-    }
-
-    function bridgeToWithoutRelay(address target, uint256 targetChainId, uint256 amount) external {
-        _bridgeTo(msg.sender, target, targetChainId, amount, false, false);
     }
 
     function bridgeTo(address target, uint256 targetChainId, uint256 amount) external {
@@ -304,54 +292,28 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         return (baseFee, isRelay ? baseFee : 0);
     }
 
+    function executeRequest(
+        address from,
+        address target,
+        uint256 amount,
+        uint256 sourceChainId,
+        uint256 sourceBlockNumber,
+        bool withRelay,
+        uint256 id
+    ) public onlyAdmin returns (bool ok) {
+        //get recipient
+        require(executedRequests[id] == false, 'already executed');
+        _bridgeTransfer(from, target, amount, sourceChainId, sourceBlockNumber, withRelay, id); //added internal function for stack too deep
+        lastChainExecutedBlock[sourceChainId] = sourceBlockNumber;
+        return true;
+    }
+
     function _executeReceipt(
         uint256 chainId,
-        uint256 receiptBlockNumber,
+        uint256 blockNumber,
         RLPParser.TransactionReceipt memory receipt
     ) internal virtual override returns (bool ok) {
-        if (receipt.status != 1) return false;
-        bool validLog = false;
-        // console.log('receipt logs %s', receipt.logs.length);
-        for (uint256 i = 0; i < receipt.logs.length; i++) {
-            RLPParser.Log memory log = receipt.logs[i];
-            // verify receipt is for bridgedToken transfer event where:
-            // emiting contract is a valid sourceBridge
-            // where topic is BridgeTransfer
-            // console.log('log address %s', log.contractAddress);
-            // console.logBytes32(log.topics[0]);
-            if (sourceBridgeToBlockstart[log.contractAddress] > receiptBlockNumber) continue;
-
-            if (sourceBridgeToBlockstart[log.contractAddress] == 0 || log.topics[0] != BRIDGE_TOPIC) {
-                continue;
-            }
-            // console.log('receipt found log index %s', i);
-            //parse targetChainId and amount from data
-            else {
-                (uint256 targetChainId, uint256 amount, bool withRelay) = abi.decode(
-                    log.data,
-                    (uint256, uint256, bool)
-                );
-
-                // console.log('executeReceipt token: %s %s %s', targetChainId, amount, withRelay);
-
-                if (targetChainId != _chainId()) continue;
-
-                validLog = true;
-
-                //get recipient
-                _bridgeTransfer(
-                    address(uint160(uint256(log.topics[1]))), // from - stack to deep
-                    address(uint160(uint256(log.topics[2]))), // to - stack to deep
-                    amount,
-                    chainId,
-                    receiptBlockNumber,
-                    withRelay,
-                    uint256(log.topics[3])
-                ); //added internal function for stack too deep
-            }
-        }
-
-        return validLog;
+        return true;
     }
 
     function _bridgeTransfer(

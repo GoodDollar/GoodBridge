@@ -166,18 +166,19 @@ const deployBridge = async () => {
 
 let env = 'fuse';
 const upgradeBridge = async (impl: string) => {
-  if (env === 'production') {
-    return console.log('needs to run via defender relayer');
-  }
+  // if (env === 'production') {
+  //   return console.log('needs to run via defender relayer');
+  // }
   const signer = await ethers.getSigner();
   const deployed = release[env][network.name + 'Bridge'];
   console.log({ deployed, signer: signer.address });
   if (!deployed) console.log('existing bridge not found');
 
   const cur = await ethers.getContractAt('TokenBridge', deployed);
-  const upgrade = impl ? { address: impl } : await ethers.deployContract('TokenBridge');
+  const upgrade = impl ? { address: impl } : await ethers.deployContract('SimpleBridge');
   console.log('deployed upgrade', upgrade.address);
-  const tx = await (await cur.upgradeTo(upgrade.address, { gasLimit: 10000000, gasPrice: 11e9 })).wait();
+  const tx = await (await cur.upgradeTo(upgrade.address, { gasLimit: 10000000 })).wait();
+  // await cur.setAdmin('0xE3441bA0863AEFBf28eca5F6fAAFb4A2B608F3A1');
   console.log('upgrade done:', tx.transactionHash);
 };
 

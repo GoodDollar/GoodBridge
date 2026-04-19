@@ -8,10 +8,10 @@ const TokenBridgeABI = [
   'event ExecutedTransfer(address indexed,address indexed,address,uint256,uint256,uint256,uint256,uint256 indexed)',
 ];
 const fuseRpc = new ethers.providers.JsonRpcProvider('https://rpc.fuse.io');
-const celoRpc = new ethers.providers.JsonRpcProvider('https://forno.celo.org');
+const celoRpc = new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/celo');
 
 const handleError = async (bridge, celoNotExecuted, fuseNotExecuted) => {};
-const blocksAgo = -150000;
+const blocksAgo = -300000;
 const checkStaleRequests = async () => {
   const ps = Object.values(bridges).map(async (bridge) => {
     const bridgeA = new ethers.Contract(bridge.fuseBridge, TokenBridgeABI, fuseRpc);
@@ -159,5 +159,5 @@ const checkFees = async () => {
 };
 
 checkStaleRequests();
-
+// checkRequest('8113818754934600079254978614592045088384988108142517167848524320812203804012');
 // checkFees();
