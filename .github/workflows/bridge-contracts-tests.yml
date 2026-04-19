@@ -3,8 +3,6 @@ name: Bridge Contracts Unit Tests
 on:
   push:
     branches:
-      - feat/oft-adapter-step2
-      - feat/oft-adapter-step1
       - master
     paths:
       - 'packages/bridge-contracts/**'
@@ -17,6 +15,9 @@ on:
     paths:
       - 'packages/bridge-contracts/**'
       - '.github/workflows/bridge-contracts-tests.yml'
+
+permissions:
+  contents: read
 
 jobs:
   unit-tests:
@@ -44,4 +45,5 @@ jobs:
       - name: Run unit tests
         run: yarn test test/GoodDollarOFT.test.ts
         working-directory: packages/bridge-contracts
+
 
