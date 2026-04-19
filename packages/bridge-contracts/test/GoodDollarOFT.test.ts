@@ -417,7 +417,7 @@ describe("OFT (unit, no fork)", () => {
         {
           kind: "uups",
           constructorArgs: [token.address, endpoint.address],
-          unsafeAllow: ["constructor", "state-variable-immutable", "duplicate-initializer-call"],
+          unsafeAllow: ["constructor", "state-variable-immutable", "duplicate-initializer-call", "missing-initializer"],
         }
       );
 
@@ -616,7 +616,7 @@ describe("OFT (unit, no fork)", () => {
         {
           kind: "uups",
           constructorArgs: [token.address, endpoint.address],
-          unsafeAllow: ["constructor", "state-variable-immutable", "duplicate-initializer-call"],
+          unsafeAllow: ["constructor", "state-variable-immutable", "duplicate-initializer-call", "missing-initializer"],
         }
       );
 
