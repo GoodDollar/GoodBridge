@@ -277,6 +277,26 @@ describe("OFT (unit, no fork)", () => {
       ).to.be.revertedWithCustomError(adapter, "BRIDGE_LIMITS").withArgs("dailyLimit");
     });
 
+    it("bridging failed when bridge limits exceeded on send", async () => {
+      const { adapter, user } = await loadFixture(fixture);
+
+      await adapter.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("100"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+
+      const guid = ethers.utils.formatBytes32String("send-limit-guid");
+
+      await expect(
+        adapter
+          .connect(user)
+          .send(makeSendParam(user.address, ethers.utils.parseEther("500")), messagingFee, user.address, { value: 0 })
+      ).to.be.revertedWithCustomError(adapter, "BRIDGE_LIMITS").withArgs("txLimit");
+    });
+
     it("resets daily windows after 24h", async () => {
       const { adapter, user } = await loadFixture(fixture);
 
