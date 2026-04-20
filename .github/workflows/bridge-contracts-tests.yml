@@ -38,7 +38,7 @@ jobs:
         run: yarn build
         working-directory: packages/bridge-contracts
 
-      - name: Run all tests
-        run: yarn hardhat test:oft
+      - name: Run OFT unit test
+        run: yarn test:oft
         working-directory: packages/bridge-contracts
 
