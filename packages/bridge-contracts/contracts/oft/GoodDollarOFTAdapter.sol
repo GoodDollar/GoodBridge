@@ -253,7 +253,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp || msg.sender == owner(), 'optimistic period not ended or not owner');
         require(request.failed, 'request not failed');
         _credit(request.toAddress, request.amount, request.srcEid);
-        delete failedReceiveRequests[_guid];
+        failedReceiveRequests[_guid].failed = false;
         emit FailedReceiveRequestApproved(_guid);
     }
 
