@@ -147,6 +147,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         require(address(_minterBurner) != address(0), "minterBurner required");
         require(_owner != address(0), "owner required");
         require(_feeRecipient != address(0), "feeRecipient required");
+        uint8 sharedDecimals = OFTCoreUpgradeable.sharedDecimals();
+        uint8 tokenDecimals = IERC20Metadata(_token).decimals();
+        require(10 ** (tokenDecimals - sharedDecimals) == decimalConversionRate, 'token decimals mismatch');
         __UUPSUpgradeable_init();
         __Ownable_init();
         __OAppSender_init(_owner);
@@ -250,7 +253,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp || msg.sender == owner(), 'optimistic period not ended or not owner');
         require(request.failed, 'request not failed');
         _credit(request.toAddress, request.amount, request.srcEid);
-        delete failedReceiveRequests[_guid];
+        failedReceiveRequests[_guid].failed = false;
         emit FailedReceiveRequestApproved(_guid);
     }
 
@@ -403,7 +406,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
             emit FeeCollected(feeRecipient, fee);
         }
         
-        return recipientAmount;
+        return _amountLD;
     }
     
     /**

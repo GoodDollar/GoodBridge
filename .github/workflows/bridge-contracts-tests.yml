@@ -1,0 +1,44 @@
+name: Bridge Contracts Unit Tests
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'packages/bridge-contracts/**'
+      - '.github/workflows/bridge-contracts-tests.yml'
+  pull_request:
+    paths:
+      - 'packages/bridge-contracts/**'
+      - '.github/workflows/bridge-contracts-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+        env:
+          YARN_NODE_LINKER: node-modules
+
+      - name: Compile contracts
+        run: yarn build
+        working-directory: packages/bridge-contracts
+
+      - name: Run OFT unit test
+        run: yarn test:oft
+        working-directory: packages/bridge-contracts
+

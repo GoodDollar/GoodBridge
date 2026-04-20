@@ -209,7 +209,7 @@ const func: DeployFunction = async function (hre) {
       tokenAddress,
       minterBurnerAddress,
       root.address,
-      avatarAddress,
+      root.address,
     ]);
     await deployments.execute(
       'GoodDollarOFTAdapter',
