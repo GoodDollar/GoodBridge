@@ -147,7 +147,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         require(address(_minterBurner) != address(0), "minterBurner required");
         require(_owner != address(0), "owner required");
         require(_feeRecipient != address(0), "feeRecipient required");
-        require(IERC20Metadata(_token).decimals() == IERC20Metadata(_token).decimals(), 'token decimals mismatch');
+        uint8 sharedDecimals = OFTCoreUpgradeable.sharedDecimals();
+        uint8 tokenDecimals = IERC20Metadata(_token).decimals();
+        require(10 ** (tokenDecimals - sharedDecimals) == decimalConversionRate, 'token decimals mismatch');
         __UUPSUpgradeable_init();
         __Ownable_init();
         __OAppSender_init(_owner);
