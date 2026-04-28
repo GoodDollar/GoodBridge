@@ -23,20 +23,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "18"
 
-      # Use the bundled Yarn from the repository (.yarn/releases/yarn-4.6.0.cjs)
-      # so the correct version is always used without relying on corepack downloads.
-      - name: Install root dependencies
-        run: node .yarn/releases/yarn-4.6.0.cjs install
-
-      # bridge-contracts uses nodeLinker: node-modules (its own .yarnrc.yml) while the root
-      # uses PnP, so the workspace needs its own node_modules populated explicitly.
-      - name: Install bridge-contracts node_modules
-        run: node .yarn/releases/yarn-4.6.0.cjs workspace @gooddollar/bridge-contracts install
+      - name: Install dependencies
+        run: yarn install --immutable
+        env:
+          YARN_NODE_LINKER: node-modules
 
       # Compile contracts so the Solidity compiler binaries (0.8.22 and 0.8.10) are
       # downloaded and cached in ~/.cache/hardhat-nodejs before Copilot starts working.
@@ -44,4 +39,4 @@ jobs:
       # are blocked by the agent's network firewall.
       - name: Pre-download Solidity compilers
         working-directory: packages/bridge-contracts
-        run: node_modules/.bin/hardhat compile
+        run: yarn build
