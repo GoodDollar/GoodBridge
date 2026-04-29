@@ -149,6 +149,44 @@ const config: HardhatUserConfig = {
       gasPrice: 2e9,
       chainId: 5,
     },
+    "development-celo": {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      url: "https://forno.celo.org",
+      gas: 3000000,
+      gasPrice: 26e9,
+      chainId: 42220,
+      eid: EndpointId.CELO_V2_MAINNET,
+    } as any,
+    "production-celo": {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      url: "https://forno.celo.org",
+      gas: 8000000,
+      gasPrice: 26e9,
+      chainId: 42220
+    },
+    "production-xdc": {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 50,
+      url: 'https://rpc.xdc.org',
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
+          apiKey: process.env.ETHERSCAN_KEY || '',
+        },
+      },
+    },
+    "development-xdc": {
+      accounts: accounts as HttpNetworkAccountsConfig,
+      chainId: 50,
+      url: 'https://rpc.xdc.org',
+      eid: EndpointId.XDC_V2_MAINNET,
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
+          apiKey: process.env.ETHERSCAN_KEY || '',
+        },
+      },
+    } as any
   },
   sourcify: {
     enabled: true,
@@ -189,6 +227,16 @@ const config: HardhatUserConfig = {
   },
   contractSizer: {
     runOnCompile: true,
+  },
+  namedAccounts: {
+    deployer: {
+      default: 0, // Use the first account as deployer
+    },
+  },
+  // hardhat-deploy configuration
+  // This ensures LayerZero DevTools can detect hardhat-deploy usage
+  paths: {
+    deployments: 'deployments',
   },
 };
 

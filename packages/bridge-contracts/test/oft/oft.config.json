@@ -1,0 +1,38 @@
+{
+  "development-xdc": {
+    "limits": {
+      "dailyLimit": "1000",
+      "txLimit": "100",
+      "accountDailyLimit": "100",
+      "minAmount": "1",
+      "onlyWhitelisted": false
+    }
+  },
+  "development-celo": {
+    "limits": {
+      "dailyLimit": "1000",
+      "txLimit": "95",
+      "accountDailyLimit": "200",
+      "minAmount": "1", 
+      "onlyWhitelisted": false
+    }
+  },
+  "production-xdc": {
+    "limits": {
+      "dailyLimit": "1000000",
+      "txLimit": "100000",
+      "accountDailyLimit": "50000",
+      "minAmount": "10",
+      "onlyWhitelisted": false
+    }
+  },
+  "production-celo": {
+    "limits": {
+      "dailyLimit": "1000000",
+      "txLimit": "100000",
+      "accountDailyLimit": "50000",
+      "minAmount": "10",
+      "onlyWhitelisted": false
+    }
+  }
+}
