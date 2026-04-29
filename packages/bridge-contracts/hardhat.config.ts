@@ -109,7 +109,7 @@ const config: HardhatUserConfig = {
     xdc: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
-      url: 'https://rpc.xdc.org',
+      url: 'https://rpc.ankr.com/xdc',
       verify: {
         etherscan: {
           apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
@@ -121,7 +121,7 @@ const config: HardhatUserConfig = {
     xdc_testnet: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
-      url: 'https://rpc.xdc.network',
+      url: 'https://rpc.ankr.com/xdc',
       verify: {
         etherscan: {
           apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',

@@ -92,6 +92,9 @@ describe("OFT (unit, no fork)", () => {
     it("operators can mint/burn; burn requires allowance", async () => {
       const { minterBurner, token, user, avatar, owner } = await loadFixture(fixture);
 
+      await expect(minterBurner.connect(user).mint(user.address, 1)).to.be.revertedWith("Not authorized");
+      await expect(minterBurner.connect(user).burn(user.address, 1)).to.be.revertedWith("Not authorized");
+
       await minterBurner.connect(avatar).setOperator(owner.address, true);
 
       const amount = ethers.utils.parseEther("10");
@@ -99,6 +102,10 @@ describe("OFT (unit, no fork)", () => {
       await expect(minterBurner.connect(owner).mint(user.address, amount)).to.emit(
         minterBurner,
         "TokensMinted"
+      );
+
+      await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
+        "ERC20: insufficient allowance"
       );
 
       await token.connect(user).approve(minterBurner.address, amount);

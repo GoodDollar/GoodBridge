@@ -76,6 +76,27 @@ const checkStaleRequests = async () => {
   await Promise.all(ps);
 };
 
+const checkRequest = async (requestId) => {
+  const ps = Object.values(bridges).map(async (bridge) => {
+    const bridgeA = new ethers.Contract(bridge.fuseBridge, TokenBridgeABI, fuseRpc);
+    const bridgeB = new ethers.Contract(bridge.celoBridge, TokenBridgeABI, celoRpc);
+
+    const bridgeAExecuted = await bridgeA.queryFilter(
+      bridgeA.filters.ExecutedTransfer(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        requestId,
+      ),
+    );
+    console.log('check specific request:', bridgeAExecuted);
+  });
+  await Promise.all(ps);
+};
 const checkFees = async () => {
   const bridge = bridges.production;
 

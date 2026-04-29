@@ -50,6 +50,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     /// @dev The underlying ERC20 token
     IERC20 internal innerToken;
     
+    /// @dev innerToken decimals
+    uint8 public immutable innerTokenDecimals;
+
     /// @dev The contract responsible for minting and burning tokens
     IMintableBurnable public minterBurner;
 
@@ -127,6 +130,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     constructor(address _token, address _lzEndpoint) 
         OFTCoreUpgradeable(IERC20Metadata(_token).decimals(), _lzEndpoint) 
     {
+        innerTokenDecimals = IERC20Metadata(_token).decimals();
         _disableInitializers();
     }
 
@@ -147,9 +151,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         require(address(_minterBurner) != address(0), "minterBurner required");
         require(_owner != address(0), "owner required");
         require(_feeRecipient != address(0), "feeRecipient required");
-        uint8 sharedDecimals = OFTCoreUpgradeable.sharedDecimals();
-        uint8 tokenDecimals = IERC20Metadata(_token).decimals();
-        require(10 ** (tokenDecimals - sharedDecimals) == decimalConversionRate, 'token decimals mismatch');
+        require(IERC20Metadata(_token).decimals() == innerTokenDecimals, 'token decimals mismatch');
+
         __UUPSUpgradeable_init();
         __Ownable_init();
         __OAppSender_init(_owner);
