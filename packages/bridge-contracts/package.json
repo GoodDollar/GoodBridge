@@ -7,6 +7,7 @@
     "test-coverage": "hardhat coverage",
     "build": "hardhat compile",
     "test": "hardhat test",
+    "test:oft": "hardhat test ./test/GoodDollarOFT.test.ts",
     "updateabi": "find ./artifacts/contracts/ -iregex '.*/[a-z]*.json' -exec cp \"{}\" ../bridge-app/src/abi \\;",
     "start:dev": "hardhat node & yarn build && yarn updateabi && hardhat run scripts/deployDevEnv.ts --network localhost",
     "mpb:deploy": "hardhat deploy --export-all ./release/mpb.json"
@@ -54,7 +55,7 @@
     "eth-proof": "^2.1.6",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.*",
-    "hardhat": "2.*",
+    "hardhat": "2.26",
     "hardhat-contract-sizer": "^2.6.1",
     "hardhat-deploy": "^1.0.4",
     "hardhat-gas-reporter": "^1.0.9",

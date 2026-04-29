@@ -1,6 +1,9 @@
 **/node_modules
 **/.yarn/cache
 **/.DS_STORE
+.pnp.cjs
+.pnp.loader.mjs
+package-lock.json
 packages/**/dist
 packages/bridge-app/.yarn/install-state.gz
 packages/bridge-contracts/.yarn/install-state.gz

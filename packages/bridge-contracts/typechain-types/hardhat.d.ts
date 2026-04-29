@@ -157,18 +157,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.UniswapPair__factory>;
     getContractFactory(
-      name: "IFeesFormula",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IFeesFormula__factory>;
-    getContractFactory(
-      name: "IGoodDollarCustom",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IGoodDollarCustom__factory>;
-    getContractFactory(
-      name: "ISuperGoodDollar",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.ISuperGoodDollar__factory>;
-    getContractFactory(
       name: "DAOContract",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.DAOContract__factory>;
@@ -345,10 +333,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.UUPSUpgradeable__factory>;
     getContractFactory(
-      name: "IERC20PermitUpgradeable",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IERC20PermitUpgradeable__factory>;
-    getContractFactory(
       name: "ContextUpgradeable",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ContextUpgradeable__factory>;
@@ -377,10 +361,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IBeacon__factory>;
     getContractFactory(
-      name: "ERC1967Proxy",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.ERC1967Proxy__factory>;
-    getContractFactory(
       name: "ERC1967Upgrade",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ERC1967Upgrade__factory>;
@@ -404,18 +384,6 @@ declare module "hardhat/types/runtime" {
       name: "IERC20",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IERC20__factory>;
-    getContractFactory(
-      name: "IERC721Metadata",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IERC721Metadata__factory>;
-    getContractFactory(
-      name: "IERC721",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IERC721__factory>;
-    getContractFactory(
-      name: "IERC777",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.IERC777__factory>;
     getContractFactory(
       name: "IERC165",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -501,6 +469,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IIdentity__factory>;
     getContractFactory(
+      name: "GoodDollarOFTMinterBurner",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.GoodDollarOFTMinterBurner__factory>;
+    getContractFactory(
       name: "ISuperGoodDollar",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ISuperGoodDollar__factory>;
@@ -509,9 +481,33 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ConsensusMock__factory>;
     getContractFactory(
+      name: "ControllerMock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ControllerMock__factory>;
+    getContractFactory(
+      name: "GoodDollarOFTAdapterHarness",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.GoodDollarOFTAdapterHarness__factory>;
+    getContractFactory(
+      name: "IdentityMock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IdentityMock__factory>;
+    getContractFactory(
+      name: "LayerZeroEndpointMock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.LayerZeroEndpointMock__factory>;
+    getContractFactory(
+      name: "MockGoodDollar",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.MockGoodDollar__factory>;
+    getContractFactory(
       name: "Multicall",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Multicall__factory>;
+    getContractFactory(
+      name: "NameServiceMock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.NameServiceMock__factory>;
     getContractFactory(
       name: "TestRLPParser",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -725,21 +721,6 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.UniswapPair>;
-    getContractAt(
-      name: "IFeesFormula",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IFeesFormula>;
-    getContractAt(
-      name: "IGoodDollarCustom",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IGoodDollarCustom>;
-    getContractAt(
-      name: "ISuperGoodDollar",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.ISuperGoodDollar>;
     getContractAt(
       name: "DAOContract",
       address: string,
@@ -961,11 +942,6 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.UUPSUpgradeable>;
     getContractAt(
-      name: "IERC20PermitUpgradeable",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IERC20PermitUpgradeable>;
-    getContractAt(
       name: "ContextUpgradeable",
       address: string,
       signer?: ethers.Signer
@@ -1001,11 +977,6 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IBeacon>;
     getContractAt(
-      name: "ERC1967Proxy",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.ERC1967Proxy>;
-    getContractAt(
       name: "ERC1967Upgrade",
       address: string,
       signer?: ethers.Signer
@@ -1035,21 +1006,6 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IERC20>;
-    getContractAt(
-      name: "IERC721Metadata",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IERC721Metadata>;
-    getContractAt(
-      name: "IERC721",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IERC721>;
-    getContractAt(
-      name: "IERC777",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.IERC777>;
     getContractAt(
       name: "IERC165",
       address: string,
@@ -1156,6 +1112,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IIdentity>;
     getContractAt(
+      name: "GoodDollarOFTMinterBurner",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.GoodDollarOFTMinterBurner>;
+    getContractAt(
       name: "ISuperGoodDollar",
       address: string,
       signer?: ethers.Signer
@@ -1166,10 +1127,40 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.ConsensusMock>;
     getContractAt(
+      name: "ControllerMock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ControllerMock>;
+    getContractAt(
+      name: "GoodDollarOFTAdapterHarness",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.GoodDollarOFTAdapterHarness>;
+    getContractAt(
+      name: "IdentityMock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IdentityMock>;
+    getContractAt(
+      name: "LayerZeroEndpointMock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.LayerZeroEndpointMock>;
+    getContractAt(
+      name: "MockGoodDollar",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.MockGoodDollar>;
+    getContractAt(
       name: "Multicall",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.Multicall>;
+    getContractAt(
+      name: "NameServiceMock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.NameServiceMock>;
     getContractAt(
       name: "TestRLPParser",
       address: string,
