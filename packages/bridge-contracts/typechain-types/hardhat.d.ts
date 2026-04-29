@@ -457,6 +457,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.GoodDollarMinterBurner__factory>;
     getContractFactory(
+      name: "IIdentity",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IIdentity__factory>;
+    getContractFactory(
       name: "GoodDollarOFTAdapter",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.GoodDollarOFTAdapter__factory>;
@@ -480,6 +484,14 @@ declare module "hardhat/types/runtime" {
       name: "ControllerMock",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ControllerMock__factory>;
+    getContractFactory(
+      name: "GoodDollarOFTAdapterHarness",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.GoodDollarOFTAdapterHarness__factory>;
+    getContractFactory(
+      name: "IdentityMock",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IdentityMock__factory>;
     getContractFactory(
       name: "LayerZeroEndpointMock",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -1085,6 +1097,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.GoodDollarMinterBurner>;
     getContractAt(
+      name: "IIdentity",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IIdentity>;
+    getContractAt(
       name: "GoodDollarOFTAdapter",
       address: string,
       signer?: ethers.Signer
@@ -1114,6 +1131,16 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.ControllerMock>;
+    getContractAt(
+      name: "GoodDollarOFTAdapterHarness",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.GoodDollarOFTAdapterHarness>;
+    getContractAt(
+      name: "IdentityMock",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IdentityMock>;
     getContractAt(
       name: "LayerZeroEndpointMock",
       address: string,

@@ -9,6 +9,8 @@ import type * as votingMockSol from "./VotingMock.sol";
 export type { votingMockSol };
 export type { ConsensusMock } from "./ConsensusMock";
 export type { ControllerMock } from "./ControllerMock";
+export type { GoodDollarOFTAdapterHarness } from "./GoodDollarOFTAdapterHarness";
+export type { IdentityMock } from "./IdentityMock";
 export type { LayerZeroEndpointMock } from "./LayerZeroEndpointMock";
 export type { MockGoodDollar } from "./MockGoodDollar";
 export type { NameServiceMock } from "./NameServiceMock";

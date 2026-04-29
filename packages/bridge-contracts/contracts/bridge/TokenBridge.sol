@@ -125,24 +125,29 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
 
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
+    modifier onlyAdmin() override {
+        require(msg.sender == owner() || msg.sender == admin, 'not owner or admin');
+        _;
+    }
+
     // start block is enforced per source contract
     function chainStartBlock(uint256) public view virtual override returns (uint256 bridgeStartBlock) {
         return 1;
     }
 
-    function setBridgeLimits(BridgeLimits memory _limits) external onlyOwner {
+    function setBridgeLimits(BridgeLimits memory _limits) external onlyAdmin {
         bridgeLimits = _limits;
     }
 
-    function setBridgeFees(BridgeFees memory _fees) external onlyOwner {
+    function setBridgeFees(BridgeFees memory _fees) external onlyAdmin {
         bridgeFees = _fees;
     }
 
-    function setFaucet(IFaucet _faucet) external onlyOwner {
+    function setFaucet(IFaucet _faucet) external onlyAdmin {
         faucet = _faucet;
     }
 
-    function setSourceBridges(address[] calldata bridges, uint256[] calldata blockstart) external onlyOwner {
+    function setSourceBridges(address[] calldata bridges, uint256[] calldata blockstart) external onlyAdmin {
         for (uint256 i = 0; i < bridges.length; i++) sourceBridgeToBlockstart[bridges[i]] = blockstart[i];
     }
 
@@ -186,12 +191,12 @@ contract TokenBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         _bridgeTo(msg.sender, target, targetChainId, amount, true, false);
     }
 
-    function withdraw(address token, uint256 amount) external onlyOwner {
+    function withdraw(address token, uint256 amount) external onlyAdmin {
         if (amount == 0) amount = IERC20(token).balanceOf(address(this));
         require(IERC20(token).transfer(msg.sender, amount), 'transfer');
     }
 
-    function closeBridge(address token) external onlyOwner {
+    function closeBridge(address token) external onlyAdmin {
         require(IERC20(token).transfer(msg.sender, IERC20(token).balanceOf(address(this))), 'transfer');
 
         isClosed = true;

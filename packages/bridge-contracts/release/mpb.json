@@ -4664,7 +4664,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0x12ab702f015D3302f3cc0c4AbA0626A127D06A07",
+          "address": "0x3A2D0a9EF558b42AF5FF8d27FE438b466Fa7692F",
           "abi": [
             {
               "inputs": [
@@ -11085,7 +11085,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0xe4CFA18A3d0a7d77fAA42961ee943c9221d61937",
+          "address": "0x00F7f61080EF40d3832C8C06e8A2af757839e1F7",
           "abi": [
             {
               "inputs": [
@@ -15485,7 +15485,7 @@
           ]
         },
         "MessagePassingBridge": {
-          "address": "0xa3247276DbCC76Dd7705273f766eB3E8a5ecF4a5",
+          "address": "0x7358ca20dC804fE692D55e807132c61C478e5485",
           "abi": [
             {
               "anonymous": false,
@@ -15561,7 +15561,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0xFB62aA509a7B260b6697B671C969a184d6c39E90",
+          "address": "0x4E673B5A16e021E935430a93f8007e52Ff09437E",
           "abi": [
             {
               "inputs": [
@@ -20037,7 +20037,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0xF3eAB7018d74E7Df95A5d8dC70987C0539bDF48f",
+          "address": "0x3eDD30A1Cd94dd6D3329B5EbafF5Aa4E0a4E4a55",
           "abi": [
             {
               "inputs": [

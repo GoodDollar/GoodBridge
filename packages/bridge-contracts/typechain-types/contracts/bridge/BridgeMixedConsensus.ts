@@ -96,6 +96,7 @@ export declare namespace BridgeCore {
 
 export interface BridgeMixedConsensusInterface extends utils.Interface {
   functions: {
+    "admin()": FunctionFragment;
     "chainStartBlock(uint256)": FunctionFragment;
     "chainVerifiedBlocks(uint256,uint256)": FunctionFragment;
     "consensusRatio()": FunctionFragment;
@@ -108,6 +109,7 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     "renounceOwnership()": FunctionFragment;
     "requiredValidators(address)": FunctionFragment;
     "requiredValidatorsSet()": FunctionFragment;
+    "setAdmin(address)": FunctionFragment;
     "setConsensusRatio(uint32)": FunctionFragment;
     "setRequiredValidators(address[])": FunctionFragment;
     "submitBlocks((uint256,bytes,bytes[],uint256,address[])[])": FunctionFragment;
@@ -120,6 +122,7 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
 
   getFunction(
     nameOrSignatureOrTopic:
+      | "admin"
       | "chainStartBlock"
       | "chainVerifiedBlocks"
       | "consensusRatio"
@@ -132,6 +135,7 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
       | "renounceOwnership"
       | "requiredValidators"
       | "requiredValidatorsSet"
+      | "setAdmin"
       | "setConsensusRatio"
       | "setRequiredValidators"
       | "submitBlocks"
@@ -142,6 +146,7 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
       | "verifyParentBlocks"
   ): FunctionFragment;
 
+  encodeFunctionData(functionFragment: "admin", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "chainStartBlock",
     values: [PromiseOrValue<BigNumberish>]
@@ -191,6 +196,10 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "setAdmin",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "setConsensusRatio",
     values: [PromiseOrValue<BigNumberish>]
   ): string;
@@ -233,6 +242,7 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     ]
   ): string;
 
+  decodeFunctionResult(functionFragment: "admin", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "chainStartBlock",
     data: BytesLike
@@ -278,6 +288,7 @@ export interface BridgeMixedConsensusInterface extends utils.Interface {
     functionFragment: "requiredValidatorsSet",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "setAdmin", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "setConsensusRatio",
     data: BytesLike
@@ -393,6 +404,8 @@ export interface BridgeMixedConsensus extends BaseContract {
   removeListener: OnEvent<this>;
 
   functions: {
+    admin(overrides?: CallOverrides): Promise<[string]>;
+
     chainStartBlock(
       chainId: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
@@ -439,6 +452,11 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<[BigNumber]>;
 
+    setAdmin(
+      _admin: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     setConsensusRatio(
       _consensusRatio: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -482,6 +500,8 @@ export interface BridgeMixedConsensus extends BaseContract {
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
   };
+
+  admin(overrides?: CallOverrides): Promise<string>;
 
   chainStartBlock(
     chainId: PromiseOrValue<BigNumberish>,
@@ -529,6 +549,11 @@ export interface BridgeMixedConsensus extends BaseContract {
 
   requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
 
+  setAdmin(
+    _admin: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   setConsensusRatio(
     _consensusRatio: PromiseOrValue<BigNumberish>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -573,6 +598,8 @@ export interface BridgeMixedConsensus extends BaseContract {
   ): Promise<ContractTransaction>;
 
   callStatic: {
+    admin(overrides?: CallOverrides): Promise<string>;
+
     chainStartBlock(
       chainId: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
@@ -616,6 +643,11 @@ export interface BridgeMixedConsensus extends BaseContract {
     ): Promise<BigNumber>;
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
+
+    setAdmin(
+      _admin: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     setConsensusRatio(
       _consensusRatio: PromiseOrValue<BigNumberish>,
@@ -693,6 +725,8 @@ export interface BridgeMixedConsensus extends BaseContract {
   };
 
   estimateGas: {
+    admin(overrides?: CallOverrides): Promise<BigNumber>;
+
     chainStartBlock(
       chainId: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
@@ -739,6 +773,11 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
 
+    setAdmin(
+      _admin: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     setConsensusRatio(
       _consensusRatio: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -784,6 +823,8 @@ export interface BridgeMixedConsensus extends BaseContract {
   };
 
   populateTransaction: {
+    admin(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
     chainStartBlock(
       chainId: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
@@ -832,6 +873,11 @@ export interface BridgeMixedConsensus extends BaseContract {
 
     requiredValidatorsSet(
       overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    setAdmin(
+      _admin: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
     setConsensusRatio(

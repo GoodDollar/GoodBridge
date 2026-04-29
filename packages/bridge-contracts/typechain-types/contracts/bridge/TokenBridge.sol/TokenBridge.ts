@@ -135,6 +135,7 @@ export interface TokenBridgeInterface extends utils.Interface {
   functions: {
     "BRIDGE_TOPIC()": FunctionFragment;
     "accountsDailyLimit(address)": FunctionFragment;
+    "admin()": FunctionFragment;
     "bridgeDailyLimit()": FunctionFragment;
     "bridgeFees()": FunctionFragment;
     "bridgeLimits()": FunctionFragment;
@@ -166,6 +167,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     "renounceOwnership()": FunctionFragment;
     "requiredValidators(address)": FunctionFragment;
     "requiredValidatorsSet()": FunctionFragment;
+    "setAdmin(address)": FunctionFragment;
     "setBridgeFees((uint256,uint256,uint256))": FunctionFragment;
     "setBridgeLimits((uint256,uint256,uint256,uint256,bool))": FunctionFragment;
     "setConsensusRatio(uint32)": FunctionFragment;
@@ -188,6 +190,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     nameOrSignatureOrTopic:
       | "BRIDGE_TOPIC"
       | "accountsDailyLimit"
+      | "admin"
       | "bridgeDailyLimit"
       | "bridgeFees"
       | "bridgeLimits"
@@ -219,6 +222,7 @@ export interface TokenBridgeInterface extends utils.Interface {
       | "renounceOwnership"
       | "requiredValidators"
       | "requiredValidatorsSet"
+      | "setAdmin"
       | "setBridgeFees"
       | "setBridgeLimits"
       | "setConsensusRatio"
@@ -245,6 +249,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     functionFragment: "accountsDailyLimit",
     values: [PromiseOrValue<string>]
   ): string;
+  encodeFunctionData(functionFragment: "admin", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "bridgeDailyLimit",
     values?: undefined
@@ -383,6 +388,10 @@ export interface TokenBridgeInterface extends utils.Interface {
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "setAdmin",
+    values: [PromiseOrValue<string>]
+  ): string;
+  encodeFunctionData(
     functionFragment: "setBridgeFees",
     values: [TokenBridge.BridgeFeesStruct]
   ): string;
@@ -465,6 +474,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     functionFragment: "accountsDailyLimit",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "admin", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "bridgeDailyLimit",
     data: BytesLike
@@ -565,6 +575,7 @@ export interface TokenBridgeInterface extends utils.Interface {
     functionFragment: "requiredValidatorsSet",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "setAdmin", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "setBridgeFees",
     data: BytesLike
@@ -796,6 +807,8 @@ export interface TokenBridge extends BaseContract {
       }
     >;
 
+    admin(overrides?: CallOverrides): Promise<[string]>;
+
     bridgeDailyLimit(
       overrides?: CallOverrides
     ): Promise<
@@ -956,6 +969,11 @@ export interface TokenBridge extends BaseContract {
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<[BigNumber]>;
 
+    setAdmin(
+      _admin: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
     setBridgeFees(
       _fees: TokenBridge.BridgeFeesStruct,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1054,6 +1072,8 @@ export interface TokenBridge extends BaseContract {
       bridged24Hours: BigNumber;
     }
   >;
+
+  admin(overrides?: CallOverrides): Promise<string>;
 
   bridgeDailyLimit(
     overrides?: CallOverrides
@@ -1215,6 +1235,11 @@ export interface TokenBridge extends BaseContract {
 
   requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
 
+  setAdmin(
+    _admin: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
   setBridgeFees(
     _fees: TokenBridge.BridgeFeesStruct,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1313,6 +1338,8 @@ export interface TokenBridge extends BaseContract {
         bridged24Hours: BigNumber;
       }
     >;
+
+    admin(overrides?: CallOverrides): Promise<string>;
 
     bridgeDailyLimit(
       overrides?: CallOverrides
@@ -1471,6 +1498,11 @@ export interface TokenBridge extends BaseContract {
     ): Promise<BigNumber>;
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
+
+    setAdmin(
+      _admin: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
 
     setBridgeFees(
       _fees: TokenBridge.BridgeFeesStruct,
@@ -1661,6 +1693,8 @@ export interface TokenBridge extends BaseContract {
       overrides?: CallOverrides
     ): Promise<BigNumber>;
 
+    admin(overrides?: CallOverrides): Promise<BigNumber>;
+
     bridgeDailyLimit(overrides?: CallOverrides): Promise<BigNumber>;
 
     bridgeFees(overrides?: CallOverrides): Promise<BigNumber>;
@@ -1790,6 +1824,11 @@ export interface TokenBridge extends BaseContract {
 
     requiredValidatorsSet(overrides?: CallOverrides): Promise<BigNumber>;
 
+    setAdmin(
+      _admin: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
     setBridgeFees(
       _fees: TokenBridge.BridgeFeesStruct,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
@@ -1884,6 +1923,8 @@ export interface TokenBridge extends BaseContract {
       arg0: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
+
+    admin(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     bridgeDailyLimit(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
@@ -2016,6 +2057,11 @@ export interface TokenBridge extends BaseContract {
 
     requiredValidatorsSet(
       overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    setAdmin(
+      _admin: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
 
     setBridgeFees(

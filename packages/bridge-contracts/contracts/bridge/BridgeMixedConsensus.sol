@@ -14,7 +14,18 @@ abstract contract BridgeMixedConsensus is BridgeCore, OwnableUpgradeable {
 
     uint32 public consensusRatio;
 
-    uint256[16] _gap;
+    address public admin;
+
+    uint256[15] _gap;
+
+    modifier onlyAdmin() virtual {
+        require(msg.sender == admin, 'not admin');
+        _;
+    }
+
+    function setAdmin(address _admin) public onlyOwner {
+        admin = _admin;
+    }
 
     function initialize_consensus(
         address[] memory _validators,
@@ -27,6 +38,7 @@ abstract contract BridgeMixedConsensus is BridgeCore, OwnableUpgradeable {
         _setRequiredValidators(_requiredValidators);
 
         consensusRatio = _consensusRatio;
+        admin = msg.sender;
     }
 
     function _setRequiredValidators(address[] memory validators) internal {
