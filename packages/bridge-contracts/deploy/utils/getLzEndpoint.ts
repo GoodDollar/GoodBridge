@@ -9,10 +9,7 @@ const LZ_ENDPOINT_BY_NETWORK: Record<string, string> = {
 };
 
 export function getLzEndpoint(networkName: string): string {
-  const fromEnv = process.env.LAYERZERO_ENDPOINT;
-  if (fromEnv) return fromEnv;
-
-  const endpoint = LZ_ENDPOINT_BY_NETWORK[networkName];
+  const endpoint = LZ_ENDPOINT_BY_NETWORK[networkName] || process.env.LAYERZERO_ENDPOINT;
   if (!endpoint) {
     throw new Error(
       `LayerZero EndpointV2 not mapped for "${networkName}". Set LAYERZERO_ENDPOINT or add a mapping in deploy/utils/getLzEndpoint.ts`

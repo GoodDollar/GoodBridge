@@ -15,6 +15,8 @@ import * as envEnc from '@chainlink/env-enc';
 import '@layerzerolabs/toolbox-hardhat'
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 
+import './scripts/oft/configure-oft';
+
 configDotenv();
 envEnc.config();
 
