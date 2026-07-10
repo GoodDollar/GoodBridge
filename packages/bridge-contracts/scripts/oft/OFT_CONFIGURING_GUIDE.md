@@ -12,7 +12,7 @@ npx hardhat deploy --tags OFT --network production-xdc
 npx hardhat deploy --tags OFT --network production-celo
 ```
 
-Use `development-xdc` / `development-celo` for staging. Deploy **both** chains before configuring (wiring needs both adapters).
+Use `development-xdc` / `development-celo` for staging. Deploy **both** chains before configuring (LayerZero wire needs both adapters, and must run while the deployer still owns the OApp).
 
 ### Deploy parameters (`deploy/deployOFT.ts`)
 
@@ -34,10 +34,10 @@ yarn oft:configure --network production-celo
 
 ### Steps (in order)
 
-1. **Minter role** — grant `MINTER_ROLE` on G$ to `GoodDollarOFTMinterBurner` via Controller/Avatar  
-2. **Bridge limits** — `setBridgeLimits` from `scripts/oft/oft.config.json`  
-3. **LayerZero wire** — `lz:oapp:wire --ci` using `scripts/oft/layerzero.config.ts` (peers / DVNs / options)  
-4. **Adapter ownership** — transfer `GoodDollarOFTAdapter` owner to DAO Avatar  
+1. **LayerZero wire** — `lz:oapp:wire --ci` using `scripts/oft/layerzero.config.ts` (peers / DVNs / options). Must run **before** ownership transfer; after Avatar owns the adapter, wiring is not possible from the deployer key.  
+2. **Minter role** — grant `MINTER_ROLE` on G$ to `GoodDollarOFTMinterBurner` via Controller/Avatar  
+3. **Bridge limits** — `setBridgeLimits` from `scripts/oft/oft.config.json` (still as deployer owner)  
+4. **Adapter ownership** — transfer `GoodDollarOFTAdapter` owner to DAO Avatar (**last**)
 
 ### Skip flags
 
@@ -48,9 +48,9 @@ yarn oft:configure --network production-celo --skip-minter --skip-limits --skip-
 
 | Flag | Skips |
 |------|--------|
-| `--skip-minter` | Step 1 |
-| `--skip-limits` | Step 2 |
-| `--skip-wire` | Step 3 |
+| `--skip-wire` | Step 1 |
+| `--skip-minter` | Step 2 |
+| `--skip-limits` | Step 3 |
 | `--skip-adapter-ownership` | Step 4 |
 
 ### Limit parameters (`oft.config.json`)
@@ -94,14 +94,16 @@ npx hardhat run scripts/oft/bridge-oft-token.ts --network production-celo
 
 ## Add a network for LayerZero wiring
 
-Today wiring is **XDC ↔ CELO** in `scripts/oft/layerzero.config.ts`. To add another chain:
+Today the stack is built for **XDC ↔ CELO** (`layerzero.config.ts`, `OFT_NETWORK_PAIRS`). Adding a third chain needs more than a one-line append — those two-chain helpers must be extended or refactored.
 
-1. **Deploy** OFT on the new Hardhat network (`--tags OFT`) so `deployments/<network>/GoodDollarOFTAdapter.json` exists  
-2. **Hardhat** — network entry in `hardhat.config.ts` (RPC + accounts)  
-3. **Endpoint** — map the Hardhat network → `@layerzerolabs/lz-evm-sdk-v2` `deployments/<lz-network>/EndpointV2.json` in `deploy/utils/getLzEndpoint.ts` (or set `LAYERZERO_ENDPOINT`)  
-4. **`layerzero.config.ts`** — new `OmniPointHardhat` with `EndpointId.<CHAIN>_V2_…` + adapter address from `getOftDeploymentAddresses`  
-5. **Pathway** — append a `pathways` entry: `[dest, src, DVNs, confirmations, enforcedOptions]` (same shape as the existing XDC↔CELO pair)  
-6. **Configure helpers** — limits in `oft.config.json`; extend `OFT_NETWORK_PAIRS` in `configure-oft.ts` (and `OFT_*_NETWORK` if wiring manually)  
-7. **Wire** — `yarn oft:configure --network <new-network>` (and on each peer you care about)
+Suggested order:
 
-`EndpointId` values come from `@layerzerolabs/lz-definitions`. DVN names must match LayerZero metadata for that chain.
+1. **Hardhat** — add the network in `hardhat.config.ts` (RPC, accounts, and `eid: EndpointId.<CHAIN>_V2_…` like the existing celo/xdc entries)  
+2. **Deploy endpoint** — map Hardhat name → `@layerzerolabs/lz-evm-sdk-v2` `deployments/<lz-network>/EndpointV2.json` in `getLzEndpoint.ts`, or set `LAYERZERO_ENDPOINT` for that run (required by the OFT adapter **constructor**, not by `lz:oapp:wire`)  
+3. **GoodProtocol** — ensure `deployment.json` (or local overrides) has GoodDollar / NameService / Controller / Avatar for that network (configure steps need them)  
+4. **Deploy** — `npx hardhat deploy --tags OFT --network <new-network>` → `deployments/<network>/GoodDollarOFTAdapter.json`  
+5. **`layerzero.config.ts`** — add an `OmniPointHardhat` (eid + adapter from `getOftDeploymentAddresses`); add `pathways` for each pair you want (e.g. new↔CELO, new↔XDC). The current file is a single XDC↔CELO pathway driven by `OFT_XDC_NETWORK` / `OFT_CELO_NETWORK` — multi-chain needs that structure updated, not only one new pathway line  
+6. **Configure helpers** — `oft.config.json` limits; extend/refactor `OFT_NETWORK_PAIRS` in `configure-oft.ts` so `oft:configure` knows how to set peer env for wiring  
+7. **Wire then configure** — `yarn oft:configure --network <new-network>` (and on each peer). Wire runs **first** (deployer must still own the OApp); ownership transfer to Avatar is **last**
+
+`EndpointId` / DVN names: `@layerzerolabs/lz-definitions` and LayerZero metadata for that chain.

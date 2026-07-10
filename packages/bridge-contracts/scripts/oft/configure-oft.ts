@@ -66,15 +66,15 @@ export async function configureOft(hre: HardhatRuntimeEnvironment, flags: Config
   const networkName = hre.network.name;
   console.log(`oft:configure ${networkName}`, flags);
 
+  if (!flags.skipWire) wireLayerZero(networkName);
   if (!flags.skipMinter) await grantMinterRole();
   if (!flags.skipLimits) await setBridgeLimits();
-  if (!flags.skipWire) wireLayerZero(networkName);
   if (!flags.skipAdapterOwnership) await transferAdapterOwnership();
 
   console.log(`oft:configure done (${networkName})`);
 }
 
-task("oft:configure", "Configure GoodDollar OFT after deploy (minter, limits, wire, ownership)")
+task("oft:configure", "Configure GoodDollar OFT after deploy (wire, minter, limits, ownership)")
   .addFlag("skipMinter", "Skip granting MINTER_ROLE")
   .addFlag("skipLimits", "Skip setBridgeLimits")
   .addFlag("skipWire", "Skip LayerZero lz:oapp:wire")
