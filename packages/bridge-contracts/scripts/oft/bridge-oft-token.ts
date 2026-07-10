@@ -153,7 +153,7 @@ const main = async () => {
     console.log("You need to set the peer before bridging. Run this command:");
     console.log(`  oftAdapter.setPeer(${destEndpointId}, "${expectedPeer}")`);
     console.log("\nOr use the LayerZero wire command:");
-    console.log(`  npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts --network ${networkName}`);
+    console.log(`  npx hardhat lz:oapp:wire --oapp-config ./scripts/oft/layerzero.config.ts --network ${networkName}`);
     throw new Error(`NoPeer: ${destNetwork} peer (endpoint ${destEndpointId}) is not set. Expected: ${destOFTAdapter}`);
   }
   
@@ -216,7 +216,7 @@ const main = async () => {
             throw new Error(
               `No send library configured for ${destNetwork} (eid ${destEndpointId}). ` +
               `You need to run the LayerZero wiring command: ` +
-              `yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network ${networkName}`
+              `yarn hardhat lz:oapp:wire --oapp-config ./scripts/oft/layerzero.config.ts --network ${networkName}`
             );
           } else {
             console.log("ℹ️  Using default send library. Consider configuring a specific send library for better control.");
@@ -226,7 +226,7 @@ const main = async () => {
             `Send library not configured for ${destNetwork} (eid ${destEndpointId}). ` +
             `Error: ${e.message}. ` +
             `You need to run the LayerZero wiring command: ` +
-            `yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network ${networkName}`
+            `yarn hardhat lz:oapp:wire --oapp-config ./scripts/oft/layerzero.config.ts --network ${networkName}`
           );
         }
       } else {

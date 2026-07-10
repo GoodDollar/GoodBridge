@@ -1,162 +1,105 @@
-# OFT (Omnichain Fungible Token) Configuration Guide
+# OFT bridge deploy & configure
 
-Configure the GoodDollar OFT bridge between XDC and CELO (LayerZero). Post-deploy steps live under `scripts/oft/` and are orchestrated by `yarn oft:configure`.
+From `packages/bridge-contracts`. Addresses are written to git-ignored hardhat-deploy artifacts:
 
-## Overview
+`deployments/<network>/GoodDollarOFTAdapter.json`  
+`deployments/<network>/GoodDollarOFTMinterBurner.json`
 
-1. Deploy OFT proxies/implementations (`deploy/deployOFT.ts`)
-2. Configure each network with `yarn oft:configure` (grant minter → limits → LayerZero wire → adapter ownership)
-3. Later upgrades use `deploy/upgradeOFT.ts` (`OFT-Upgrade` tag); **proxy addresses stay unchanged**
-
-## Config values explained
-
-### CREATE2 salts (`deploy/deployOFT.ts`)
-
-| Salt | How it is derived | Purpose |
-|------|-------------------|---------|
-| Proxy salt (MinterBurner) | `keccak256("Development-GoodDollarOFTMinterBurnerV1")` or `Production-...V1` | Deterministic **proxy** address per env |
-| Proxy salt (OFT Adapter) | `keccak256("Development-GoodDollarOFTAdapterV1")` or `Production-...V1` | Deterministic **proxy** address per env |
-| Implementation salt | `keccak256(compiled bytecode)` of each contract | Deterministic **implementation** address; changes when bytecode changes |
-
-Proxy salts are fixed strings so redeploys of the same env target the same proxy addresses. Implementation salts track bytecode so a new implementation gets a new CREATE2 address without moving the proxy.
-
-### LayerZero endpoints (`deploy/deployOFT.ts`)
-
-Passed as constructor args to `GoodDollarOFTAdapter` implementation:
-
-| Hardhat network | Endpoint |
-|-----------------|----------|
-| `development-celo` / `production-celo` | `0x1a44076050125825900e736c501f859c50fE728c` |
-| `development-xdc` / `production-xdc` | `0xcb566e3B6934Fa77258d68ea18E931fa75e1aaAa` |
-
-Override with `LAYERZERO_ENDPOINT` if needed. Wiring peers/DVNs uses `layerzero.config.ts` (not these constructor args alone).
-
-`layerzero.config.ts` loads adapter addresses from hardhat-deploy artifacts. Pair networks via env (set automatically by `oft:configure`):
-
-- `OFT_XDC_NETWORK` — default `development-xdc`
-- `OFT_CELO_NETWORK` — default `development-celo`
-
-### Bridge limits (`scripts/oft/oft.config.json`)
-
-Per-network `limits` object (human-readable G$ amounts; the script converts to 18-decimal wei when the string is short / decimal):
-
-| Field | Meaning |
-|-------|---------|
-| `dailyLimit` | Max total G$ bridged in a rolling 24h window (global) |
-| `txLimit` | Max G$ per single bridge transaction |
-| `accountDailyLimit` | Max G$ one account can bridge in a rolling 24h window |
-| `minAmount` | Minimum G$ amount per bridge transaction |
-| `onlyWhitelisted` | If `true`, only Identity-whitelisted senders may bridge |
-
-Skip behavior is controlled by CLI flags on `yarn oft:configure`, not by this JSON file.
-
-Example:
-
-```json
-{
-  "production-xdc": {
-    "limits": {
-      "dailyLimit": "1000000",
-      "txLimit": "100000",
-      "accountDailyLimit": "50000",
-      "minAmount": "10",
-      "onlyWhitelisted": false
-    }
-  }
-}
-```
-
-## Step 1: Deploy OFT contracts
+## Deploy
 
 ```bash
-npx hardhat deploy --tags OFT --network development-xdc
-npx hardhat deploy --tags OFT --network development-celo
-
 npx hardhat deploy --tags OFT --network production-xdc
 npx hardhat deploy --tags OFT --network production-celo
 ```
 
-This deploys upgradeable proxies for `GoodDollarOFTMinterBurner` and `GoodDollarOFTAdapter` and writes addresses under `deployments/<network>/` (git-ignored).
+Use `development-xdc` / `development-celo` for staging. Deploy **both** chains before configure (wiring needs both adapters).
 
-`GoodDollarOFTMinterBurner.initialize(nameService, adapter)` sets the OFT adapter as operator; no separate set-operator step is required for the happy path.
+### Deploy parameters (`deploy/deployOFT.ts`)
 
-## Step 2: Configure (`yarn oft:configure`)
+| Parameter | Source | Notes |
+|-----------|--------|--------|
+| Token / NameService / Controller | `@gooddollar/goodprotocol` `deployment.json` for the Hardhat network | Required |
+| LayerZero endpoint | Built-in map, or `LAYERZERO_ENDPOINT` | Celo `0x1a44…728c`, XDC `0xcb56…aaAa` |
+| Proxy CREATE2 salt | `Development-…V1` or `Production-…V1` string hash | Fixed proxy address per env |
+| Implementation CREATE2 salt | `keccak256(bytecode)` | Changes when code changes |
 
-Run on **each** network after both sides are deployed (wire needs both adapters in artifacts):
+## Configure
 
 ```bash
 yarn oft:configure --network production-xdc
 yarn oft:configure --network production-celo
 ```
 
-Development:
+### Steps (in order)
 
-```bash
-yarn oft:configure --network development-xdc
-yarn oft:configure --network development-celo
-```
+1. **Minter role** — grant `MINTER_ROLE` on G$ to `GoodDollarOFTMinterBurner` via Controller/Avatar  
+2. **Bridge limits** — `setBridgeLimits` from `scripts/oft/oft.config.json`  
+3. **LayerZero wire** — `lz:oapp:wire --ci` using `scripts/oft/layerzero.config.ts` (peers / DVNs / options)  
+4. **Adapter ownership** — transfer `GoodDollarOFTAdapter` owner to DAO Avatar  
 
-### Order of steps
-
-1. Grant `MINTER_ROLE` to `GoodDollarOFTMinterBurner` (via Controller/Avatar)
-2. Set bridge limits from `oft.config.json`
-3. Wire LayerZero (`lz:oapp:wire --ci`) using `layerzero.config.ts`
-4. Transfer `GoodDollarOFTAdapter` ownership to DAO Avatar (`adapter-ownership.ts`)
-
-Ownership transfer is last so limits and wiring still run as the deployer owner.
-
-### CLI flags
+### Skip flags
 
 ```bash
 yarn oft:configure --network production-xdc --skip-wire
-yarn oft:configure --network production-celo --skip-minter --skip-limits
-yarn oft:configure --network production-xdc --skip-adapter-ownership
+yarn oft:configure --network production-celo --skip-minter --skip-limits --skip-adapter-ownership
 ```
 
-| Flag | Effect |
+| Flag | Skips |
 |------|--------|
-| `--skip-minter` | Skip granting MINTER_ROLE |
-| `--skip-limits` | Skip `setBridgeLimits` |
-| `--skip-wire` | Skip `lz:oapp:wire` |
-| `--skip-adapter-ownership` | Skip ownership transfer to Avatar |
+| `--skip-minter` | Step 1 |
+| `--skip-limits` | Step 2 |
+| `--skip-wire` | Step 3 |
+| `--skip-adapter-ownership` | Step 4 |
 
-### Individual helpers (optional)
+### Limit parameters (`oft.config.json`)
 
-Helpers used by `oft:configure` can still be run alone:
+Values are **G$ amounts** (e.g. `"100"` → 100 G$), not wei:
 
-```bash
-npx hardhat run scripts/oft/grant-minter-role.ts --network production-xdc
-npx hardhat run scripts/oft/set-bridge-limits.ts --network production-xdc
-npx hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network production-xdc --ci
-npx hardhat run scripts/oft/adapter-ownership.ts --network production-xdc
-```
+| Field | Meaning |
+|-------|---------|
+| `dailyLimit` | Max G$ bridged per 24h (all users) |
+| `txLimit` | Max G$ in one tx |
+| `accountDailyLimit` | Max G$ per account per 24h |
+| `minAmount` | Min G$ per tx |
+| `onlyWhitelisted` | `true` → only Identity-whitelisted senders |
 
-Other utilities:
+### LayerZero pair env
 
-- `scripts/oft/adapter-ownership.ts` — transfer adapter ownership to Avatar (also step 4 of `oft:configure`)
-- `scripts/oft/bridge-oft-token.ts` — manual bridge smoke test
-- `scripts/oft/set-oft-operator.ts` — set operator if needed outside initialize
-- `scripts/oft/transfer-oft-adapter-ownership-from-avatar.ts` — transfer ownership away from Avatar via Controller
+`oft:configure` sets these from the network name (`production` vs `development`):
 
-### LayerZero wire notes
+- `OFT_XDC_NETWORK`
+- `OFT_CELO_NETWORK`
 
-- Wiring may fail with permission errors (`0xc4c52593`) if the OApp owner lacks endpoint delegate permissions
-- Prefer running wire **before** transferring ownership to Avatar
-- `oft:configure` sets `OFT_XDC_NETWORK` / `OFT_CELO_NETWORK` from whether the Hardhat network name contains `production`
+## Upgrade
 
-## Upgrades
-
-Proxy addresses remain fixed. Deploy new implementations and point proxies at them:
+Proxy addresses stay the same:
 
 ```bash
 npx hardhat deploy --tags OFT-Upgrade --network production-xdc
 npx hardhat deploy --tags OFT-Upgrade --network production-celo
 ```
 
-## Verification checklist
+## Bridge (smoke test)
 
-1. Addresses present in `deployments/<network>/GoodDollarOFTAdapter.json` and `GoodDollarOFTMinterBurner.json`
-2. `GoodDollarOFTMinterBurner` has minter role on GoodDollar
-3. LayerZero peers configured between XDC and CELO
-4. Bridge limits match `oft.config.json`
-5. OFT adapter `owner()` is DAO Avatar (after configure without `--skip-adapter-ownership`)
+After deploy + configure on **both** chains, send ~1 G$ from the source network:
+
+```bash
+npx hardhat run scripts/oft/bridge-oft-token.ts --network production-xdc
+npx hardhat run scripts/oft/bridge-oft-token.ts --network production-celo
+```
+
+`--network` is the **source** chain (XDC → CELO or CELO → XDC). Needs G$ on source, native gas for the tx + LayerZero fee, peers wired, and minter role on both sides. Track delivery on [LayerZero Scan](https://layerzeroscan.com/).
+
+## Add a network for LayerZero wiring
+
+Today wiring is **XDC ↔ CELO** in `scripts/oft/layerzero.config.ts`. To add another chain:
+
+1. **Deploy** OFT on the new Hardhat network (`--tags OFT`) so `deployments/<network>/GoodDollarOFTAdapter.json` exists  
+2. **Hardhat** — network entry in `hardhat.config.ts` (RPC + accounts)  
+3. **Endpoint** — add the chain’s LZ V2 endpoint in `deploy/deployOFT.ts` (or set `LAYERZERO_ENDPOINT`)  
+4. **`layerzero.config.ts`** — new `OmniPointHardhat` with `EndpointId.<CHAIN>_V2_…` + adapter address from `getOftDeploymentAddresses`  
+5. **Pathway** — append a `pathways` entry: `[dest, src, DVNs, confirmations, enforcedOptions]` (same shape as the existing XDC↔CELO pair)  
+6. **Configure helpers** — limits in `oft.config.json`; if `oft:configure` pair env only knows xdc/celo, extend `resolveOftPairNetworks` (or set `OFT_*_NETWORK` yourself)  
+7. **Wire** — `yarn oft:configure --network <new-network>` (and on each peer you care about)
+
+`EndpointId` values come from `@layerzerolabs/lz-definitions`. DVN names must match LayerZero metadata for that chain.

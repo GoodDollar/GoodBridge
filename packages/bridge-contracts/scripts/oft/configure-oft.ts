@@ -1,30 +1,9 @@
-/***
- * Orchestrates post-deploy OFT configuration for a single Hardhat network.
- *
- * Steps (in order):
- *   1. Grant MINTER_ROLE to GoodDollarOFTMinterBurner
- *   2. Set bridge limits from scripts/oft/oft.config.json
- *   3. Wire LayerZero peers / DVNs / enforced options (lz:oapp:wire --ci)
- *   4. Transfer GoodDollarOFTAdapter ownership to DAO Avatar
- *
- * Usage:
- *   yarn oft:configure --network production-xdc
- *   yarn oft:configure --network production-celo
- *   yarn oft:configure --network development-xdc --skip-wire
- *
- * Flags (forwarded by scripts/oft/run-configure.js):
- *   --skip-minter
- *   --skip-limits
- *   --skip-wire
- *   --skip-adapter-ownership
- */
-
 import { spawnSync } from "child_process";
 import path from "path";
 import { network } from "hardhat";
-import { main as grantMinterRole } from "./grant-minter-role";
-import { main as setBridgeLimits } from "./set-bridge-limits";
-import { main as transferAdapterOwnership } from "./adapter-ownership";
+import { main as grantMinterRole } from "./steps/grant-minter-role";
+import { main as setBridgeLimits } from "./steps/set-bridge-limits";
+import { main as transferAdapterOwnership } from "./steps/adapter-ownership";
 
 type ConfigureFlags = {
   skipMinter: boolean;
@@ -57,25 +36,11 @@ function resolveOftPairNetworks(networkName: string): { xdc: string; celo: strin
 
 function wireLayerZero(networkName: string) {
   const pair = resolveOftPairNetworks(networkName);
-  const packageRoot = path.resolve(__dirname, "../..");
-  console.log("\n=== Wire LayerZero OApp ===");
-  console.log("Network (signer/RPC):", networkName);
-  console.log("OFT_XDC_NETWORK:", pair.xdc);
-  console.log("OFT_CELO_NETWORK:", pair.celo);
-
   const result = spawnSync(
     "npx",
-    [
-      "hardhat",
-      "lz:oapp:wire",
-      "--oapp-config",
-      "./layerzero.config.ts",
-      "--network",
-      networkName,
-      "--ci",
-    ],
+    ["hardhat", "lz:oapp:wire", "--oapp-config", "./scripts/oft/layerzero.config.ts", "--network", networkName, "--ci"],
     {
-      cwd: packageRoot,
+      cwd: path.resolve(__dirname, "../.."),
       stdio: "inherit",
       env: {
         ...process.env,
@@ -84,49 +49,23 @@ function wireLayerZero(networkName: string) {
       },
     }
   );
-
-  if (result.error) {
-    throw result.error;
-  }
+  if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(`LayerZero wire failed with exit code ${result.status ?? "unknown"}`);
   }
-  console.log("✅ LayerZero wire completed");
 }
 
 export const main = async () => {
   const flags = parseFlags();
   const networkName = network.name;
+  console.log(`oft:configure ${networkName}`, flags);
 
-  console.log("=== Configure GoodDollar OFT ===");
-  console.log("Network:", networkName);
-  console.log("Flags:", flags);
+  if (!flags.skipMinter) await grantMinterRole();
+  if (!flags.skipLimits) await setBridgeLimits();
+  if (!flags.skipWire) wireLayerZero(networkName);
+  if (!flags.skipAdapterOwnership) await transferAdapterOwnership();
 
-  if (!flags.skipMinter) {
-    await grantMinterRole();
-  } else {
-    console.log("\nSkipping grant MINTER_ROLE (--skip-minter)");
-  }
-
-  if (!flags.skipLimits) {
-    await setBridgeLimits();
-  } else {
-    console.log("\nSkipping set bridge limits (--skip-limits)");
-  }
-
-  if (!flags.skipWire) {
-    wireLayerZero(networkName);
-  } else {
-    console.log("\nSkipping LayerZero wire (--skip-wire)");
-  }
-
-  if (!flags.skipAdapterOwnership) {
-    await transferAdapterOwnership();
-  } else {
-    console.log("\nSkipping adapter ownership transfer (--skip-adapter-ownership)");
-  }
-
-  console.log("\n=== OFT configuration complete ===");
+  console.log(`oft:configure done (${networkName})`);
 };
 
 if (require.main === module) {
