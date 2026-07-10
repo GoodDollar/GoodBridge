@@ -2099,6 +2099,7 @@ __metadata:
     "@layerzerolabs/devtools-evm-hardhat": "npm:^4.0.4"
     "@layerzerolabs/lz-definitions": "npm:^3.0.151"
     "@layerzerolabs/lz-evm-protocol-v2": "npm:^3.0.151"
+    "@layerzerolabs/lz-evm-sdk-v2": "npm:^3.0.148"
     "@layerzerolabs/lz-v2-utilities": "npm:^3.0.156"
     "@layerzerolabs/metadata-tools": "npm:^3.0.3"
     "@layerzerolabs/oapp-evm": "npm:^0.4.1"
