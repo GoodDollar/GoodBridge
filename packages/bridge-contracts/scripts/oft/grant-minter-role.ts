@@ -1,10 +1,10 @@
 /***
- * Script to grant MINTER_ROLE to GoodDollarOFTMinterBurner contract on development-celo
+ * Script to grant MINTER_ROLE to GoodDollarOFTMinterBurner contract
  * Uses genericCall through Avatar/Controller to execute the transaction
- * 
+ *
  * Usage:
- *   npx hardhat run test/oft/grant-minter-role.ts --network development-celo
- * 
+ *   npx hardhat run scripts/oft/grant-minter-role.ts --network development-celo
+ *
  * Note: This script must be run by a guardian or address with permissions to execute via Controller
  */
 
@@ -12,7 +12,7 @@ import { network, ethers } from "hardhat";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
 import { getOftDeploymentAddresses } from "../../deploy/utils/getOftDeploymentAddresses";
 
-const main = async () => {
+export const main = async () => {
   const networkName = network.name;
   const [signer] = await ethers.getSigners();
 

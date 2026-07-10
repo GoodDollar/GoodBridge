@@ -2,15 +2,11 @@
  * Script to bridge 1 G$ token between XDC and CELO using LayerZero OFT adapter
  * 
  * Usage:
- *   # Bridge from XDC to CELO:
- *   npx hardhat run test/oft/bridge-oft-token.ts --network production-xdc
- *   # or
- *   npx hardhat run test/oft/bridge-oft-token.ts --network development-xdc
- * 
- *   # Bridge from CELO to XDC:
- *   npx hardhat run test/oft/bridge-oft-token.ts --network production-celo
- *   # or
- *   npx hardhat run test/oft/bridge-oft-token.ts --network development-celo
+ *   npx hardhat run scripts/oft/bridge-oft-token.ts --network production-xdc
+ *   npx hardhat run scripts/oft/bridge-oft-token.ts --network development-xdc
+ *
+ *   npx hardhat run scripts/oft/bridge-oft-token.ts --network production-celo
+ *   npx hardhat run scripts/oft/bridge-oft-token.ts --network development-celo
  * 
  * Note: Make sure you have:
  * - GoodDollarOFTAdapter deployed on both XDC and CELO
@@ -374,7 +370,7 @@ const main = async () => {
       } else if (error.message?.includes('send library') || error.message?.includes('SendLib') || error.message?.includes('receive library') || error.message?.includes('ReceiveLib')) {
         console.error("\n🔍 DIAGNOSIS: LayerZero library configuration issue");
         console.error("Check library configuration using:");
-        console.error(`   yarn hardhat run test/oft/check-layerzero-config.ts --network ${networkName}`);
+        console.error(`   npx hardhat lz:oapp:config:get --oapp-config ./layerzero.config.ts --network ${networkName}`);
       }
       
       // Check for peer errors
@@ -382,7 +378,7 @@ const main = async () => {
         console.error("\n🔍 DIAGNOSIS: Peer not configured");
         console.error("The peer connection between chains is not set.");
         console.error("\nSOLUTION:");
-        console.error(`Run: yarn hardhat run test/oft/set-layerzero-peers.ts --network ${networkName}`);
+        console.error(`Run: npx hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network ${networkName} --ci`);
       }
     }
     

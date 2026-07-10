@@ -1,11 +1,14 @@
 /**
  * LayerZero OApp Configuration
- * 
+ *
  * This config file is used by LayerZero Hardhat tools to wire connections
  * between chains and configure messaging libraries, DVNs, and executors.
- * 
+ *
+ * Pair networks (defaults are development):
+ *   OFT_XDC_NETWORK=production-xdc OFT_CELO_NETWORK=production-celo
+ *
  * Usage:
- *   npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
+ *   npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts --ci
  *   npx hardhat lz:oapp:config:get --oapp-config layerzero.config.ts
  */
 
@@ -16,9 +19,8 @@ import { ExecutorOptionType } from "@layerzerolabs/lz-v2-utilities";
 import { TwoWayConfig, generateConnectionsConfig } from "@layerzerolabs/metadata-tools";
 import { getOftDeploymentAddresses } from "./deploy/utils/getOftDeploymentAddresses";
 
-// Network names - adjust these based on your deployment
-const XDC_NETWORK = "development-xdc";
-const CELO_NETWORK = "development-celo";
+const XDC_NETWORK = process.env.OFT_XDC_NETWORK || "development-xdc";
+const CELO_NETWORK = process.env.OFT_CELO_NETWORK || "development-celo";
 
 // Get contract addresses from hardhat-deploy artifacts (`deployments/`)
 const { GoodDollarOFTAdapter: xdcOftAdapterAddress } = getOftDeploymentAddresses(XDC_NETWORK);

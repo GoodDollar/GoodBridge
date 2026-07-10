@@ -1,16 +1,16 @@
 /***
  * Script to set bridge limits for GoodDollarOFTAdapter contract
  * Calls setBridgeLimits directly on the OFT adapter (not via Controller/Avatar).
- * 
- * Note: Limits are now managed in GoodDollarOFTAdapter, not GoodDollarOFTMinterBurner
- * 
+ *
+ * Note: Limits are managed in GoodDollarOFTAdapter, not GoodDollarOFTMinterBurner
+ *
  * Usage:
- *   npx hardhat run test/oft/set-bridge-limits.ts --network development-celo
- * 
+ *   npx hardhat run scripts/oft/set-bridge-limits.ts --network development-celo
+ *
  * Configuration:
- *   All limit values are read from test/oft/oft.config.json
+ *   Limit values are read from scripts/oft/oft.config.json
  *   Each network/env has its entry in the config file.
- * 
+ *
  * Note: This script must be run by the OFT adapter owner (usually the deployer or DAO Avatar)
  */
 
@@ -20,7 +20,7 @@ import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
 import { getOftDeploymentAddresses } from "../../deploy/utils/getOftDeploymentAddresses";
 import config from "./oft.config.json";
 
-const main = async () => {
+export const main = async () => {
   const networkName = network.name;
   const [signer] = await ethers.getSigners();
 
@@ -72,7 +72,7 @@ const main = async () => {
   const networkConfig = (config as any)[networkName];
   if (!networkConfig || !networkConfig.limits) {
     console.log("\n⚠️  No limits configuration found for this network.");
-    console.log(`Please add a "limits" entry for "${networkName}" in test/oft/oft.config.json`);
+    console.log(`Please add a "limits" entry for "${networkName}" in scripts/oft/oft.config.json`);
     return;
   }
 
