@@ -19,7 +19,7 @@ Use `development-xdc` / `development-celo` for staging. Deploy **both** chains b
 | Parameter | Source | Notes |
 |-----------|--------|--------|
 | Token / NameService / Controller | `@gooddollar/goodprotocol` `deployment.json` for the Hardhat network | Required |
-| LayerZero endpoint | Built-in map, or `LAYERZERO_ENDPOINT` | Celo `0x1a44…728c`, XDC `0xcb56…aaAa` |
+| LayerZero endpoint | `@layerzerolabs/lz-evm-sdk-v2` `EndpointV2.json` via `deploy/utils/getLzEndpoint.ts` (override: `LAYERZERO_ENDPOINT`) | Celo/XDC mainnet deployments |
 | Proxy CREATE2 salt | `Development-…V1` or `Production-…V1` string hash | Fixed proxy address per env |
 | Implementation CREATE2 salt | `keccak256(bytecode)` | Changes when code changes |
 
@@ -96,7 +96,7 @@ Today wiring is **XDC ↔ CELO** in `scripts/oft/layerzero.config.ts`. To add an
 
 1. **Deploy** OFT on the new Hardhat network (`--tags OFT`) so `deployments/<network>/GoodDollarOFTAdapter.json` exists  
 2. **Hardhat** — network entry in `hardhat.config.ts` (RPC + accounts)  
-3. **Endpoint** — add the chain’s LZ V2 endpoint in `deploy/deployOFT.ts` (or set `LAYERZERO_ENDPOINT`)  
+3. **Endpoint** — map the Hardhat network → `@layerzerolabs/lz-evm-sdk-v2` `deployments/<lz-network>/EndpointV2.json` in `deploy/utils/getLzEndpoint.ts` (or set `LAYERZERO_ENDPOINT`)  
 4. **`layerzero.config.ts`** — new `OmniPointHardhat` with `EndpointId.<CHAIN>_V2_…` + adapter address from `getOftDeploymentAddresses`  
 5. **Pathway** — append a `pathways` entry: `[dest, src, DVNs, confirmations, enforcedOptions]` (same shape as the existing XDC↔CELO pair)  
 6. **Configure helpers** — limits in `oft.config.json`; if `oft:configure` pair env only knows xdc/celo, extend `resolveOftPairNetworks` (or set `OFT_*_NETWORK` yourself)  

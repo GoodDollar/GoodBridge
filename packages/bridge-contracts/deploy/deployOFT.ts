@@ -18,14 +18,7 @@ import { ethers } from 'hardhat';
 import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import { getImplementationAddress } from '@openzeppelin/upgrades-core';
 import { verifyContract } from './utils/verifyContract';
-
-// Network-specific LayerZero endpoints
-const lzEndpoints: { [key: string]: string } = {
-  'development-celo': '0x1a44076050125825900e736c501f859c50fE728c',
-  'production-celo': '0x1a44076050125825900e736c501f859c50fE728c',
-  'development-xdc': '0xcb566e3B6934Fa77258d68ea18E931fa75e1aaAa',
-  'production-xdc': '0xcb566e3B6934Fa77258d68ea18E931fa75e1aaAa',
-};
+import { getLzEndpoint } from './utils/getLzEndpoint';
 
 const func: DeployFunction = async function (hre) {
   const { deployments, network } = hre;
@@ -77,13 +70,7 @@ const func: DeployFunction = async function (hre) {
     }
   }
 
-  // Get LayerZero endpoint
-  const lzEndpoint = lzEndpoints[networkName] || process.env.LAYERZERO_ENDPOINT;
-  if (!lzEndpoint) {
-    throw new Error(
-      `LayerZero endpoint not found. Please set LAYERZERO_ENDPOINT environment variable or add default for network ${networkName}`,
-    );
-  }
+  const lzEndpoint = getLzEndpoint(networkName);
 
   console.log('Deployment parameters:', {
     tokenAddress,
