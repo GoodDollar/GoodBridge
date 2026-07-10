@@ -8,6 +8,7 @@
     "build": "hardhat compile",
     "test": "hardhat test",
     "test:oft": "hardhat test ./test/GoodDollarOFT.test.ts",
+    "oft:configure": "hardhat oft:configure",
     "updateabi": "find ./artifacts/contracts/ -iregex '.*/[a-z]*.json' -exec cp \"{}\" ../bridge-app/src/abi \\;",
     "start:dev": "hardhat node & yarn build && yarn updateabi && hardhat run scripts/deployDevEnv.ts --network localhost",
     "mpb:deploy": "hardhat deploy --export-all ./release/mpb.json"
@@ -30,6 +31,7 @@
     "@layerzerolabs/devtools-evm-hardhat": "^4.0.4",
     "@layerzerolabs/lz-definitions": "^3.0.151",
     "@layerzerolabs/lz-evm-protocol-v2": "^3.0.151",
+    "@layerzerolabs/lz-evm-sdk-v2": "^3.0.148",
     "@layerzerolabs/lz-v2-utilities": "^3.0.156",
     "@layerzerolabs/metadata-tools": "^3.0.3",
     "@layerzerolabs/oapp-evm": "^0.4.1",

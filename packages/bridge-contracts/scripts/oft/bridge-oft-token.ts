@@ -2,15 +2,11 @@
  * Script to bridge 1 G$ token between XDC and CELO using LayerZero OFT adapter
  * 
  * Usage:
- *   # Bridge from XDC to CELO:
- *   npx hardhat run test/oft/bridge-oft-token.ts --network production-xdc
- *   # or
- *   npx hardhat run test/oft/bridge-oft-token.ts --network development-xdc
- * 
- *   # Bridge from CELO to XDC:
- *   npx hardhat run test/oft/bridge-oft-token.ts --network production-celo
- *   # or
- *   npx hardhat run test/oft/bridge-oft-token.ts --network development-celo
+ *   npx hardhat run scripts/oft/bridge-oft-token.ts --network production-xdc
+ *   npx hardhat run scripts/oft/bridge-oft-token.ts --network development-xdc
+ *
+ *   npx hardhat run scripts/oft/bridge-oft-token.ts --network production-celo
+ *   npx hardhat run scripts/oft/bridge-oft-token.ts --network development-celo
  * 
  * Note: Make sure you have:
  * - GoodDollarOFTAdapter deployed on both XDC and CELO
@@ -157,7 +153,7 @@ const main = async () => {
     console.log("You need to set the peer before bridging. Run this command:");
     console.log(`  oftAdapter.setPeer(${destEndpointId}, "${expectedPeer}")`);
     console.log("\nOr use the LayerZero wire command:");
-    console.log(`  npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts --network ${networkName}`);
+    console.log(`  npx hardhat lz:oapp:wire --oapp-config ./scripts/oft/layerzero.config.ts --network ${networkName}`);
     throw new Error(`NoPeer: ${destNetwork} peer (endpoint ${destEndpointId}) is not set. Expected: ${destOFTAdapter}`);
   }
   
@@ -220,7 +216,7 @@ const main = async () => {
             throw new Error(
               `No send library configured for ${destNetwork} (eid ${destEndpointId}). ` +
               `You need to run the LayerZero wiring command: ` +
-              `yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network ${networkName}`
+              `yarn hardhat lz:oapp:wire --oapp-config ./scripts/oft/layerzero.config.ts --network ${networkName}`
             );
           } else {
             console.log("ℹ️  Using default send library. Consider configuring a specific send library for better control.");
@@ -230,7 +226,7 @@ const main = async () => {
             `Send library not configured for ${destNetwork} (eid ${destEndpointId}). ` +
             `Error: ${e.message}. ` +
             `You need to run the LayerZero wiring command: ` +
-            `yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network ${networkName}`
+            `yarn hardhat lz:oapp:wire --oapp-config ./scripts/oft/layerzero.config.ts --network ${networkName}`
           );
         }
       } else {
@@ -337,55 +333,7 @@ const main = async () => {
 
   } catch (error: any) {
     console.error("\n❌ Error during bridge:");
-    
-    // Provide helpful error messages for common issues
-    if (error.code === 'CALL_EXCEPTION' || error.reason || error.data) {
-      const errorData = error.data || error.error?.data || '';
-      
-      // Check for invalid worker options error (error code 0x6592671c = LZ_ULN_InvalidWorkerOptions)
-      if (errorData.includes('6592671c')) {
-        console.error("\n🔍 DIAGNOSIS: Invalid Worker Options");
-        console.error("The error code 0x6592671c = LZ_ULN_InvalidWorkerOptions indicates invalid extraOptions.");
-        console.error("This happens when enforced options are required but not properly configured.");
-        console.error("\nWhat's configured:");
-        console.error("  ✅ Send library: Found");
-        console.error("  ✅ Peer connection: Set");
-        console.error("\nWhat's likely missing:");
-        console.error("  ❌ DVN (Data Verification Network) configuration");
-        console.error("  ❌ Executor configuration");
-        console.error("  ❌ Receive library configuration on destination");
-        console.error("  ❌ Complete wiring configuration");
-        console.error("\nROOT CAUSE:");
-        console.error("The 'lz:oapp:wire' command failed earlier, so enforced options weren't configured.");
-        console.error("The OApp requires specific worker options (gas limits, etc.) but they're not set.");
-        console.error("\nSOLUTION:");
-        console.error("1. The wiring command MUST succeed to configure enforced options:");
-        console.error(`   yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network ${networkName}`);
-        console.error(`   yarn hardhat lz:oapp:wire --oapp-config ./layerzero.config.ts --network ${destNetworkName}`);
-        console.error("\n2. If wiring fails with permission errors (0xc4c52593), you need to:");
-        console.error("   - Run wiring from an account that has delegate permissions on the endpoint");
-        console.error("   - The OApp owner must be set as a delegate on the endpoint");
-        console.error("   - Contact LayerZero support if you need help with endpoint permissions");
-        console.error("\n3. Alternative: Manually configure enforced options:");
-        console.error("   - Use the OApp's setEnforcedOptions function if available");
-        console.error("   - Or check LayerZero documentation for manual option configuration");
-        console.error("\n4. Check LayerZero Scan for default configurations:");
-        console.error(`   Visit: https://layerzeroscan.com/tools/defaults?version=V2`);
-      } else if (error.message?.includes('send library') || error.message?.includes('SendLib') || error.message?.includes('receive library') || error.message?.includes('ReceiveLib')) {
-        console.error("\n🔍 DIAGNOSIS: LayerZero library configuration issue");
-        console.error("Check library configuration using:");
-        console.error(`   yarn hardhat run test/oft/check-layerzero-config.ts --network ${networkName}`);
-      }
-      
-      // Check for peer errors
-      if (errorData.includes('NoPeer') || error.message?.includes('peer')) {
-        console.error("\n🔍 DIAGNOSIS: Peer not configured");
-        console.error("The peer connection between chains is not set.");
-        console.error("\nSOLUTION:");
-        console.error(`Run: yarn hardhat run test/oft/set-layerzero-peers.ts --network ${networkName}`);
-      }
-    }
-    
+        
     throw error;
   }
 };
