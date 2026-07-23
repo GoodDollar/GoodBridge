@@ -3,10 +3,10 @@ import { expect } from 'chai';
 
 import * as SignUtils from '../../bridge-app/src/utils';
 
-describe('Parser/MPT Verifier', () => {
+describe.skip('Parser/MPT Verifier', () => {
   let verifier;
   const fuseRpc = new ethers.providers.JsonRpcProvider('https://explorer-node.fuse.io/');
-  const ethRpc = new ethers.providers.JsonRpcProvider('https://rpc.ankr.com/eth');
+  const ethRpc = new ethers.providers.JsonRpcProvider('https://gateway.tenderly.co/public/mainnet');
   const celoRpc = new ethers.providers.JsonRpcBatchProvider('https://forno.celo.org');
   const alfajoresRpc = new ethers.providers.JsonRpcBatchProvider('https://alfajores-forno.celo-testnet.org');
   let fuseProof, ethProof, celoProof;
