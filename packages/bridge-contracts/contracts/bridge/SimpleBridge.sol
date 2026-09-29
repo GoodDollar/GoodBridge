@@ -292,6 +292,10 @@ contract SimpleBridge is Initializable, UUPSUpgradeable, BridgeMixedConsensus {
         return (baseFee, isRelay ? baseFee : 0);
     }
 
+    function markExecuted(uint256 id) public onlyAdmin {
+        executedRequests[id] = true;
+    }
+
     function executeRequest(
         address from,
         address target,

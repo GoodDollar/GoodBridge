@@ -12,8 +12,8 @@ import { HttpNetworkAccountsConfig } from 'hardhat/types';
 import { configDotenv } from 'dotenv';
 import * as envEnc from '@chainlink/env-enc';
 
-import '@layerzerolabs/toolbox-hardhat'
-import { EndpointId } from '@layerzerolabs/lz-definitions'
+import '@layerzerolabs/toolbox-hardhat';
+import { EndpointId } from '@layerzerolabs/lz-definitions';
 
 import './scripts/oft/configure-oft';
 
@@ -99,12 +99,6 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 42220,
       url: 'https://forno.celo.org',
-      verify: {
-        etherscan: {
-          apiUrl: 'https://api.celoscan.io',
-          apiKey: process.env.CELOSCAN_KEY,
-        },
-      },
     },
     celo_testnet: {
       accounts: accounts as HttpNetworkAccountsConfig,
@@ -115,24 +109,12 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
       url: 'https://rpc.ankr.com/xdc',
-      verify: {
-        etherscan: {
-          apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
-          apiKey: process.env.ETHERSCAN_KEY || '',
-        },
-      },
       // url: 'http://localhost:8545',
     },
     xdc_testnet: {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
       url: 'https://rpc.ankr.com/xdc',
-      verify: {
-        etherscan: {
-          apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
-          apiKey: process.env.ETHERSCAN_KEY || '',
-        },
-      },
       // url: 'http://localhost:8545',
     },
     alfajores: {
@@ -140,12 +122,6 @@ const config: HardhatUserConfig = {
       chainId: 44787,
       url: `https://alfajores-forno.celo-testnet.org`,
       gasPrice: 5000000000,
-      verify: {
-        etherscan: {
-          apiUrl: 'https://alfajores.celoscan.io',
-          apiKey: process.env.CELOSCAN_KEY,
-        },
-      },
     },
     goerli: {
       accounts: accounts as HttpNetworkAccountsConfig,
@@ -154,70 +130,46 @@ const config: HardhatUserConfig = {
       gasPrice: 2e9,
       chainId: 5,
     },
-    "development-celo": {
+    'development-celo': {
       accounts: accounts as HttpNetworkAccountsConfig,
-      url: "https://forno.celo.org",
+      url: 'https://forno.celo.org',
       gas: 3000000,
       gasPrice: 26e9,
       chainId: 42220,
       eid: EndpointId.CELO_V2_MAINNET,
     } as any,
-    "production-celo": {
+    'production-celo': {
       accounts: accounts as HttpNetworkAccountsConfig,
-      url: "https://forno.celo.org",
+      url: 'https://forno.celo.org',
       gas: 8000000,
       gasPrice: 26e9,
-      chainId: 42220
+      chainId: 42220,
     },
-    "production-xdc": {
+    'production-xdc': {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
       url: 'https://rpc.xdc.org',
-      verify: {
-        etherscan: {
-          apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
-          apiKey: process.env.ETHERSCAN_KEY || '',
-        },
-      },
     },
-    "development-xdc": {
+    'development-xdc': {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
       url: 'https://rpc.xdc.org',
       eid: EndpointId.XDC_V2_MAINNET,
-      verify: {
-        etherscan: {
-          apiUrl: 'https://api.etherscan.io/v2/api?chainid=50',
-          apiKey: process.env.ETHERSCAN_KEY || '',
-        },
-      },
-    } as any
+    } as any,
   },
   sourcify: {
-    enabled: true,
-  },
-  verify: {
-    etherscan: {
-      apiKey: process.env.ETHERSCAN_KEY,
-    },
+    enabled: false,
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_KEY || '',
+    enabled: true,
+    apiKey: process.env.ETHERSCAN_API_KEY || '',
     customChains: [
       {
         chainId: 42220,
         network: 'celo',
         urls: {
-          apiURL: 'https://api.etherscan.io/v2/api?chainid=42220',
+          apiURL: 'https://api.blockscout.com/122/api',
           browserURL: 'https://celoscan.io',
-        },
-      },
-      {
-        chainId: 122,
-        network: 'fuse',
-        urls: {
-          apiURL: '',
-          browserURL: 'https://explorer.celo.org',
         },
       },
       {
@@ -226,6 +178,19 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: 'https://api.etherscan.io/v2/api?chainid=50',
           browserURL: 'https://xdcscan.com/',
+        },
+      },
+    ],
+  },
+  blockscout: {
+    enabled: true,
+    customChains: [
+      {
+        chainId: 122,
+        network: 'fuse',
+        urls: {
+          apiURL: 'https://explorer.fuse.io/api',
+          browserURL: 'https://explorer.fuse.io',
         },
       },
     ],
