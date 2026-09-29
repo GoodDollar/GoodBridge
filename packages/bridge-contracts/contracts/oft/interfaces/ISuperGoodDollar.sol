@@ -7,11 +7,13 @@ pragma solidity >=0.8;
  * @dev This is a minimal interface containing only the functions actually used
  */
 interface ISuperGoodDollar {
-	function isMinter(address _minter) external view returns (bool);
+    function isMinter(address _minter) external view returns (bool);
 
-	function mint(address to, uint256 amount) external returns (bool);
+    function mint(address to, uint256 amount) external returns (bool);
 
-	function burnFrom(address account, uint256 amount) external;
+    function burn(uint256 amount) external;
 
-	function addMinter(address _minter) external;
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+
+    function addMinter(address _minter) external;
 }

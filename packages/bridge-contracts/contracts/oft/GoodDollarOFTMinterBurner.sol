@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8;
 
-import {ISuperGoodDollar} from "./interfaces/ISuperGoodDollar.sol";
-import {DAOUpgradeableContract, INameService} from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
+import {ISuperGoodDollar} from './interfaces/ISuperGoodDollar.sol';
+import {DAOUpgradeableContract, INameService} from '@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol';
 
 /**
  * @title GoodDollarOFTMinterBurner
@@ -22,8 +22,8 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
     event TokensBurned(address indexed from, uint256 amount, address indexed operator);
 
     modifier onlyOperators() {
-        require(operators[msg.sender] || msg.sender == avatar, "Not authorized");
-        require(!paused, "Contract is paused");
+        require(operators[msg.sender] || msg.sender == avatar, 'Not authorized');
+        require(!paused, 'Contract is paused');
         _;
     }
 
@@ -33,7 +33,7 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
      * @param _adapter The OFT adapter address that should be authorized as operator
      */
     function initialize(INameService _nameService, address _adapter) public initializer {
-        require(_adapter != address(0), "adapter required");
+        require(_adapter != address(0), 'adapter required');
 
         setDAO(_nameService);
         token = ISuperGoodDollar(address(nativeToken()));
@@ -49,7 +49,7 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
      */
     function setOperator(address _operator, bool _status) external {
         _onlyAvatar();
-        require(_operator != address(0), "operator required");
+        require(_operator != address(0), 'operator required');
         operators[_operator] = _status;
         emit OperatorSet(_operator, _status);
     }
@@ -61,7 +61,8 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
      * @return success True if the burn was successful
      */
     function burn(address _from, uint256 _amount) external onlyOperators returns (bool) {
-        token.burnFrom(_from, _amount);
+        require(token.transferFrom(_from, address(this), _amount), 'TRANSFER_FROM_FAILED');
+        token.burn(_amount);
 
         emit TokensBurned(_from, _amount, msg.sender);
         return true;
@@ -86,7 +87,7 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
      */
     function pause() external {
         _onlyAvatar();
-        require(!paused, "Already paused");
+        require(!paused, 'Already paused');
         paused = true;
         emit Paused(msg.sender);
     }
@@ -96,7 +97,7 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
      */
     function unpause() external {
         _onlyAvatar();
-        require(paused, "Not paused");
+        require(paused, 'Not paused');
         paused = false;
         emit Unpaused(msg.sender);
     }
@@ -108,4 +109,3 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
      */
     uint256[50] private __gap;
 }
-

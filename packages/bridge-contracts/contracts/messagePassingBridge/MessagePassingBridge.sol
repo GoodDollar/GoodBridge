@@ -384,7 +384,9 @@ contract MessagePassingBridge is
         // } else {}
 
         // burn/mint on all chains
-        nativeToken().burnFrom(from, amount);
+        // first use transferfrom to prevent avoiding transfer fees or other hooks
+        require(nativeToken().transferFrom(from, address(this), amount), 'TRANSFER_FROM_FAILED');
+        nativeToken().burn(amount);
         uint256 normalizedAmount = BridgeHelperLibrary.normalizeFromTokenTo18Decimals(amount, nativeToken().decimals()); //on bridge request we normalize amount from source chain decimals to 18 decimals
 
         if (msg.value == 0) revert MISSING_FEE();
