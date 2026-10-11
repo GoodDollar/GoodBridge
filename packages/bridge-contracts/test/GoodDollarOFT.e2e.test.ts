@@ -5,6 +5,7 @@ import { GoodDollarOFTAdapter } from '../typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import * as networkHelpers from "@nomicfoundation/hardhat-network-helpers";
+import { deployMinterBurnerProxy } from './helpers/deployMinterBurnerProxy';
 
 const CELO_CHAIN_URL = 'https://forno.celo.org';
 /**
@@ -68,9 +69,7 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
     const nameService = await ethers.getContractAt(nameServiceAbi, nameServiceAddress);
 
     // Deploy minter/burner without initializing yet (adapter address is required)
-    const MinterBurnerFactory = await ethers.getContractFactory('GoodDollarOFTMinterBurner');
-    const minterBurner = await MinterBurnerFactory.deploy();
-    await minterBurner.deployed();
+    const minterBurner = await deployMinterBurnerProxy();
 
     // Deploy adapter using upgrades plugin with constructor args
     const AdapterFactory = await ethers.getContractFactory('GoodDollarOFTAdapter');
@@ -107,9 +106,7 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
 
       // Deploy MinterBurner using production NameService
       // Note: This requires NameService to have GOODDOLLAR registered
-      const MinterBurnerFactory = await ethers.getContractFactory('GoodDollarOFTMinterBurner');
-      const minterBurner = await MinterBurnerFactory.deploy();
-      await minterBurner.deployed();
+      const minterBurner = await deployMinterBurnerProxy();
 
       // Deploy adapter using upgrades plugin with constructor args
       const AdapterFactory = await ethers.getContractFactory('GoodDollarOFTAdapter');
@@ -137,7 +134,7 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       expect(await adapter.token()).to.equal(goodDollarAddress);
       expect(await adapter.minterBurner()).to.equal(minterBurner.address);
       expect(await adapter.owner()).to.equal(owner.address);
-      expect(await adapter.approvalRequired()).to.be.false;
+      expect(await adapter.approvalRequired()).to.be.true;
 
       console.log('Adapter deployed:', {
         address: adapter.address,
@@ -272,18 +269,16 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       ).to.be.revertedWithCustomError(adapter, 'BRIDGE_LIMITS').withArgs('accountDailyLimit');
     });
 
-    it('Should revert with dailyLimit when bridge daily limit exceeded', async function () {
-      await adapter.setBridgeLimits({
-        dailyLimit: ethers.utils.parseEther('1000'),
-        txLimit: ethers.utils.parseEther('10000'),
-        accountDailyLimit: ethers.utils.parseEther('100000'),
-        minAmount: ethers.utils.parseEther('100'),
-        onlyWhitelisted: false,
-      });
-      const amount = ethers.utils.parseEther('1001');
+    it('Should reject limits where txLimit exceeds dailyLimit', async function () {
       await expect(
-        adapter.connect(user).send(makeSendParam(amount), messagingFee, user.address, { value: 0 })
-      ).to.be.revertedWithCustomError(adapter, 'BRIDGE_LIMITS').withArgs('dailyLimit');
+        adapter.setBridgeLimits({
+          dailyLimit: ethers.utils.parseEther('1000'),
+          txLimit: ethers.utils.parseEther('10000'),
+          accountDailyLimit: ethers.utils.parseEther('1000'),
+          minAmount: ethers.utils.parseEther('100'),
+          onlyWhitelisted: false,
+        })
+      ).to.be.revertedWith('txLimit > dailyLimit');
     });
   });
 
@@ -339,20 +334,20 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
     });
 
     it('Should enforce maxFee when calculated fee exceeds maxFee', async function () {
-      // Set fee to 10% with maxFee of 50 tokens
+      // Set fee to 5% with maxFee of 20 tokens
       await adapter.setBridgeFees({
         minFee: ethers.utils.parseEther('0'),
-        maxFee: ethers.utils.parseEther('50'),
-        fee: 1000, // 10%
+        maxFee: ethers.utils.parseEther('20'),
+        fee: 500, // 5%
       });
 
-      // For 1000 tokens: 1000 * 1000 / 10000 = 100 tokens (above maxFee of 50)
-      // So fee should be 50 tokens (maxFee)
+      // For 1000 tokens: 1000 * 500 / 10000 = 50 tokens (above maxFee of 20)
+      // So fee should be 20 tokens (maxFee)
       const amount = ethers.utils.parseEther('1000');
-      const calculatedFee = amount.mul(1000).div(10000);
-      const maxFee = ethers.utils.parseEther('50');
+      const calculatedFee = amount.mul(500).div(10000);
+      const maxFee = ethers.utils.parseEther('20');
       
-      // The actual fee should be maxFee (50) since calculated (100) > maxFee (50)
+      // The actual fee should be maxFee (20) since calculated (50) > maxFee (20)
       expect(calculatedFee.gt(maxFee)).to.be.true;
     });
 
@@ -368,16 +363,70 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       expect(expectedFee).to.equal(ethers.utils.parseEther('0'));
     });
 
-    it('Should handle 100% fee (10000 basis points)', async function () {
-      await adapter.setBridgeFees({
-        minFee: ethers.utils.parseEther('0'),
-        maxFee: ethers.utils.parseEther('0'),
-        fee: 10000, // 100%
+    it('Should reject fees above MAX_FEE_BPS', async function () {
+      const maxFeeBps = await adapter.MAX_FEE_BPS();
+      await expect(adapter.setBridgeFees({ minFee: 0, maxFee: 0, fee: 10000 })).to.be.revertedWith('invalid fee');
+      await expect(adapter.setBridgeFees({ minFee: 0, maxFee: 0, fee: maxFeeBps.add(1) })).to.be.revertedWith(
+        'invalid fee'
+      );
+      await expect(adapter.setBridgeFees({ minFee: 0, maxFee: 0, fee: maxFeeBps })).to.emit(adapter, 'BridgeFeesSet');
+    });
+  });
+
+  // L-01/L-02: the adapter is the spender and burns through the MinterBurner, with real G$ and the real LZ endpoint
+  describe('Send path with real SuperGoodDollar (L-01/L-02)', () => {
+    // Celo->XDC defaults use a dead DVN until configured; Ethereum has live defaults so a raw send succeeds
+    const DST_EID = 30101;
+
+    it('pulls approved tokens via the adapter and burns them; the MinterBurner allowance is not used', async function () {
+      const { adapter, minterBurner, goodDollarAddress } = await loadFixture(setupFixture);
+      const token = await ethers.getContractAt(
+        'contracts/oft/interfaces/ISuperGoodDollar.sol:ISuperGoodDollar',
+        goodDollarAddress,
+      );
+      const erc20 = await ethers.getContractAt('@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20', goodDollarAddress);
+
+      await networkHelpers.impersonateAccount(celoContracts.Avatar);
+      await networkHelpers.setBalance(celoContracts.Avatar, ethers.utils.parseEther('10'));
+      const avatarSigner = await ethers.getSigner(celoContracts.Avatar);
+      await token.connect(avatarSigner).addMinter(minterBurner.address);
+      const amount = ethers.utils.parseEther('100');
+      await minterBurner.connect(avatarSigner).mint(user.address, amount);
+      await networkHelpers.stopImpersonatingAccount(celoContracts.Avatar);
+
+      await adapter.setPeer(DST_EID, ethers.utils.hexZeroPad(adapter.address, 32));
+      await adapter.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther('1000'),
+        txLimit: ethers.utils.parseEther('1000'),
+        accountDailyLimit: ethers.utils.parseEther('1000'),
+        minAmount: ethers.utils.parseEther('1'),
+        onlyWhitelisted: false,
       });
 
-      const amount = ethers.utils.parseEther('1000');
-      const expectedFee = amount.mul(10000).div(10000);
-      expect(expectedFee).to.equal(amount);
+      const sendParam = {
+        dstEid: DST_EID,
+        to: ethers.utils.hexZeroPad(user.address, 32),
+        amountLD: amount,
+        minAmountLD: amount,
+        extraOptions: '0x00030100110100000000000000000000000000030d40', // type 3, lzReceive 200k gas
+        composeMsg: '0x',
+        oftCmd: '0x',
+      };
+      const fee = await adapter.quoteSend(sendParam, false);
+
+      // approving only the MinterBurner (old flow) is not enough anymore
+      await erc20.connect(user).approve(minterBurner.address, amount);
+      await expect(adapter.connect(user).send(sendParam, fee, user.address, { value: fee.nativeFee })).to.be.reverted;
+
+      await erc20.connect(user).approve(adapter.address, amount);
+      const supplyBefore = await erc20.totalSupply();
+      await adapter.connect(user).send(sendParam, fee, user.address, { value: fee.nativeFee });
+
+      expect(await erc20.balanceOf(user.address)).to.equal(0);
+      expect(await erc20.totalSupply()).to.equal(supplyBefore.sub(amount));
+      expect(await erc20.balanceOf(adapter.address)).to.equal(0);
+      expect(await erc20.balanceOf(minterBurner.address)).to.equal(0);
+      expect(await erc20.allowance(user.address, minterBurner.address)).to.equal(amount);
     });
   });
 

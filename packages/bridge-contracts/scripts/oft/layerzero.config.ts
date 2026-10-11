@@ -36,7 +36,8 @@ const pathways: TwoWayConfig[] = [
   [
     celoContract,
     xdcContract,
-    [["LayerZero Labs"], []],
+    // 2 required DVNs, both live on Celo and XDC (LayerZero metadata)
+    [["LayerZero Labs", "Nethermind"], []],
     [20, 20],
     [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS],
   ],

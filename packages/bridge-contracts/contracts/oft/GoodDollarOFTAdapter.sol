@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0;
 
 import { IERC20, IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol";
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
 import { INameService } from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
@@ -20,6 +21,11 @@ interface IIdentity {
 contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OFTCoreUpgradeable {
     using OFTMsgCodec for bytes;
     using OFTMsgCodec for bytes32;
+    using SafeERC20 for IERC20;
+
+    /// @dev Upper bound for bridgeFees.fee (5%)
+    uint256 public constant MAX_FEE_BPS = 500;
+
     /// @dev Struct for storing bridge fees
     struct BridgeFees {
         uint256 minFee;
@@ -39,7 +45,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         uint256 bridged24Hours;
     }
 
-    /// @dev Struct for storing bridge limits
+    /// @dev Struct for storing bridge limits. Windows are tumbling (not sliding), so up to 2x a limit can pass around a reset
     struct BridgeLimits {
         uint256 dailyLimit;
         uint256 txLimit;
@@ -66,10 +72,10 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     /// @dev Bridge limits structure
     BridgeLimits public bridgeLimits;
 
-    /// @dev Bridge daily limit tracking
+    /// @dev Outbound (send) bridge daily limit tracking
     BridgeDailyLimit public bridgeDailyLimit;
 
-    /// @dev Account-specific daily limit tracking
+    /// @dev Outbound (send) account daily limit tracking
     mapping(address => AccountLimit) public accountsDailyLimit;
 
     struct FailedReceiveRequest {
@@ -89,6 +95,12 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /// @dev NameService for identity checks (optional, can be address(0))
     INameService public nameService;
+
+    /// @dev Inbound (receive) bridge daily limit tracking, separate so sends can't exhaust the receive budget
+    BridgeDailyLimit public bridgeReceiveDailyLimit;
+
+    /// @dev Inbound (receive) account daily limit tracking
+    mapping(address => AccountLimit) public accountsReceiveDailyLimit;
 
     /// @dev Error for bridge limits violations
     error BRIDGE_LIMITS(string reason);
@@ -125,6 +137,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /// @dev Event emitted when a failed receive request is rejected by the owner
     event FailedReceiveRequestRejected(bytes32 indexed guid);
+
+    /// @dev Event emitted when the NameService is updated
+    event NameServiceSet(address indexed nameService);
 
     /**
      * @dev Constructor for the upgradeable implementation; token is used for decimals, init is disabled.
@@ -180,18 +195,19 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Indicates whether the OFT contract requires approval of the underlying token to send
-     * @return requiresApproval False because this adapter uses mint and burn privileges
+     * @return requiresApproval True: the adapter pulls tokens from the sender before burning them
      */
     function approvalRequired() external pure returns (bool) {
-        return false;
+        return true;
     }
 
     /**
      * @notice Sets the bridge fees configuration
-     * @param _fees The bridge fees struct containing minFee, maxFee, and fee (in basis points)
+     * @param _fees The bridge fees struct containing minFee, maxFee (0 = no cap), and fee (in basis points)
      */
     function setBridgeFees(BridgeFees memory _fees) external onlyOwner {
-        require(_fees.fee <= 10000, 'invalid fee');
+        require(_fees.fee <= MAX_FEE_BPS, 'invalid fee');
+        require(_fees.maxFee == 0 || _fees.minFee <= _fees.maxFee, 'minFee > maxFee');
         bridgeFees = _fees;
         emit BridgeFeesSet(_fees.minFee, _fees.maxFee, _fees.fee);
     }
@@ -209,7 +225,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     /**
      * @notice Calculates the fee amount from the given amount
      * @param amount The amount to calculate fee from
-     * @return fee The calculated fee amount (enforced to be between minFee and maxFee if set)
+     * @return fee The calculated fee amount (enforced to be between minFee and maxFee if set, never above amount)
      */
     function _takeFee(uint256 amount) internal view returns (uint256 fee) {
         fee = (amount * bridgeFees.fee) / 10000;
@@ -219,6 +235,10 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         if (bridgeFees.maxFee > 0 && fee > bridgeFees.maxFee) {
             fee = bridgeFees.maxFee;
         }
+        // a minFee above the amount must not underflow and brick the message
+        if (fee > amount) {
+            fee = amount;
+        }
     }
 
     /**
@@ -226,6 +246,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      * @param _limits The bridge limits struct
      */
     function setBridgeLimits(BridgeLimits memory _limits) external onlyOwner {
+        require(_limits.minAmount <= _limits.txLimit, 'minAmount > txLimit');
+        require(_limits.txLimit <= _limits.dailyLimit, 'txLimit > dailyLimit');
+        require(_limits.accountDailyLimit <= _limits.dailyLimit, 'accountDailyLimit > dailyLimit');
         bridgeLimits = _limits;
         emit BridgeLimitsSet(
             _limits.dailyLimit,
@@ -242,6 +265,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      */
     function setNameService(INameService _nameService) external onlyOwner {
         nameService = _nameService;
+        emit NameServiceSet(address(_nameService));
     }
 
     /**
@@ -255,6 +279,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Approves a failed receive request with optimistic window or by owner
+     * @dev Approved amounts intentionally skip the daily limit counters
      */
     function approveFailedRequest(bytes32 _guid) external nonReentrant {
         require(!isClosed, 'closed');
@@ -282,11 +307,12 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      */
     function _checkBridgeClosedAndWhitelisted(address _from) internal view returns (bool ok, string memory reason) {
         if (isClosed) return (false, 'closed');
-        if (bridgeLimits.onlyWhitelisted && address(nameService) != address(0)) {
+        if (bridgeLimits.onlyWhitelisted) {
+            // fail closed: whitelist mode without a resolvable Identity blocks transfers
+            if (address(nameService) == address(0)) return (false, 'identity not set');
             IIdentity id = IIdentity(nameService.getAddress("IDENTITY"));
-            if (address(id) != address(0) && !id.isWhitelisted(_from)) {
-                return (false, 'not whitelisted');
-            }
+            if (address(id) == address(0)) return (false, 'identity not set');
+            if (!id.isWhitelisted(_from)) return (false, 'not whitelisted');
         }
         return (true, '');
     }
@@ -295,11 +321,15 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      * @notice Bridge limits check only (minAmount, accountDailyLimit, txLimit, dailyLimit).
      * @dev Assumes daily limit resets have already been applied. Failure on receive is stored in failedReceiveRequests.
      */
-    function _checkBridgeLimits(address _from, uint256 _amount) internal view returns (bool ok, string memory reason) {
+    function _checkBridgeLimits(
+        uint256 _amount,
+        BridgeDailyLimit storage _daily,
+        AccountLimit storage _account
+    ) internal view returns (bool ok, string memory reason) {
         if (_amount < bridgeLimits.minAmount) return (false, 'minAmount');
 
-        uint256 account24hours = accountsDailyLimit[_from].bridged24Hours;
-        if (accountsDailyLimit[_from].lastTransferReset < block.timestamp - 1 days) {
+        uint256 account24hours = _account.bridged24Hours;
+        if (_account.lastTransferReset < block.timestamp - 1 days) {
             account24hours = _amount;
         } else {
             account24hours += _amount;
@@ -308,44 +338,85 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
         if (_amount > bridgeLimits.txLimit) return (false, 'txLimit');
 
-        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
+        if (_daily.lastTransferReset < block.timestamp - 1 days) {
             if (_amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
         } else {
-            if (bridgeDailyLimit.bridged24Hours + _amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
+            if (_daily.bridged24Hours + _amount > bridgeLimits.dailyLimit) return (false, 'dailyLimit');
         }
         return (true, '');
     }
 
     /**
      * @notice Resets bridge and account daily limit counters if the 24h window has elapsed.
-     * @param _address The account address for which to reset account daily limit.
      */
-    function _resetDailyLimitsIfNeeded(address _address) internal {
-        if (bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days) {
-            bridgeDailyLimit.lastTransferReset = block.timestamp;
-            bridgeDailyLimit.bridged24Hours = 0;
+    function _resetDailyLimitsIfNeeded(BridgeDailyLimit storage _daily, AccountLimit storage _account) internal {
+        if (_daily.lastTransferReset < block.timestamp - 1 days) {
+            _daily.lastTransferReset = block.timestamp;
+            _daily.bridged24Hours = 0;
         }
 
-        if (accountsDailyLimit[_address].lastTransferReset < block.timestamp - 1 days) {
-            accountsDailyLimit[_address].lastTransferReset = block.timestamp;
-            accountsDailyLimit[_address].bridged24Hours = 0;
+        if (_account.lastTransferReset < block.timestamp - 1 days) {
+            _account.lastTransferReset = block.timestamp;
+            _account.bridged24Hours = 0;
         }
     }
 
     /**
      * @notice Enforces transfer limits: bridge closed/whitelisted check then bridge limits check.
-     * @dev Used on send path. Resets daily windows, then checks; on success updates counters.
+     * @dev Used on send path. Resets daily windows, then checks; on success updates outbound counters.
      */
     function _enforceLimits(address _address, uint256 _amount) internal returns (bool isValid, string memory reason) {
-        _resetDailyLimitsIfNeeded(_address);
+        AccountLimit storage account = accountsDailyLimit[_address];
+        _resetDailyLimitsIfNeeded(bridgeDailyLimit, account);
         (isValid, reason) = _checkBridgeClosedAndWhitelisted(_address);
         if (!isValid) return (false, reason);
-        (isValid, reason) = _checkBridgeLimits(_address, _amount);
+        (isValid, reason) = _checkBridgeLimits(_amount, bridgeDailyLimit, account);
         if (!isValid) return (false, reason);
 
         bridgeDailyLimit.bridged24Hours += _amount;
-        accountsDailyLimit[_address].bridged24Hours += _amount;
+        account.bridged24Hours += _amount;
         return (true, '');
+    }
+
+    /**
+     * @notice Quotes the OFT send with the real bridge limits for msg.sender
+     * @dev maxAmountLD = min(txLimit, remaining daily, remaining account daily); 0 when closed
+     */
+    function quoteOFT(
+        SendParam calldata _sendParam
+    )
+        external
+        view
+        virtual
+        override
+        returns (OFTLimit memory oftLimit, OFTFeeDetail[] memory oftFeeDetails, OFTReceipt memory oftReceipt)
+    {
+        uint256 maxAmount;
+        if (!isClosed) {
+            BridgeLimits memory limits = bridgeLimits;
+            uint256 dailyUsed = bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days
+                ? 0
+                : bridgeDailyLimit.bridged24Hours;
+            AccountLimit memory account = accountsDailyLimit[msg.sender];
+            uint256 accountUsed = account.lastTransferReset < block.timestamp - 1 days ? 0 : account.bridged24Hours;
+
+            maxAmount = limits.txLimit;
+            uint256 dailyLeft = limits.dailyLimit > dailyUsed ? limits.dailyLimit - dailyUsed : 0;
+            uint256 accountLeft = limits.accountDailyLimit > accountUsed ? limits.accountDailyLimit - accountUsed : 0;
+            if (dailyLeft < maxAmount) maxAmount = dailyLeft;
+            if (accountLeft < maxAmount) maxAmount = accountLeft;
+        }
+        oftLimit = OFTLimit(bridgeLimits.minAmount, maxAmount);
+
+        // TODO: destination-chain bridge fee quoting is an open decision; fees are left out of the quote for now
+        oftFeeDetails = new OFTFeeDetail[](0);
+
+        (uint256 amountSentLD, uint256 amountReceivedLD) = _debitView(
+            _sendParam.amountLD,
+            _sendParam.minAmountLD,
+            _sendParam.dstEid
+        );
+        oftReceipt = OFTReceipt(amountSentLD, amountReceivedLD);
     }
     
     /**
@@ -358,7 +429,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     ) internal virtual override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
         /// @dev revert if sending to zero address
         require(_sendParam.to.bytes32ToAddress() != address(0), 'GoodDollarOFTAdapter: sending to zero address');
-        (bool isValid, string memory reason) = _enforceLimits(msg.sender, _sendParam.amountLD);
+        // limits apply to the dust-free amount that is actually burned and bridged
+        (bool isValid, string memory reason) = _enforceLimits(msg.sender, _removeDust(_sendParam.amountLD));
         if (!isValid) {
             revert BRIDGE_LIMITS(reason);
         }
@@ -367,7 +439,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Overrides the default _lzReceive function to enforce limits on receiving side.
-     * @dev Bridge closed/whitelisted check: revert only. Bridge limits check: store in failedReceiveRequests then revert.
+     * @dev Closed/not whitelisted: revert. Limits exceeded: store in failedReceiveRequests (composed messages revert instead).
      */
     function _lzReceive(
         Origin calldata _origin,
@@ -384,10 +456,13 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
             revert BRIDGE_NOT_ALLOWED(reason);
         }
 
-        _resetDailyLimitsIfNeeded(toAddress);
+        AccountLimit storage account = accountsReceiveDailyLimit[toAddress];
+        _resetDailyLimitsIfNeeded(bridgeReceiveDailyLimit, account);
 
-        (ok, reason) = _checkBridgeLimits(toAddress, amountLD);
+        (ok, reason) = _checkBridgeLimits(amountLD, bridgeReceiveDailyLimit, account);
         if (!ok) {
+            // parking would drop the compose payload; reverting keeps the message retryable at the endpoint
+            if (_message.isComposed()) revert BRIDGE_LIMITS(reason);
             failedReceiveRequests[_guid] = FailedReceiveRequest(
                 true,
                 toAddress,
@@ -397,8 +472,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
             );
             emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid);
         } else{
-            bridgeDailyLimit.bridged24Hours += amountLD;
-            accountsDailyLimit[toAddress].bridged24Hours += amountLD;
+            bridgeReceiveDailyLimit.bridged24Hours += amountLD;
+            account.bridged24Hours += amountLD;
             super._lzReceive(_origin, _guid, _message, _executor, _extraData);
         }
     }
@@ -429,7 +504,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     }
     
     /**
-     * @notice Burns tokens from the sender's balance to prepare for sending
+     * @notice Pulls tokens from the sender (adapter is the spender) and burns them via the MinterBurner
      * @param _from The address to debit the tokens from
      * @param _amountLD The amount of tokens to send in local decimals
      * @param _minAmountLD The minimum amount to send in local decimals
@@ -444,21 +519,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
-        minterBurner.burn(_from, amountSentLD);
-    }
-
-    function generateGuid(
-        uint64 _nonce,
-        uint32 _srcEid,
-        address _sender,
-        uint32 _dstEid,
-        bytes32 _receiver
-    ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_nonce, _srcEid, _toBytes32(_sender), _dstEid, _receiver));
-    }
-
-    function _toBytes32(address _address) internal pure returns (bytes32) {
-        return bytes32(uint256(uint160(_address)));
+        uint256 balanceBefore = innerToken.balanceOf(address(this));
+        innerToken.safeTransferFrom(_from, address(this), amountSentLD);
+        require(innerToken.balanceOf(address(this)) - balanceBefore == amountSentLD, 'received amount mismatch');
+        innerToken.forceApprove(address(minterBurner), amountSentLD);
+        require(minterBurner.burn(address(this), amountSentLD), 'GoodDollarOFTAdapter: Burn failed');
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner {}

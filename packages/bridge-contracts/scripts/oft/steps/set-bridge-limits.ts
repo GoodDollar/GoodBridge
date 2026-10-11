@@ -3,7 +3,7 @@ import { BigNumber } from "ethers";
 import { getOftDeploymentAddresses } from "../../../deploy/utils/getOftDeploymentAddresses";
 import config from "../oft.config.json";
 
-function parseLimit(value: string | undefined): BigNumber | null {
+export function parseLimit(value: string | undefined): BigNumber | null {
   if (!value) return null;
   const numValue = value.trim();
   if (numValue.includes(".") || numValue.length < 15) {

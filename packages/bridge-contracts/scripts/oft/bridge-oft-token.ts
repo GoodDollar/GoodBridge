@@ -99,20 +99,18 @@ const main = async () => {
     throw new Error(`Insufficient balance. Need ${ethers.utils.formatEther(amount)} G$, have ${ethers.utils.formatEther(balance)} G$`);
   }
 
-  // Check and approve MinterBurner if needed (required for burning tokens)
-  // The OFT adapter calls minterBurner.burn(), which calls token.burnFrom() requiring approval
-  // Note: OFT adapter itself doesn't need approval since approvalRequired() returns false
-  const minterBurnerAllowance = await token.allowance(sender.address, minterBurnerAddress);
-  console.log("\nChecking MinterBurner allowance...");
-  console.log("Current MinterBurner allowance:", ethers.utils.formatEther(minterBurnerAllowance), "G$");
+  // The OFT adapter is the spender (approvalRequired() returns true): it pulls the tokens and burns them via the MinterBurner
+  const adapterAllowance = await token.allowance(sender.address, oftAdapterAddress);
+  console.log("\nChecking OFT adapter allowance...");
+  console.log("Current OFT adapter allowance:", ethers.utils.formatEther(adapterAllowance), "G$");
 
-  if (minterBurnerAllowance.lt(amount)) {
-    console.log("\nApproving MinterBurner to burn tokens...");
-    const approveMinterBurnerTx = await token.approve(minterBurnerAddress, amount);
-    await approveMinterBurnerTx.wait();
-    console.log("MinterBurner approval confirmed:", approveMinterBurnerTx.hash);
+  if (adapterAllowance.lt(amount)) {
+    console.log("\nApproving OFT adapter...");
+    const approveAdapterTx = await token.approve(oftAdapterAddress, amount);
+    await approveAdapterTx.wait();
+    console.log("OFT adapter approval confirmed:", approveAdapterTx.hash);
   } else {
-    console.log("Sufficient MinterBurner allowance already set");
+    console.log("Sufficient OFT adapter allowance already set");
   }
 
   // Recipient address (same address on destination chain)
@@ -159,15 +157,14 @@ const main = async () => {
   
   console.log(`✅ ${destNetwork} peer is configured correctly`);
 
-  await token.approve(minterBurnerAddress, amount);
-  // Double-check MinterBurner approval before calling quoteSend
-  console.log("\nVerifying MinterBurner approval before quoteSend...");
-  const finalMinterBurnerAllowance = await token.allowance(sender.address, minterBurnerAddress);
-  console.log("Final MinterBurner allowance:", ethers.utils.formatEther(finalMinterBurnerAllowance), "G$");
+  // Double-check adapter approval before calling quoteSend
+  console.log("\nVerifying OFT adapter approval before quoteSend...");
+  const finalAdapterAllowance = await token.allowance(sender.address, oftAdapterAddress);
+  console.log("Final OFT adapter allowance:", ethers.utils.formatEther(finalAdapterAllowance), "G$");
   
-  if (finalMinterBurnerAllowance.lt(amount)) {
+  if (finalAdapterAllowance.lt(amount)) {
     throw new Error(
-      `MinterBurner allowance insufficient. Need ${ethers.utils.formatEther(amount)} G$, have ${ethers.utils.formatEther(finalMinterBurnerAllowance)} G$`
+      `OFT adapter allowance insufficient. Need ${ethers.utils.formatEther(amount)} G$, have ${ethers.utils.formatEther(finalAdapterAllowance)} G$`
     );
   }
 
