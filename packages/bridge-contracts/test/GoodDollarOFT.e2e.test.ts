@@ -380,5 +380,75 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
       expect(expectedFee).to.equal(amount);
     });
   });
+
+  // Mirrors deploy/deployOFT.ts + scripts/oft/steps/adapter-ownership.ts against the real Celo ProxyFactory/endpoint
+  describe('Atomic deploy via ProxyFactory1967 and Avatar handover (H-01/H-02)', () => {
+    it('deploys both proxies initialized in one tx each and hands owner + LZ delegate to the Avatar', async function () {
+      const avatar = celoContracts.Avatar;
+      const proxyFactory = await ethers.getContractAt(
+        [
+          'function deployProxy(uint256 _salt, address _logic, bytes _data) returns (address)',
+          'function getDeploymentAddress(uint256 _salt, address _sender) view returns (address)',
+        ],
+        celoContracts.ProxyFactory,
+      );
+      const endpoint = await ethers.getContractAt(
+        ['function delegates(address) view returns (address)'],
+        CELO_LZ_ENDPOINT,
+      );
+
+      const minterBurnerImpl = await (await ethers.getContractFactory('GoodDollarOFTMinterBurner')).deploy();
+      const AdapterFactory = await ethers.getContractFactory('GoodDollarOFTAdapter');
+      const adapterImpl = await AdapterFactory.deploy(celoContracts.GoodDollar, CELO_LZ_ENDPOINT);
+
+      const mbSalt = ethers.BigNumber.from(ethers.utils.id('Test-GoodDollarOFTMinterBurnerV1'));
+      const adapterSalt = ethers.BigNumber.from(ethers.utils.id('Test-GoodDollarOFTAdapterV1'));
+      const mbAddress = await proxyFactory.getDeploymentAddress(mbSalt, owner.address);
+      const adapterAddress = await proxyFactory.getDeploymentAddress(adapterSalt, owner.address);
+      // salt is bound to the deployer, so another sender gets a different address
+      expect(await proxyFactory.getDeploymentAddress(adapterSalt, user.address)).to.not.equal(adapterAddress);
+
+      await proxyFactory.deployProxy(
+        mbSalt,
+        minterBurnerImpl.address,
+        minterBurnerImpl.interface.encodeFunctionData('initialize', [celoContracts.NameService, adapterAddress]),
+      );
+      await proxyFactory.deployProxy(
+        adapterSalt,
+        adapterImpl.address,
+        AdapterFactory.interface.encodeFunctionData('initialize', [
+          celoContracts.GoodDollar,
+          mbAddress,
+          owner.address,
+          avatar,
+        ]),
+      );
+
+      const implSlot = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
+      const implOf = async (proxy: string) =>
+        ethers.utils.getAddress(ethers.utils.hexDataSlice(await ethers.provider.getStorageAt(proxy, implSlot), 12));
+      expect(await implOf(adapterAddress)).to.equal(adapterImpl.address);
+      expect(await implOf(mbAddress)).to.equal(minterBurnerImpl.address);
+
+      const adapter = await ethers.getContractAt('GoodDollarOFTAdapter', adapterAddress);
+      const mb = await ethers.getContractAt('GoodDollarOFTMinterBurner', mbAddress);
+      expect(await adapter.owner()).to.equal(owner.address);
+      expect(await adapter.token()).to.equal(celoContracts.GoodDollar);
+      expect(await adapter.minterBurner()).to.equal(mbAddress);
+      expect(await adapter.feeRecipient()).to.equal(avatar);
+      expect(await mb.token()).to.equal(celoContracts.GoodDollar);
+      expect(await mb.operators(adapterAddress)).to.equal(true);
+      await expect(
+        adapter.initialize(celoContracts.GoodDollar, mbAddress, user.address, user.address),
+      ).to.be.revertedWith('Initializable: contract is already initialized');
+
+      // H-01: delegate must move with ownership, otherwise the deployer keeps control of DVN/executor config
+      expect(await endpoint.delegates(adapterAddress)).to.equal(owner.address);
+      await adapter.setDelegate(avatar);
+      await adapter.transferOwnership(avatar);
+      expect(await adapter.owner()).to.equal(avatar);
+      expect(await endpoint.delegates(adapterAddress)).to.equal(avatar);
+    });
+  });
 });
 

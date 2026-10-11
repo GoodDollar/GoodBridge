@@ -13,10 +13,22 @@ export const main = async () => {
   const avatarAddress = goodProtocolContracts.Avatar as string;
   const { GoodDollarOFTAdapter: oftAdapterAddress } = getOftDeploymentAddresses(networkName);
   const oftAdapter = await ethers.getContractAt("GoodDollarOFTAdapter", oftAdapterAddress);
+  const endpoint = await ethers.getContractAt(
+    ["function delegates(address) view returns (address)"],
+    await oftAdapter.endpoint()
+  );
+  const isAvatar = (addr: string) => addr.toLowerCase() === avatarAddress.toLowerCase();
   const currentOwner = await oftAdapter.owner();
+  const currentDelegate = await endpoint.delegates(oftAdapterAddress);
 
-  if (currentOwner.toLowerCase() === avatarAddress.toLowerCase()) {
-    console.log("adapter ownership: already Avatar");
+  if (isAvatar(currentOwner)) {
+    // The LZ delegate can rewrite DVN/executor config, so it must be the Avatar too
+    if (!isAvatar(currentDelegate)) {
+      throw new Error(
+        `Adapter owner is Avatar but LZ delegate is ${currentDelegate}; setDelegate(Avatar) must go through a DAO proposal`
+      );
+    }
+    console.log("adapter ownership: already Avatar (owner + LZ delegate)");
     return;
   }
 
@@ -24,12 +36,19 @@ export const main = async () => {
     throw new Error(`Signer ${signer.address} is not owner ${currentOwner}`);
   }
 
+  if (!isAvatar(currentDelegate)) {
+    const delegateTx = await oftAdapter.setDelegate(avatarAddress);
+    await delegateTx.wait();
+    console.log(`adapter LZ delegate: set to Avatar (${delegateTx.hash})`);
+  }
+
   const tx = await oftAdapter.transferOwnership(avatarAddress);
   await tx.wait();
 
   const newOwner = await oftAdapter.owner();
-  if (newOwner.toLowerCase() !== avatarAddress.toLowerCase()) {
-    throw new Error(`Ownership transfer failed (tx ${tx.hash})`);
+  const newDelegate = await endpoint.delegates(oftAdapterAddress);
+  if (!isAvatar(newOwner) || !isAvatar(newDelegate)) {
+    throw new Error(`Ownership handover failed: owner ${newOwner}, delegate ${newDelegate} (tx ${tx.hash})`);
   }
   console.log(`adapter ownership: transferred to Avatar (${tx.hash})`);
 };

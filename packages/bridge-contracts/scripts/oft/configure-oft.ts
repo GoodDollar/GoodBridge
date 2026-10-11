@@ -2,6 +2,7 @@ import { spawnSync } from "child_process";
 import path from "path";
 import { task } from "hardhat/config";
 import type { HardhatRuntimeEnvironment } from "hardhat/types";
+import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
 
 export type ConfigureFlags = {
   skipMinter: boolean;
@@ -62,9 +63,16 @@ export async function configureOft(hre: HardhatRuntimeEnvironment, flags: Config
   const { main: grantMinterRole } = await import("./steps/grant-minter-role");
   const { main: setBridgeLimits } = await import("./steps/set-bridge-limits");
   const { main: transferAdapterOwnership } = await import("./steps/adapter-ownership");
+  const { verifyOftDeployment } = await import("../../deploy/utils/verifyOftDeployment");
 
   const networkName = hre.network.name;
   console.log(`oft:configure ${networkName}`, flags);
+
+  // Never wire peers or grant MINTER_ROLE to proxies we can't prove are ours
+  const [signer] = await hre.ethers.getSigners();
+  const avatar = (Contracts[networkName as keyof typeof Contracts] as any)?.Avatar;
+  if (!avatar) throw new Error(`Avatar not found for ${networkName}`);
+  await verifyOftDeployment(networkName, [signer.address, avatar]);
 
   if (!flags.skipWire) wireLayerZero(networkName);
   if (!flags.skipMinter) await grantMinterRole();

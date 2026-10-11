@@ -1,6 +1,7 @@
 import { network, ethers } from "hardhat";
 import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
 import { getOftDeploymentAddresses } from "../../../deploy/utils/getOftDeploymentAddresses";
+import { verifyOftDeployment } from "../../../deploy/utils/verifyOftDeployment";
 
 export const main = async () => {
   const networkName = network.name;
@@ -17,6 +18,9 @@ export const main = async () => {
   }
 
   const { GoodDollarOFTMinterBurner: minterBurnerAddress } = getOftDeploymentAddresses(networkName);
+  const [signer] = await ethers.getSigners();
+  await verifyOftDeployment(networkName, [signer.address, avatarAddress]);
+
   const token = await ethers.getContractAt(
     "contracts/oft/interfaces/ISuperGoodDollar.sol:ISuperGoodDollar",
     tokenAddress
