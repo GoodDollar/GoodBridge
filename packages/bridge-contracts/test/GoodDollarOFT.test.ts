@@ -604,6 +604,94 @@ describe("OFT (unit, no fork)", () => {
 
       await expect(harness.approveFailedRequest(fakeGuid)).to.be.revertedWith("request not failed");
     });
+
+    // H-03: a paused bridge must stop failed-request approvals, and the owner must be able to reject them
+    async function parkFailedRequest(harness: any, to: string, label: string) {
+      await harness.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("50"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+      const guid = ethers.utils.formatBytes32String(label);
+      const message = encodeOFTMessage(to, toSD(ethers.utils.parseEther("100")));
+      await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
+      expect((await harness.failedReceiveRequests(guid)).failed).to.be.true;
+      return guid;
+    }
+
+    it("approveFailedRequest: reverts while the bridge is closed, even for the owner", async () => {
+      const { harness, user, token } = await loadFixture(harnessFixture);
+      const guid = await parkFailedRequest(harness, user.address, "guid-closed-approve");
+
+      await harness.pauseBridge(true);
+      await time.increase(3 * 24 * 60 * 60 + 1);
+
+      await expect(harness.approveFailedRequest(guid)).to.be.revertedWith("closed");
+      await expect(harness.connect(user).approveFailedRequest(guid)).to.be.revertedWith("closed");
+      expect(await token.balanceOf(user.address)).to.equal(0);
+
+      await harness.pauseBridge(false);
+      await harness.connect(user).approveFailedRequest(guid);
+      expect(await token.balanceOf(user.address)).to.equal(ethers.utils.parseEther("100"));
+    });
+
+    it("rejectFailedRequest: owner can reject, and a rejected request cannot be approved", async () => {
+      const { harness, user, token } = await loadFixture(harnessFixture);
+      const guid = await parkFailedRequest(harness, user.address, "guid-reject");
+
+      await expect(harness.rejectFailedRequest(guid))
+        .to.emit(harness, "FailedReceiveRequestRejected")
+        .withArgs(guid);
+      expect((await harness.failedReceiveRequests(guid)).failed).to.be.false;
+
+      await time.increase(3 * 24 * 60 * 60 + 1);
+      await expect(harness.connect(user).approveFailedRequest(guid)).to.be.revertedWith("request not failed");
+      await expect(harness.approveFailedRequest(guid)).to.be.revertedWith("request not failed");
+      expect(await token.balanceOf(user.address)).to.equal(0);
+    });
+
+    it("rejectFailedRequest: non-owner cannot reject", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      const guid = await parkFailedRequest(harness, user.address, "guid-reject-non-owner");
+
+      await expect(harness.connect(user).rejectFailedRequest(guid)).to.be.revertedWith("Ownable: caller is not the owner");
+      expect((await harness.failedReceiveRequests(guid)).failed).to.be.true;
+    });
+
+    it("rejectFailedRequest: reverts for non-existent or already approved request", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      await expect(harness.rejectFailedRequest(ethers.utils.formatBytes32String("nonexistent"))).to.be.revertedWith(
+        "request not failed"
+      );
+
+      const guid = await parkFailedRequest(harness, user.address, "guid-reject-approved");
+      await harness.approveFailedRequest(guid);
+      await expect(harness.rejectFailedRequest(guid)).to.be.revertedWith("request not failed");
+    });
+
+    it("emits OFTReceived with the net amount after fees", async () => {
+      const { harness, user, token } = await loadFixture(harnessFixture);
+      await harness.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("1000"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+      await harness.setBridgeFees({ minFee: 0, maxFee: 0, fee: 100 });
+
+      const amountLD = ethers.utils.parseEther("100");
+      const netAmount = amountLD.sub(amountLD.mul(100).div(10000));
+      const guid = ethers.utils.formatBytes32String("guid-net-received");
+      const message = encodeOFTMessage(user.address, toSD(amountLD));
+
+      await expect(harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x"))
+        .to.emit(harness, "OFTReceived")
+        .withArgs(guid, 1, user.address, netAmount);
+      expect(await token.balanceOf(user.address)).to.equal(netAmount);
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -685,6 +773,18 @@ describe("OFT (unit, no fork)", () => {
 
       expect(await token.balanceOf(user.address)).to.equal(expectedRecipient);
       expect(await token.balanceOf(feeRecipient.address)).to.equal(expectedFee);
+    });
+
+    it("returns the net amount credited to the recipient", async () => {
+      const { harness, user } = await loadFixture(feeHarnessFixture);
+      const amount = ethers.utils.parseEther("1000");
+
+      expect(await harness.callStatic.exposed_credit(user.address, amount, 1)).to.equal(amount);
+
+      await harness.setBridgeFees({ minFee: 0, maxFee: 0, fee: 100 });
+      expect(await harness.callStatic.exposed_credit(user.address, amount, 1)).to.equal(
+        amount.sub(amount.mul(100).div(10000))
+      );
     });
 
     it("enforces minFee when calculated fee is below minimum", async () => {

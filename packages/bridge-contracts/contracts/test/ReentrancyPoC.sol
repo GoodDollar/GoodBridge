@@ -18,6 +18,10 @@ interface IFailedRequestApprover {
     function approveFailedRequest(bytes32 guid) external;
 }
 
+interface IERC1820RegistryLike {
+    function setInterfaceImplementer(address account, bytes32 interfaceHash, address implementer) external;
+}
+
 /**
  * @dev Mimics SuperGoodDollar/SuperToken._mint: the recipient's ERC777 tokensReceived hook is invoked after
  * balances are updated (SuperToken resolves the implementer via ERC1820; here a contract recipient is its own implementer).
@@ -46,6 +50,15 @@ contract FailedRequestReentrancyAttacker {
 
     constructor(IFailedRequestApprover _adapter) {
         adapter = _adapter;
+        // Registers as its own ERC777 recipient so the real SuperGoodDollar (fork tests) calls tokensReceived
+        address registry = 0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24;
+        if (registry.code.length > 0) {
+            IERC1820RegistryLike(registry).setInterfaceImplementer(
+                address(this),
+                keccak256('ERC777TokensRecipient'),
+                address(this)
+            );
+        }
     }
 
     function attack(bytes32 _guid, uint256 _maxReentries) external {

@@ -6,6 +6,7 @@ import "@layerzerolabs/oft-evm-upgradeable/contracts/oft/OFTCoreUpgradeable.sol"
 import { IMintableBurnable } from "@layerzerolabs/oft-evm/contracts/interfaces/IMintableBurnable.sol";
 import { INameService } from "@gooddollar/goodprotocol/contracts/utils/DAOUpgradeableContract.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 interface IIdentity {
     function isWhitelisted(address) external view returns (bool);
@@ -16,7 +17,7 @@ interface IIdentity {
  * @notice Upgradeable OFT adapter that uses mint/burn mechanisms for cross-chain transfers
  * @dev Inherits from OFTCoreUpgradeable (which already includes OwnableUpgradeable) and implements mint/burn logic similar to MintBurnOFTAdapter
  */
-contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
+contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OFTCoreUpgradeable {
     using OFTMsgCodec for bytes;
     using OFTMsgCodec for bytes32;
     /// @dev Struct for storing bridge fees
@@ -122,6 +123,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     /// @dev Event emitted when a failed receive request is approved
     event FailedReceiveRequestApproved(bytes32 indexed guid);
 
+    /// @dev Event emitted when a failed receive request is rejected by the owner
+    event FailedReceiveRequestRejected(bytes32 indexed guid);
+
     /**
      * @dev Constructor for the upgradeable implementation; token is used for decimals, init is disabled.
      * @param _token The underlying ERC20 token (used to get decimals for parent)
@@ -154,6 +158,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
         require(IERC20Metadata(_token).decimals() == innerTokenDecimals, 'token decimals mismatch');
 
         __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
         __Ownable_init();
         __OAppSender_init(_owner);
         __OAppReceiver_init(_owner);
@@ -251,13 +256,24 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
     /**
      * @notice Approves a failed receive request with optimistic window or by owner
      */
-    function approveFailedRequest(bytes32 _guid) external {
+    function approveFailedRequest(bytes32 _guid) external nonReentrant {
+        require(!isClosed, 'closed');
         FailedReceiveRequest memory request = failedReceiveRequests[_guid];
         require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp || msg.sender == owner(), 'optimistic period not ended or not owner');
         require(request.failed, 'request not failed');
-        _credit(request.toAddress, request.amount, request.srcEid);
+        // G$ mint calls the recipient's ERC777 hook, so state must be final before _credit
         failedReceiveRequests[_guid].failed = false;
+        _credit(request.toAddress, request.amount, request.srcEid);
         emit FailedReceiveRequestApproved(_guid);
+    }
+
+    /**
+     * @notice Rejects a failed receive request so it can never be approved (e.g. a forged or suspicious message)
+     */
+    function rejectFailedRequest(bytes32 _guid) external onlyOwner {
+        require(failedReceiveRequests[_guid].failed, 'request not failed');
+        failedReceiveRequests[_guid].failed = false;
+        emit FailedReceiveRequestRejected(_guid);
     }
 
     /**
@@ -409,7 +425,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, OFTCoreUpgradeable {
             emit FeeCollected(feeRecipient, fee);
         }
         
-        return _amountLD;
+        return recipientAmount;
     }
     
     /**
