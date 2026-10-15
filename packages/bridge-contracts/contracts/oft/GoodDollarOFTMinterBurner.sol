@@ -22,9 +22,15 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
     event TokensBurned(address indexed from, uint256 amount, address indexed operator);
 
     modifier onlyOperators() {
-        require(operators[msg.sender] || msg.sender == avatar, 'Not authorized');
+        // live avatar: the cached `avatar` can go stale after a DAO avatar change
+        require(operators[msg.sender] || msg.sender == address(dao.avatar()), 'Not authorized');
         require(!paused, 'Contract is paused');
         _;
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /**
@@ -55,13 +61,16 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
     }
 
     /**
-     * @dev Burn tokens from an address
-     * @param _from The address to burn tokens from
+     * @dev Burn the caller's tokens; the caller must have approved this contract
+     * @param _from Must be msg.sender (kept for IMintableBurnable compatibility)
      * @param _amount The amount of tokens to burn
      * @return success True if the burn was successful
      */
     function burn(address _from, uint256 _amount) external onlyOperators returns (bool) {
+        require(_from == msg.sender, 'can only burn own tokens');
+        uint256 balanceBefore = token.balanceOf(address(this));
         require(token.transferFrom(_from, address(this), _amount), 'TRANSFER_FROM_FAILED');
+        require(token.balanceOf(address(this)) - balanceBefore == _amount, 'received amount mismatch');
         token.burn(_amount);
 
         emit TokensBurned(_from, _amount, msg.sender);

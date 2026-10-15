@@ -1,6 +1,7 @@
 import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
+import { deployMinterBurnerProxy } from "./helpers/deployMinterBurnerProxy";
 
 // OFT message encoding helpers (mirrors OFTMsgCodec library)
 // message = abi.encodePacked(bytes32(to), uint64(amountSD))
@@ -43,10 +44,8 @@ describe("OFT (unit, no fork)", () => {
     const endpoint = await Endpoint.deploy();
     await endpoint.deployed();
 
-    // Deploy minter/burner (do not initialize yet; adapter address is required)
-    const MinterBurner = await ethers.getContractFactory("GoodDollarOFTMinterBurner");
-    const minterBurner = await MinterBurner.deploy();
-    await minterBurner.deployed();
+    // Deploy minter/burner proxy (do not initialize yet; adapter address is required)
+    const minterBurner = await deployMinterBurnerProxy();
 
     // Deploy adapter via UUPS proxy (implementation disables initializers)
     const Adapter = await ethers.getContractFactory("GoodDollarOFTAdapter");
@@ -99,21 +98,38 @@ describe("OFT (unit, no fork)", () => {
 
       const amount = ethers.utils.parseEther("10");
 
-      await expect(minterBurner.connect(owner).mint(user.address, amount)).to.emit(
+      await expect(minterBurner.connect(owner).mint(owner.address, amount)).to.emit(
         minterBurner,
         "TokensMinted"
       );
 
-      await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
+      await expect(minterBurner.connect(owner).burn(owner.address, amount)).to.be.revertedWith(
         "ERC20: insufficient allowance"
       );
 
-      await token.connect(user).approve(minterBurner.address, amount);
+      await token.connect(owner).approve(minterBurner.address, amount);
 
-      await expect(minterBurner.connect(owner).burn(user.address, amount)).to.emit(
+      const supplyBefore = await token.totalSupply();
+      await expect(minterBurner.connect(owner).burn(owner.address, amount)).to.emit(
         minterBurner,
         "TokensBurned"
       );
+      expect(await token.totalSupply()).to.equal(supplyBefore.sub(amount));
+    });
+
+    // L-01: an operator can no longer burn tokens of an arbitrary approver
+    it("operator cannot burn another account's tokens even with allowance", async () => {
+      const { minterBurner, token, user, avatar, owner } = await loadFixture(fixture);
+
+      await minterBurner.connect(avatar).setOperator(owner.address, true);
+      const amount = ethers.utils.parseEther("10");
+      await minterBurner.connect(owner).mint(user.address, amount);
+      await token.connect(user).approve(minterBurner.address, amount);
+
+      await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
+        "can only burn own tokens"
+      );
+      expect(await token.balanceOf(user.address)).to.equal(amount);
     });
 
     it("pause blocks operator mint/burn", async () => {
@@ -126,9 +142,32 @@ describe("OFT (unit, no fork)", () => {
         "Contract is paused"
       );
 
-      await token.connect(user).approve(minterBurner.address, 1);
-      await expect(minterBurner.connect(owner).burn(user.address, 1)).to.be.revertedWith(
+      await token.connect(owner).approve(minterBurner.address, 1);
+      await expect(minterBurner.connect(owner).burn(owner.address, 1)).to.be.revertedWith(
         "Contract is paused"
+      );
+    });
+
+    // L-03: authorization follows the live Controller avatar
+    it("onlyOperators uses the current Controller avatar", async () => {
+      const { minterBurner, controller, user, avatar } = await loadFixture(fixture);
+      const [, , , , newAvatar] = await ethers.getSigners();
+
+      await controller.setAvatar(newAvatar.address);
+
+      await expect(minterBurner.connect(avatar).mint(user.address, 1)).to.be.revertedWith("Not authorized");
+      await expect(minterBurner.connect(newAvatar).mint(user.address, 1)).to.emit(minterBurner, "TokensMinted");
+    });
+
+    // L-04: the implementation cannot be initialized directly
+    it("implementation has initializers disabled", async () => {
+      const { nameService, adapter } = await loadFixture(fixture);
+      const MinterBurner = await ethers.getContractFactory("GoodDollarOFTMinterBurner");
+      const impl = await MinterBurner.deploy();
+      await impl.deployed();
+
+      await expect(impl.initialize(nameService.address, adapter.address)).to.be.revertedWith(
+        "Initializable: contract is already initialized"
       );
     });
   });
@@ -140,7 +179,102 @@ describe("OFT (unit, no fork)", () => {
       expect(await adapter.minterBurner()).to.equal(minterBurner.address);
       expect(await adapter.owner()).to.equal(owner.address);
       expect(await adapter.feeRecipient()).to.equal(feeRecipient.address);
-      expect(await adapter.approvalRequired()).to.equal(false);
+      expect(await adapter.approvalRequired()).to.equal(true);
+    });
+
+    // M-01: fee configuration bounds
+    it("rejects fee above MAX_FEE_BPS and minFee above maxFee", async () => {
+      const { adapter } = await loadFixture(fixture);
+      const maxBps = await adapter.MAX_FEE_BPS();
+
+      await expect(adapter.setBridgeFees({ minFee: 0, maxFee: 0, fee: maxBps.add(1) })).to.be.revertedWith(
+        "invalid fee"
+      );
+      await expect(adapter.setBridgeFees({ minFee: 0, maxFee: 0, fee: 10000 })).to.be.revertedWith("invalid fee");
+      await expect(adapter.setBridgeFees({ minFee: 10, maxFee: 5, fee: 100 })).to.be.revertedWith("minFee > maxFee");
+
+      await expect(adapter.setBridgeFees({ minFee: 10, maxFee: 0, fee: maxBps })).to.emit(adapter, "BridgeFeesSet");
+      await expect(adapter.setBridgeFees({ minFee: 5, maxFee: 5, fee: 100 })).to.emit(adapter, "BridgeFeesSet");
+    });
+
+    // L-07: limits must be internally consistent
+    it("rejects inconsistent bridge limits", async () => {
+      const { adapter } = await loadFixture(fixture);
+      const base = {
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("100"),
+        accountDailyLimit: ethers.utils.parseEther("500"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      };
+
+      await expect(adapter.setBridgeLimits({ ...base, minAmount: ethers.utils.parseEther("101") })).to.be.revertedWith(
+        "minAmount > txLimit"
+      );
+      await expect(adapter.setBridgeLimits({ ...base, txLimit: ethers.utils.parseEther("1001") })).to.be.revertedWith(
+        "txLimit > dailyLimit"
+      );
+      await expect(
+        adapter.setBridgeLimits({ ...base, accountDailyLimit: ethers.utils.parseEther("1001") })
+      ).to.be.revertedWith("accountDailyLimit > dailyLimit");
+      await expect(adapter.setBridgeLimits(base)).to.emit(adapter, "BridgeLimitsSet");
+    });
+
+    // L-06: setNameService emits an event
+    it("emits NameServiceSet", async () => {
+      const { adapter, nameService } = await loadFixture(fixture);
+      await expect(adapter.setNameService(nameService.address))
+        .to.emit(adapter, "NameServiceSet")
+        .withArgs(nameService.address);
+    });
+
+    // L-09: quoteOFT reports the real limits for msg.sender
+    it("quoteOFT returns min/max from bridge limits and dust-free receipt", async () => {
+      const { adapter, user } = await loadFixture(fixture);
+      const sendParam = (amountLD: any) => ({
+        dstEid: 1,
+        to: ethers.utils.hexZeroPad(user.address, 32),
+        amountLD,
+        minAmountLD: 0,
+        extraOptions: "0x",
+        composeMsg: "0x",
+        oftCmd: "0x",
+      });
+
+      let [limit] = await adapter.connect(user).quoteOFT(sendParam(ethers.utils.parseEther("10")));
+      expect(limit.minAmountLD).to.equal(0);
+      expect(limit.maxAmountLD).to.equal(0);
+
+      await adapter.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("100"),
+        accountDailyLimit: ethers.utils.parseEther("50"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+
+      const dust = DECIMAL_CONVERSION_RATE.sub(1);
+      const amount = ethers.utils.parseEther("10").add(dust);
+      const [limit2, feeDetails, receipt] = await adapter.connect(user).quoteOFT(sendParam(amount));
+      expect(limit2.minAmountLD).to.equal(ethers.utils.parseEther("1"));
+      expect(limit2.maxAmountLD).to.equal(ethers.utils.parseEther("50"));
+      expect(feeDetails.length).to.equal(0);
+      expect(receipt.amountSentLD).to.equal(ethers.utils.parseEther("10"));
+      expect(receipt.amountReceivedLD).to.equal(ethers.utils.parseEther("10"));
+
+      await adapter.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("100"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+      [limit] = await adapter.connect(user).quoteOFT(sendParam(amount));
+      expect(limit.maxAmountLD).to.equal(ethers.utils.parseEther("100"));
+
+      await adapter.pauseBridge(true);
+      [limit] = await adapter.connect(user).quoteOFT(sendParam(amount));
+      expect(limit.maxAmountLD).to.equal(0);
     });
 
     it("sets bridge fees / feeRecipient / limits / pause", async () => {
@@ -240,7 +374,7 @@ describe("OFT (unit, no fork)", () => {
       oftCmd: "0x",
     });
 
-    it("reverts with minAmount / txLimit / accountDailyLimit / dailyLimit", async () => {
+    it("reverts with minAmount / txLimit / accountDailyLimit", async () => {
       const { adapter, user } = await loadFixture(fixture);
 
       await adapter.setBridgeLimits({
@@ -268,20 +402,61 @@ describe("OFT (unit, no fork)", () => {
           .connect(user)
           .send(makeSendParam(user.address, ethers.utils.parseEther("201")), messagingFee, user.address, { value: 0 })
       ).to.be.revertedWithCustomError(adapter, "BRIDGE_LIMITS").withArgs("accountDailyLimit");
+    });
 
-      // dailyLimit check on new window: amount > dailyLimit (raise other limits so dailyLimit is the first failure)
+    // L-08: limits are checked on the dust-free amount
+    it("does not count dust against txLimit", async () => {
+      const { adapter, user } = await loadFixture(fixture);
+
       await adapter.setBridgeLimits({
         dailyLimit: ethers.utils.parseEther("1000"),
-        txLimit: ethers.utils.parseEther("10000"),
-        accountDailyLimit: ethers.utils.parseEther("10000"),
-        minAmount: ethers.utils.parseEther("10"),
+        txLimit: ethers.utils.parseEther("100"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
         onlyWhitelisted: false,
       });
+
+      const amount = ethers.utils.parseEther("100").add(DECIMAL_CONVERSION_RATE.sub(1));
       await expect(
         adapter
           .connect(user)
-          .send(makeSendParam(user.address, ethers.utils.parseEther("1001")), messagingFee, user.address, { value: 0 })
-      ).to.be.revertedWithCustomError(adapter, "BRIDGE_LIMITS").withArgs("dailyLimit");
+          .send({ ...makeSendParam(user.address, amount), minAmountLD: 0 }, messagingFee, user.address, { value: 0 })
+      ).to.not.be.revertedWithCustomError(adapter, "BRIDGE_LIMITS");
+
+      await expect(
+        adapter
+          .connect(user)
+          .send(
+            { ...makeSendParam(user.address, amount.add(DECIMAL_CONVERSION_RATE)), minAmountLD: 0 },
+            messagingFee,
+            user.address,
+            { value: 0 }
+          )
+      ).to.be.revertedWithCustomError(adapter, "BRIDGE_LIMITS").withArgs("txLimit");
+    });
+
+    // L-06: whitelist mode fails closed when Identity cannot be resolved
+    it("reverts with 'identity not set' when onlyWhitelisted and no NameService/IDENTITY", async () => {
+      const { adapter, user, nameService } = await loadFixture(fixture);
+
+      await adapter.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("1000"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: true,
+      });
+
+      const send = () =>
+        adapter
+          .connect(user)
+          .send(makeSendParam(user.address, ethers.utils.parseEther("10")), messagingFee, user.address, { value: 0 });
+
+      await expect(send()).to.be.revertedWithCustomError(adapter, "BRIDGE_LIMITS").withArgs("identity not set");
+
+      // NameService set but IDENTITY missing
+      await adapter.setNameService(nameService.address);
+      await expect(send()).to.be.revertedWithCustomError(adapter, "BRIDGE_LIMITS").withArgs("identity not set");
     });
 
     it("bridging failed when bridge limits exceeded on send", async () => {
@@ -432,9 +607,7 @@ describe("OFT (unit, no fork)", () => {
       const endpoint = await Endpoint.deploy();
       await endpoint.deployed();
 
-      const MinterBurner = await ethers.getContractFactory("GoodDollarOFTMinterBurner");
-      const minterBurner = await MinterBurner.deploy();
-      await minterBurner.deployed();
+      const minterBurner = await deployMinterBurnerProxy();
 
       // Deploy harness via UUPS proxy
       const Harness = await ethers.getContractFactory("GoodDollarOFTAdapterHarness");
@@ -692,6 +865,89 @@ describe("OFT (unit, no fork)", () => {
         .withArgs(guid, 1, user.address, netAmount);
       expect(await token.balanceOf(user.address)).to.equal(netAmount);
     });
+
+    // M-02: composed messages must not be parked (the compose payload would be lost)
+    it("reverts composed messages that exceed limits instead of parking them", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      await harness.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("50"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+
+      const guid = ethers.utils.formatBytes32String("guid-composed");
+      const composeFrom = ethers.utils.hexZeroPad(user.address, 32);
+      const message =
+        encodeOFTMessage(user.address, toSD(ethers.utils.parseEther("100"))) + composeFrom.slice(2) + "deadbeef";
+
+      await expect(harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x"))
+        .to.be.revertedWithCustomError(harness, "BRIDGE_LIMITS")
+        .withArgs("txLimit");
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+    });
+
+    // M-03: inbound and outbound traffic use separate counters
+    it("receive updates only the inbound counters", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      await harness.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("1000"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+
+      const amountLD = ethers.utils.parseEther("100");
+      const guid = ethers.utils.formatBytes32String("guid-counters");
+      await harness.exposed_lzReceive(
+        origin(),
+        guid,
+        encodeOFTMessage(user.address, toSD(amountLD)),
+        ethers.constants.AddressZero,
+        "0x"
+      );
+
+      expect((await harness.bridgeReceiveDailyLimit()).bridged24Hours).to.equal(amountLD);
+      expect((await harness.accountsReceiveDailyLimit(user.address)).bridged24Hours).to.equal(amountLD);
+      expect((await harness.bridgeDailyLimit()).bridged24Hours).to.equal(0);
+      expect((await harness.accountsDailyLimit(user.address)).bridged24Hours).to.equal(0);
+    });
+
+    it("parks a receive that exceeds the inbound dailyLimit", async () => {
+      const { harness, user, owner } = await loadFixture(harnessFixture);
+      await harness.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("150"),
+        txLimit: ethers.utils.parseEther("100"),
+        accountDailyLimit: ethers.utils.parseEther("150"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+
+      const amountLD = ethers.utils.parseEther("100");
+      const guid1 = ethers.utils.formatBytes32String("guid-daily-1");
+      const guid2 = ethers.utils.formatBytes32String("guid-daily-2");
+      await harness.exposed_lzReceive(
+        origin(),
+        guid1,
+        encodeOFTMessage(user.address, toSD(amountLD)),
+        ethers.constants.AddressZero,
+        "0x"
+      );
+      await expect(
+        harness.exposed_lzReceive(
+          origin(),
+          guid2,
+          encodeOFTMessage(owner.address, toSD(amountLD)),
+          ethers.constants.AddressZero,
+          "0x"
+        )
+      ).to.emit(harness, "ReceiveRequestFailed");
+
+      expect((await harness.failedReceiveRequests(guid1)).failed).to.equal(false);
+      expect((await harness.failedReceiveRequests(guid2)).failed).to.equal(true);
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -720,9 +976,7 @@ describe("OFT (unit, no fork)", () => {
       const endpoint = await Endpoint.deploy();
       await endpoint.deployed();
 
-      const MinterBurner = await ethers.getContractFactory("GoodDollarOFTMinterBurner");
-      const minterBurner = await MinterBurner.deploy();
-      await minterBurner.deployed();
+      const minterBurner = await deployMinterBurnerProxy();
 
       const Harness = await ethers.getContractFactory("GoodDollarOFTAdapterHarness");
       const harness = await upgrades.deployProxy(
@@ -737,7 +991,7 @@ describe("OFT (unit, no fork)", () => {
 
       await minterBurner.initialize(nameService.address, harness.address);
 
-      return { owner, user, feeRecipient, token, harness };
+      return { owner, user, feeRecipient, token, harness, minterBurner };
     }
 
     it("mints full amount to recipient when no fee is configured", async () => {
@@ -807,18 +1061,97 @@ describe("OFT (unit, no fork)", () => {
     it("enforces maxFee when calculated fee exceeds maximum", async () => {
       const { harness, user, token, feeRecipient } = await loadFixture(feeHarnessFixture);
 
-      const maxFee = ethers.utils.parseEther("50");
+      const maxFee = ethers.utils.parseEther("20");
       await harness.setBridgeFees({
         minFee: 0,
         maxFee,
-        fee: 1000, // 10%
+        fee: 500, // 5%
       });
 
-      const amount = ethers.utils.parseEther("1000"); // calculated: 100 tokens, above maxFee of 50
+      const amount = ethers.utils.parseEther("1000"); // calculated: 50 tokens, above maxFee of 20
       await harness.exposed_credit(user.address, amount, 1);
 
       expect(await token.balanceOf(feeRecipient.address)).to.equal(maxFee);
       expect(await token.balanceOf(user.address)).to.equal(amount.sub(maxFee));
+    });
+
+    // M-01: minFee above the amount is clamped so the credit cannot underflow
+    it("clamps the fee to the amount when minFee exceeds it", async () => {
+      const { harness, user, token, feeRecipient } = await loadFixture(feeHarnessFixture);
+
+      await harness.setBridgeFees({ minFee: ethers.utils.parseEther("5"), maxFee: 0, fee: 10 });
+
+      const amount = ethers.utils.parseEther("2");
+      expect(await harness.callStatic.exposed_credit(user.address, amount, 1)).to.equal(0);
+      await harness.exposed_credit(user.address, amount, 1);
+
+      expect(await token.balanceOf(user.address)).to.equal(0);
+      expect(await token.balanceOf(feeRecipient.address)).to.equal(amount);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // L-01/L-02: the adapter is the spender and burns through the MinterBurner
+  // ─────────────────────────────────────────────────────────────────────────
+  describe("Debit (_debit)", () => {
+    async function debitFixture() {
+      const [owner, user, feeRecipient, avatar] = await ethers.getSigners();
+
+      const NameService = await ethers.getContractFactory("NameServiceMock");
+      const nameService = await NameService.deploy();
+      const Controller = await ethers.getContractFactory("ControllerMock");
+      const controller = await Controller.deploy(avatar.address);
+      const Token = await ethers.getContractFactory("MockGoodDollar");
+      const token = await Token.deploy("GoodDollar", "G$");
+      await nameService.setAddress("CONTROLLER", controller.address);
+      await nameService.setAddress("GOODDOLLAR", token.address);
+      const Endpoint = await ethers.getContractFactory("LayerZeroEndpointMock");
+      const endpoint = await Endpoint.deploy();
+
+      const minterBurner = await deployMinterBurnerProxy();
+      const Harness = await ethers.getContractFactory("GoodDollarOFTAdapterHarness");
+      const harness = await upgrades.deployProxy(
+        Harness,
+        [token.address, minterBurner.address, owner.address, feeRecipient.address],
+        {
+          kind: "uups",
+          constructorArgs: [token.address, endpoint.address],
+          unsafeAllow: ["constructor", "state-variable-immutable", "duplicate-initializer-call", "missing-initializer"],
+        }
+      );
+      await minterBurner.initialize(nameService.address, harness.address);
+
+      return { user, token, harness, minterBurner };
+    }
+
+    it("pulls approved tokens into the adapter and burns them", async () => {
+      const { user, token, harness, minterBurner } = await loadFixture(debitFixture);
+      const amount = ethers.utils.parseEther("10");
+      await token.mint(user.address, amount);
+
+      await token.connect(user).approve(harness.address, amount);
+      const supplyBefore = await token.totalSupply();
+      await expect(harness.exposed_debit(user.address, amount, amount, 1))
+        .to.emit(minterBurner, "TokensBurned")
+        .withArgs(harness.address, amount, harness.address);
+
+      expect(await token.balanceOf(user.address)).to.equal(0);
+      expect(await token.balanceOf(harness.address)).to.equal(0);
+      expect(await token.balanceOf(minterBurner.address)).to.equal(0);
+      expect(await token.totalSupply()).to.equal(supplyBefore.sub(amount));
+      expect(await token.allowance(harness.address, minterBurner.address)).to.equal(0);
+    });
+
+    it("reverts without an allowance to the adapter (MinterBurner allowance is not enough)", async () => {
+      const { user, token, harness, minterBurner } = await loadFixture(debitFixture);
+      const amount = ethers.utils.parseEther("10");
+      await token.mint(user.address, amount);
+
+      await token.connect(user).approve(minterBurner.address, amount);
+      await expect(harness.exposed_debit(user.address, amount, amount, 1)).to.be.revertedWith(
+        "ERC20: insufficient allowance"
+      );
+      expect(await token.balanceOf(user.address)).to.equal(amount);
     });
   });
 });

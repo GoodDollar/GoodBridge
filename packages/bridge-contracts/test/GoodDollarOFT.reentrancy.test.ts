@@ -2,6 +2,7 @@ import { ethers, upgrades } from 'hardhat';
 import { expect } from 'chai';
 import * as networkHelpers from '@nomicfoundation/hardhat-network-helpers';
 import contracts from '@gooddollar/goodprotocol/releases/deployment.json';
+import { deployMinterBurnerProxy } from './helpers/deployMinterBurnerProxy';
 
 // Regression for C-01: G$ (SuperGoodDollar) calls the recipient's ERC777 tokensReceived hook on mint,
 // so approveFailedRequest must not be re-enterable from inside _credit.
@@ -17,7 +18,7 @@ function encodeOFTMessage(toAddress: string, amountLD: ethers.BigNumber): string
 
 async function deployHarness(tokenAddress: string, nameServiceAddress: string, endpointAddress: string) {
   const [owner, feeRecipient] = await ethers.getSigners();
-  const minterBurner = await (await ethers.getContractFactory('GoodDollarOFTMinterBurner')).deploy();
+  const minterBurner = await deployMinterBurnerProxy();
   const harness = await upgrades.deployProxy(
     await ethers.getContractFactory('GoodDollarOFTAdapterHarness'),
     [tokenAddress, minterBurner.address, owner.address, feeRecipient.address],

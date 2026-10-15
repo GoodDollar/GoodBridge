@@ -16,6 +16,7 @@ import '@layerzerolabs/toolbox-hardhat';
 import { EndpointId } from '@layerzerolabs/lz-definitions';
 
 import './scripts/oft/configure-oft';
+import './scripts/oft/verify-invariants';
 
 configDotenv();
 envEnc.config();
@@ -145,12 +146,14 @@ const config: HardhatUserConfig = {
       gas: 8000000,
       gasPrice: 201e9,
       chainId: 42220,
-    },
+      eid: EndpointId.CELO_V2_MAINNET,
+    } as any,
     'production-xdc': {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,
       url: 'https://rpc.xdc.org',
-    },
+      eid: EndpointId.XDC_V2_MAINNET,
+    } as any,
     'development-xdc': {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 50,

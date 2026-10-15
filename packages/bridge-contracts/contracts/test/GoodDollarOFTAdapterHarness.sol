@@ -31,4 +31,14 @@ contract GoodDollarOFTAdapterHarness is GoodDollarOFTAdapter {
     ) external returns (uint256) {
         return _credit(_to, _amountLD, _srcEid);
     }
+
+    /// @dev Calls internal _debit to test the pull-and-burn path without a full LayerZero send
+    function exposed_debit(
+        address _from,
+        uint256 _amountLD,
+        uint256 _minAmountLD,
+        uint32 _dstEid
+    ) external returns (uint256 amountSentLD, uint256 amountReceivedLD) {
+        return _debit(_from, _amountLD, _minAmountLD, _dstEid);
+    }
 }

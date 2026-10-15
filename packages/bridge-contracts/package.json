@@ -9,6 +9,7 @@
     "test": "hardhat test",
     "test:oft": "hardhat test ./test/GoodDollarOFT.test.ts",
     "oft:configure": "hardhat oft:configure",
+    "oft:verify": "hardhat oft:verify",
     "updateabi": "find ./artifacts/contracts/ -iregex '.*/[a-z]*.json' -exec cp \"{}\" ../bridge-app/src/abi \\;",
     "start:dev": "hardhat node & yarn build && yarn updateabi && hardhat run scripts/deployDevEnv.ts --network localhost",
     "mpb:deploy": "hardhat deploy --export-all ./release/mpb.json"
