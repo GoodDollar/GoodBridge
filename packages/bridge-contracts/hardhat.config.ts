@@ -99,6 +99,7 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       chainId: 42220,
       url: 'https://forno.celo.org',
+      gasPrice: 201e9,
     },
     celo_testnet: {
       accounts: accounts as HttpNetworkAccountsConfig,
@@ -134,7 +135,7 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       url: 'https://forno.celo.org',
       gas: 3000000,
-      gasPrice: 26e9,
+      gasPrice: 201e9,
       chainId: 42220,
       eid: EndpointId.CELO_V2_MAINNET,
     } as any,
@@ -142,7 +143,7 @@ const config: HardhatUserConfig = {
       accounts: accounts as HttpNetworkAccountsConfig,
       url: 'https://forno.celo.org',
       gas: 8000000,
-      gasPrice: 26e9,
+      gasPrice: 201e9,
       chainId: 42220,
     },
     'production-xdc': {
@@ -159,6 +160,19 @@ const config: HardhatUserConfig = {
   },
   sourcify: {
     enabled: false,
+  },
+  blockscout: {
+    enabled: true,
+    customChains: [
+      {
+        network: 'fuse',
+        chainId: 122,
+        urls: {
+          apiURL: 'https://explorer.fuse.io/api',
+          browserURL: 'https://explorer.fuse.io',
+        },
+      },
+    ],
   },
   etherscan: {
     enabled: true,
@@ -180,14 +194,9 @@ const config: HardhatUserConfig = {
           browserURL: 'https://xdcscan.com/',
         },
       },
-    ],
-  },
-  blockscout: {
-    enabled: true,
-    customChains: [
       {
-        chainId: 122,
         network: 'fuse',
+        chainId: 122,
         urls: {
           apiURL: 'https://explorer.fuse.io/api',
           browserURL: 'https://explorer.fuse.io',

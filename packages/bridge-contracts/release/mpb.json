@@ -4430,7 +4430,7 @@
       "chainId": "1",
       "contracts": {
         "BridgeHelperLibrary": {
-          "address": "0xdEE49F247c8B567273437F41CC326A2fA1e9cC3D",
+          "address": "0xee760E2f9d71218D9c21af9BD6ffcD9Ab4AF7a09",
           "abi": [
             {
               "inputs": [
@@ -4664,7 +4664,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0x3A2D0a9EF558b42AF5FF8d27FE438b466Fa7692F",
+          "address": "0x2dEA6153FB792470eB6F8dec20Af4726b05c4Ff7",
           "abi": [
             {
               "inputs": [
@@ -10851,7 +10851,7 @@
       "chainId": "50",
       "contracts": {
         "BridgeHelperLibrary": {
-          "address": "0xdEE49F247c8B567273437F41CC326A2fA1e9cC3D",
+          "address": "0xee760E2f9d71218D9c21af9BD6ffcD9Ab4AF7a09",
           "abi": [
             {
               "inputs": [
@@ -11085,7 +11085,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0x00F7f61080EF40d3832C8C06e8A2af757839e1F7",
+          "address": "0x3Ae030e558beEa75c48936CD3Ab100eA64297887",
           "abi": [
             {
               "inputs": [
@@ -15561,7 +15561,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0x4E673B5A16e021E935430a93f8007e52Ff09437E",
+          "address": "0xE1a2421180d740E9AFF15F713b170848C2A032e7",
           "abi": [
             {
               "inputs": [
@@ -20037,7 +20037,7 @@
           ]
         },
         "MessagePassingBridge_Implementation": {
-          "address": "0x3eDD30A1Cd94dd6D3329B5EbafF5Aa4E0a4E4a55",
+          "address": "0x287E6A92ef58a66432823EBd97ece0FCc99A4fC7",
           "abi": [
             {
               "inputs": [
