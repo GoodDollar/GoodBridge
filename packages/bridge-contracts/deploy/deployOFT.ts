@@ -140,7 +140,9 @@ const func: DeployFunction = async function (hre) {
   const envPrefix = isDevelopment ? 'Development' : 'Production';
   const minterBurnerProxySalt = buildCreateXSalt(root.address, `${envPrefix}-GoodDollarOFTMinterBurnerV1`);
   const oftAdapterProxySalt = buildCreateXSalt(root.address, `${envPrefix}-GoodDollarOFTAdapterV1`);
-  // Both proxy addresses are known before deployment, which breaks the MinterBurner <-> adapter init cycle
+  // Both proxy addresses are known before deployment, which breaks the MinterBurner <-> adapter init cycle.
+  // Note: CreateX.computeCreate3Address(bytes32) does NOT run _guard(salt) internally (unlike deployCreate3AndInit),
+  // so it requires the post-guard salt from guardCreateXSalt(root.address, rawSalt).
   const minterBurnerAddress: string = await createX['computeCreate3Address(bytes32)'](
     guardCreateXSalt(root.address, minterBurnerProxySalt),
   );
@@ -153,12 +155,19 @@ const func: DeployFunction = async function (hre) {
       console.log(`${name} proxy already deployed`, address);
     } else {
       const proxyInitCall = proxyInterface.encodeFunctionData('initialize', [logic, initData]);
-      const tx = await createX.deployCreate3AndInit(salt, proxyArtifact.bytecode, proxyInitCall, {
-        constructorAmount: 0,
-        initCallAmount: 0,
-      });
-      await tx.wait();
-      console.log(`${name} proxy deployed and initialized`, address, tx.hash);
+      try {
+        const tx = await createX.deployCreate3AndInit(salt, proxyArtifact.bytecode, proxyInitCall, {
+          constructorAmount: 0,
+          initCallAmount: 0,
+        });
+        await tx.wait();
+        console.log(`${name} proxy deployed and initialized`, address, tx.hash);
+      } catch (err) {
+        if ((await ethers.provider.getCode(address)) === '0x') {
+          throw err;
+        }
+        console.log(`${name} proxy was deployed concurrently at ${address}; verifying state via verifyOftDeployment`);
+      }
     }
     await deployments.save(name, { address, abi: (await hre.artifacts.readArtifact(name)).abi });
   };

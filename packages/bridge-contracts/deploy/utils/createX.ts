@@ -13,6 +13,8 @@ export const CREATE3_PROXY_INITCODE_HASH = '0x21c35dbe1b344a2488cf3321d6ce542f8e
 
 export const CREATEX_ABI = [
   'function deployCreate3AndInit(bytes32 salt, bytes initCode, bytes data, tuple(uint256 constructorAmount, uint256 initCallAmount) values) payable returns (address newContract)',
+  // Note: CreateX's on-chain computeCreate3Address(bytes32) does NOT run _guard(salt); it expects the post-guard salt
+  // produced by guardCreateXSalt(deployer, rawSalt), whereas deployCreate3AndInit takes the raw salt and calls _guard(salt).
   'function computeCreate3Address(bytes32 salt) view returns (address computedAddress)',
   'function computeCreate3Address(bytes32 salt, address deployer) pure returns (address computedAddress)',
 ];
@@ -29,8 +31,11 @@ export function buildCreateXSalt(deployer: string, label: string): string {
 }
 
 /**
- * Computes the post-`_guard(salt)` value that CreateX derives when `msg.sender == deployer` and `salt[20] == 0x00`:
+ * Computes the post-`_guard(salt)` value that CreateX derives internally in `deployCreate3*` when
+ * `msg.sender == deployer` and `salt[20] == 0x00`:
  * `_efficientHash(bytes32(uint256(uint160(msg.sender))), salt)` == `keccak256(abi.encode(deployer, salt))`.
+ * Note: CreateX's view function `computeCreate3Address(bytes32)` does NOT apply `_guard`, so callers of
+ * `computeCreate3Address(bytes32)` must pass this guarded salt, while `deployCreate3AndInit` takes the raw salt.
  */
 export function guardCreateXSalt(deployer: string, salt: string): string {
   const normalizedDeployer = ethers.utils.getAddress(deployer);
