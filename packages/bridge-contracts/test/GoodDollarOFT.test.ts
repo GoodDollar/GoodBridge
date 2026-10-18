@@ -2,6 +2,12 @@ import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 import { deployMinterBurnerProxy } from "./helpers/deployMinterBurnerProxy";
+import {
+  CREATEX_ADDRESS,
+  buildCreateXSalt,
+  computeCreateXCreate3Address,
+  guardCreateXSalt,
+} from "../deploy/utils/createX";
 
 // OFT message encoding helpers (mirrors OFTMsgCodec library)
 // message = abi.encodePacked(bytes32(to), uint64(amountSD))
@@ -1154,4 +1160,58 @@ describe("OFT (unit, no fork)", () => {
       expect(await token.balanceOf(user.address)).to.equal(amount);
     });
   });
+
+  describe("CreateX deterministic address helpers", () => {
+    it("encodes deployer prefix, 0x00 cross-chain flag, and 11-byte label hash in buildCreateXSalt", async () => {
+      const [deployer] = await ethers.getSigners();
+      const label = "GoodDollarOFTAdapter_v1";
+      const salt = buildCreateXSalt(deployer.address, label);
+
+      expect(ethers.utils.hexDataLength(salt)).to.equal(32);
+      expect(ethers.utils.getAddress(ethers.utils.hexDataSlice(salt, 0, 20))).to.equal(deployer.address);
+      expect(ethers.utils.hexDataSlice(salt, 20, 21)).to.equal("0x00");
+      expect(ethers.utils.hexDataSlice(salt, 21, 32)).to.equal(
+        ethers.utils.hexDataSlice(ethers.utils.id(label), 0, 11)
+      );
+    });
+
+    it("guards sender-bound salts identically to CreateX._guard and rejects mismatched callers or chainId flags", async () => {
+      const [deployer, other] = await ethers.getSigners();
+      const salt = buildCreateXSalt(deployer.address, "GoodDollarOFTAdapter_v1");
+
+      const guarded = guardCreateXSalt(deployer.address, salt);
+      expect(guarded).to.equal(
+        ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["address", "bytes32"], [deployer.address, salt]))
+      );
+
+      expect(() => guardCreateXSalt(other.address, salt)).to.throw("CreateX salt sender prefix mismatch");
+
+      const chainGuardedSalt = ethers.utils.hexConcat([
+        ethers.utils.hexDataSlice(salt, 0, 20),
+        "0x01",
+        ethers.utils.hexDataSlice(salt, 21, 32),
+      ]);
+      expect(() => guardCreateXSalt(deployer.address, chainGuardedSalt)).to.throw(
+        "CreateX cross-chain redeploy protection must be 0x00"
+      );
+    });
+
+    it("computes deterministic CREATE3 addresses that match across chains for the same deployer and differ per label/deployer", async () => {
+      const [deployer, other] = await ethers.getSigners();
+      const adapterSalt = buildCreateXSalt(deployer.address, "GoodDollarOFTAdapter_v1");
+      const mbSalt = buildCreateXSalt(deployer.address, "GoodDollarOFTMinterBurner_v1");
+      const otherAdapterSalt = buildCreateXSalt(other.address, "GoodDollarOFTAdapter_v1");
+
+      const adapterAddr = computeCreateXCreate3Address(deployer.address, adapterSalt);
+      const mbAddr = computeCreateXCreate3Address(deployer.address, mbSalt);
+      const otherAdapterAddr = computeCreateXCreate3Address(other.address, otherAdapterSalt);
+
+      expect(ethers.utils.isAddress(adapterAddr)).to.equal(true);
+      expect(adapterAddr).to.not.equal(mbAddr);
+      expect(adapterAddr).to.not.equal(otherAdapterAddr);
+      // Repeating with explicit CREATEX_ADDRESS yields identical address regardless of chain
+      expect(computeCreateXCreate3Address(deployer.address, adapterSalt, CREATEX_ADDRESS)).to.equal(adapterAddr);
+    });
+  });
 });
+

@@ -7,23 +7,24 @@
  *
  * Steps:
  * 1. Deploy both implementations (deterministic, salt = bytecode hash)
- * 2. Predict both proxy addresses via GoodProtocol ProxyFactory1967.getDeploymentAddress(salt, deployer)
- * 3. Deploy + initialize each proxy atomically via ProxyFactory1967.deployProxy(salt, impl, initData)
+ * 2. Predict both proxy addresses via CreateX.computeCreate3Address(guardedSalt)
+ * 3. Deploy + initialize each proxy atomically via CreateX.deployCreate3AndInit(salt, proxyBytecode, initCallData, values)
  *    - MinterBurner.initialize(nameService, adapter)
  *    - Adapter.initialize(token, minterBurner, deployer, Avatar as feeRecipient)
  * 4. verifyOftDeployment: impl slots, owner, token, minterBurner, feeRecipient, operators(adapter)
  *
- * Note: proxy addresses depend on the per-chain ProxyFactory address, so they differ between chains.
+ * Note: CreateX is deployed at 0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed across all chains,
+ * so sender-guarded CREATE3 salts produce identical deterministic proxy addresses on every chain.
  */
 
 import { DeployFunction } from 'hardhat-deploy/types';
 import { ethers } from 'hardhat';
-import { BigNumber } from 'ethers';
 import Contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import { getImplementationAddress } from '@openzeppelin/upgrades-core';
 import { verifyContract } from './utils/verifyContract';
 import { getLzEndpoint } from './utils/getLzEndpoint';
 import { verifyOftDeployment } from './utils/verifyOftDeployment';
+import { CREATEX_ABI, CREATEX_ADDRESS, buildCreateXSalt, guardCreateXSalt } from './utils/createX';
 
 const func: DeployFunction = async function (hre) {
   const { deployments, network } = hre;
@@ -125,35 +126,37 @@ const func: DeployFunction = async function (hre) {
   });
   console.log('GoodDollarOFTAdapter implementation', oftAdapterImpl.address);
 
-  // ProxyFactory1967 deploys and initializes in one tx, with a CREATE2 salt bound to the deployer (no init front-running)
-  const proxyFactoryAddress = goodProtocolContracts.ProxyFactory;
-  if (!proxyFactoryAddress) {
-    throw new Error(`ProxyFactory address not found in GoodProtocol deployment for network ${networkName}`);
+  // CreateX deploys and initializes ERC1967Proxy in one tx via CREATE3, with a salt bound to the deployer
+  // (no init front-running) and cross-chain protection disabled (0x00 flag) so proxy addresses match across chains.
+  if ((await ethers.provider.getCode(CREATEX_ADDRESS)) === '0x') {
+    throw new Error(`CreateX not deployed at ${CREATEX_ADDRESS} on network ${networkName}`);
   }
-  const proxyFactory = await ethers.getContractAt(
-    [
-      'function deployProxy(uint256 _salt, address _logic, bytes _data) returns (address)',
-      'function getDeploymentAddress(uint256 _salt, address _sender) view returns (address)',
-    ],
-    proxyFactoryAddress,
+  const createX = await ethers.getContractAt(CREATEX_ABI, CREATEX_ADDRESS);
+  const proxyArtifact = await hre.artifacts.readArtifact(
+    '@gooddollar/goodprotocol/contracts/utils/ProxyFactory1967.sol:ERC1967Proxy',
   );
+  const proxyInterface = new ethers.utils.Interface(proxyArtifact.abi);
 
   const envPrefix = isDevelopment ? 'Development' : 'Production';
-  const minterBurnerProxySalt = ethers.BigNumber.from(
-    ethers.utils.keccak256(ethers.utils.toUtf8Bytes(`${envPrefix}-GoodDollarOFTMinterBurnerV1`)),
-  );
-  const oftAdapterProxySalt = ethers.BigNumber.from(
-    ethers.utils.keccak256(ethers.utils.toUtf8Bytes(`${envPrefix}-GoodDollarOFTAdapterV1`)),
-  );
+  const minterBurnerProxySalt = buildCreateXSalt(root.address, `${envPrefix}-GoodDollarOFTMinterBurnerV1`);
+  const oftAdapterProxySalt = buildCreateXSalt(root.address, `${envPrefix}-GoodDollarOFTAdapterV1`);
   // Both proxy addresses are known before deployment, which breaks the MinterBurner <-> adapter init cycle
-  const minterBurnerAddress: string = await proxyFactory.getDeploymentAddress(minterBurnerProxySalt, root.address);
-  const oftAdapterAddress: string = await proxyFactory.getDeploymentAddress(oftAdapterProxySalt, root.address);
+  const minterBurnerAddress: string = await createX['computeCreate3Address(bytes32)'](
+    guardCreateXSalt(root.address, minterBurnerProxySalt),
+  );
+  const oftAdapterAddress: string = await createX['computeCreate3Address(bytes32)'](
+    guardCreateXSalt(root.address, oftAdapterProxySalt),
+  );
 
-  const deployProxyIfMissing = async (name: string, address: string, salt: BigNumber, logic: string, initData: string) => {
+  const deployProxyIfMissing = async (name: string, address: string, salt: string, logic: string, initData: string) => {
     if ((await ethers.provider.getCode(address)) !== '0x') {
       console.log(`${name} proxy already deployed`, address);
     } else {
-      const tx = await proxyFactory.deployProxy(salt, logic, initData);
+      const proxyInitCall = proxyInterface.encodeFunctionData('initialize', [logic, initData]);
+      const tx = await createX.deployCreate3AndInit(salt, proxyArtifact.bytecode, proxyInitCall, {
+        constructorAmount: 0,
+        initCallAmount: 0,
+      });
       await tx.wait();
       console.log(`${name} proxy deployed and initialized`, address, tx.hash);
     }

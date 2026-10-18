@@ -20,7 +20,7 @@ Use `development-xdc` / `development-celo` for staging. Deploy **both** chains b
 |-----------|--------|--------|
 | Token / NameService / Controller | `@gooddollar/goodprotocol` `deployment.json` for the Hardhat network | Required |
 | LayerZero endpoint | `@layerzerolabs/lz-evm-sdk-v2` `EndpointV2.json` via `deploy/utils/getLzEndpoint.ts` (fallback: `LAYERZERO_ENDPOINT` if network unmapped) | Celo/XDC mainnet deployments |
-| Proxy CREATE2 salt | `Development-…V1` or `Production-…V1` string hash | Fixed proxy address per env |
+| Proxy CREATE3 salt | CreateX (`0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed`) sender-guarded salt (`<deployer>00<11-byte hash>` of `Development-…V1` or `Production-…V1`) | Identical deterministic proxy address across all chains per env |
 | Implementation CREATE2 salt | `keccak256(bytecode)` | Changes when code changes |
 
 ## Configure
