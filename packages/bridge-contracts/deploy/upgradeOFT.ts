@@ -4,7 +4,8 @@
  * Same flow as deployOFT.ts (no hardhat-upgrades):
  *  - Reads proxy addresses from hardhat-deploy artifacts (`deployments/`) for the current network
  *  - Resolves token and LayerZero endpoint from GoodProtocol deployment (same as deployOFT)
- *  - Deploys new implementations (OFT adapter with constructor args, MinterBurner with none)
+ *  - Deploys new implementations through CreateX (same universal deployer as deployOFT; the adapter
+ *    takes constructor args, the MinterBurner none)
  *  - Upgrades each proxy (UUPS) through the DAO: Controller.genericCall when the deployer is a registered scheme,
  *    otherwise prints the genericCall payloads to submit as a DAO proposal
  *
@@ -21,6 +22,7 @@ import Contracts from "@gooddollar/goodprotocol/releases/deployment.json";
 import { getImplementationAddress } from "@openzeppelin/upgrades-core";
 import { getOftDeploymentAddresses } from "./utils/getOftDeploymentAddresses";
 import { getLzEndpoint } from "./utils/getLzEndpoint";
+import { createXSalt, deployCreate2IfMissing, getCreateX } from "./utils/createX";
 
 const func: DeployFunction = async function (hre) {
   const { deployments, network } = hre;
@@ -111,25 +113,35 @@ const func: DeployFunction = async function (hre) {
     }
   };
 
-  // CREATE2 salt for implementations:
-  // hardhat-deploy uses `deterministicDeployment` as the CREATE2 salt.
-  // We derive it from the contract's compiled bytecode.
-  const minterBurnerArtifact = await hre.artifacts.readArtifact("GoodDollarOFTMinterBurner");
-  const minterBurnerImplSalt = ethers.utils.keccak256(minterBurnerArtifact.bytecode);
-  const oftAdapterArtifact = await hre.artifacts.readArtifact("GoodDollarOFTAdapter");
-  const oftAdapterImplSalt = ethers.utils.keccak256(oftAdapterArtifact.bytecode);
+  // Implementations are CREATE2-deployed through CreateX, exactly as in deployOFT: the salt entropy
+  // is the init code hash, so a new version lands on a new implementation address, and re-running
+  // the upgrade with unchanged code reuses the existing one.
+  const createX = await getCreateX(root);
+  const minterBurnerFactory = await ethers.getContractFactory("GoodDollarOFTMinterBurner");
+  const oftAdapterFactory = await ethers.getContractFactory("GoodDollarOFTAdapter");
+  const minterBurnerImplInitCode = minterBurnerFactory.getDeployTransaction().data as string;
+  const oftAdapterImplInitCode = oftAdapterFactory.getDeployTransaction(tokenAddress, lzEndpoint).data as string;
 
-  // --- GoodDollarOFTAdapter: deploy new implementation via hardhat-deploy, then upgrade proxy ---
+  // --- GoodDollarOFTAdapter: deploy new implementation, then upgrade proxy ---
   console.log("\nDeploying new GoodDollarOFTAdapter implementation...");
 
-  const oftAdapterImpl = await deployments.deploy("GoodDollarOFTAdapter_Implementation", {
-    contract: "GoodDollarOFTAdapter",
-    from: root.address,
-    deterministicDeployment: oftAdapterImplSalt,
-    log: true,
+  const oftAdapterImpl = await deployCreate2IfMissing(
+    createX,
+    root.address,
+    createXSalt(root.address, ethers.utils.keccak256(oftAdapterImplInitCode)),
+    oftAdapterImplInitCode
+  );
+  console.log(
+    `GoodDollarOFTAdapter implementation ${oftAdapterImpl.reused ? "already deployed" : "deployed"}`,
+    oftAdapterImpl.address
+  );
+  await deployments.save("GoodDollarOFTAdapter_Implementation", {
+    address: oftAdapterImpl.address,
+    abi: (await hre.artifacts.readArtifact("GoodDollarOFTAdapter")).abi,
     args: [tokenAddress, lzEndpoint],
+    transactionHash: oftAdapterImpl.transactionHash,
+    receipt: oftAdapterImpl.receipt as any,
   });
-  console.log("GoodDollarOFTAdapter implementation", oftAdapterImpl.address);
 
   console.log("Upgrading GoodDollarOFTAdapter proxy...");
   const oftAdapterProxyContract = await ethers.getContractAt(
@@ -142,18 +154,25 @@ const func: DeployFunction = async function (hre) {
   }
   await upgradeProxy("GoodDollarOFTAdapter", oftAdapterProxy, oftAdapterImpl.address, adapterOwner === avatarAddress);
 
-  // --- GoodDollarOFTMinterBurner: deploy new implementation via hardhat-deploy, then upgrade proxy ---
+  // --- GoodDollarOFTMinterBurner: deploy new implementation, then upgrade proxy ---
   console.log("\nDeploying new GoodDollarOFTMinterBurner implementation...");
-  const minterBurnerImpl = await deployments.deploy(
-    "GoodDollarOFTMinterBurner_Implementation",
-    {
-      contract: "GoodDollarOFTMinterBurner",
-      from: root.address,
-      deterministicDeployment: minterBurnerImplSalt,
-      log: true,
-    }
+  const minterBurnerImpl = await deployCreate2IfMissing(
+    createX,
+    root.address,
+    createXSalt(root.address, ethers.utils.keccak256(minterBurnerImplInitCode)),
+    minterBurnerImplInitCode
   );
-  console.log("GoodDollarOFTMinterBurner implementation", minterBurnerImpl.address);
+  console.log(
+    `GoodDollarOFTMinterBurner implementation ${minterBurnerImpl.reused ? "already deployed" : "deployed"}`,
+    minterBurnerImpl.address
+  );
+  await deployments.save("GoodDollarOFTMinterBurner_Implementation", {
+    address: minterBurnerImpl.address,
+    abi: (await hre.artifacts.readArtifact("GoodDollarOFTMinterBurner")).abi,
+    args: [],
+    transactionHash: minterBurnerImpl.transactionHash,
+    receipt: minterBurnerImpl.receipt as any,
+  });
 
   console.log("Upgrading GoodDollarOFTMinterBurner proxy via the DAO avatar...");
   await upgradeProxy("GoodDollarOFTMinterBurner", minterBurnerProxy, minterBurnerImpl.address, true);
