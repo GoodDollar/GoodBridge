@@ -17,6 +17,7 @@ import { EndpointId } from '@layerzerolabs/lz-definitions';
 
 import './scripts/oft/configure-oft';
 import './scripts/oft/verify-invariants';
+import './scripts/oft/predict-addresses';
 
 configDotenv();
 envEnc.config();

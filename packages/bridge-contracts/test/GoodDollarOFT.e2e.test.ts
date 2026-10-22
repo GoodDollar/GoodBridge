@@ -1,4 +1,4 @@
-import { ethers, network, upgrades } from 'hardhat';
+import { artifacts, ethers, network, upgrades } from 'hardhat';
 import { expect } from 'chai';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { GoodDollarOFTAdapter } from '../typechain-types';
@@ -6,6 +6,15 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import * as networkHelpers from "@nomicfoundation/hardhat-network-helpers";
 import { deployMinterBurnerProxy } from './helpers/deployMinterBurnerProxy';
+import {
+  computeCreate3Address,
+  createXSalt,
+  guardCreateXSalt,
+  deployCreate2IfMissing,
+  deployCreate3AndInitIfMissing,
+  getCreateX,
+} from '../deploy/utils/createX';
+import { ERC1967_PROXY_FQN } from '../deploy/deployOFT';
 
 const CELO_CHAIN_URL = 'https://forno.celo.org';
 /**
@@ -430,48 +439,85 @@ describe('GoodDollarOFTAdapter Fork Tests (Celo Production)', () => {
     });
   });
 
-  // Mirrors deploy/deployOFT.ts + scripts/oft/steps/adapter-ownership.ts against the real Celo ProxyFactory/endpoint
-  describe('Atomic deploy via ProxyFactory1967 and Avatar handover (H-01/H-02)', () => {
+  // Mirrors deploy/deployOFT.ts + scripts/oft/steps/adapter-ownership.ts against the real Celo CreateX/endpoint
+  describe('Atomic deploy via CreateX and Avatar handover (H-01/H-02)', () => {
     it('deploys both proxies initialized in one tx each and hands owner + LZ delegate to the Avatar', async function () {
       const avatar = celoContracts.Avatar;
-      const proxyFactory = await ethers.getContractAt(
-        [
-          'function deployProxy(uint256 _salt, address _logic, bytes _data) returns (address)',
-          'function getDeploymentAddress(uint256 _salt, address _sender) view returns (address)',
-        ],
-        celoContracts.ProxyFactory,
-      );
+      // the real CreateX deployment on Celo, not an etched copy
+      const createX = await getCreateX(owner);
       const endpoint = await ethers.getContractAt(
         ['function delegates(address) view returns (address)'],
         CELO_LZ_ENDPOINT,
       );
 
-      const minterBurnerImpl = await (await ethers.getContractFactory('GoodDollarOFTMinterBurner')).deploy();
+      const MinterBurnerFactory = await ethers.getContractFactory('GoodDollarOFTMinterBurner');
       const AdapterFactory = await ethers.getContractFactory('GoodDollarOFTAdapter');
-      const adapterImpl = await AdapterFactory.deploy(celoContracts.GoodDollar, CELO_LZ_ENDPOINT);
-
-      const mbSalt = ethers.BigNumber.from(ethers.utils.id('Test-GoodDollarOFTMinterBurnerV1'));
-      const adapterSalt = ethers.BigNumber.from(ethers.utils.id('Test-GoodDollarOFTAdapterV1'));
-      const mbAddress = await proxyFactory.getDeploymentAddress(mbSalt, owner.address);
-      const adapterAddress = await proxyFactory.getDeploymentAddress(adapterSalt, owner.address);
-      // salt is bound to the deployer, so another sender gets a different address
-      expect(await proxyFactory.getDeploymentAddress(adapterSalt, user.address)).to.not.equal(adapterAddress);
-
-      await proxyFactory.deployProxy(
-        mbSalt,
-        minterBurnerImpl.address,
-        minterBurnerImpl.interface.encodeFunctionData('initialize', [celoContracts.NameService, adapterAddress]),
+      const mbImplInitCode = MinterBurnerFactory.getDeployTransaction().data as string;
+      const adapterImplInitCode = AdapterFactory.getDeployTransaction(
+        celoContracts.GoodDollar,
+        CELO_LZ_ENDPOINT,
+      ).data as string;
+      const minterBurnerImpl = await deployCreate2IfMissing(
+        createX,
+        owner.address,
+        createXSalt(owner.address, ethers.utils.keccak256(mbImplInitCode)),
+        mbImplInitCode,
       );
-      await proxyFactory.deployProxy(
-        adapterSalt,
-        adapterImpl.address,
-        AdapterFactory.interface.encodeFunctionData('initialize', [
-          celoContracts.GoodDollar,
-          mbAddress,
-          owner.address,
-          avatar,
+      const adapterImpl = await deployCreate2IfMissing(
+        createX,
+        owner.address,
+        createXSalt(owner.address, ethers.utils.keccak256(adapterImplInitCode)),
+        adapterImplInitCode,
+      );
+
+      const mbSalt = createXSalt(owner.address, 'Test-GoodDollarOFTMinterBurnerV1');
+      const adapterSalt = createXSalt(owner.address, 'Test-GoodDollarOFTAdapterV1');
+      const mbAddress = computeCreate3Address(owner.address, mbSalt);
+      const adapterAddress = computeCreate3Address(owner.address, adapterSalt);
+      // the locally computed address is what the real CreateX derives on this chain
+      expect(await createX.computeCreate3Address(guardCreateXSalt(owner.address, adapterSalt))).to.equal(
+        adapterAddress,
+      );
+      // salt is bound to the deployer, so another sender gets a different address
+      expect(
+        computeCreate3Address(user.address, createXSalt(user.address, 'Test-GoodDollarOFTAdapterV1')),
+      ).to.not.equal(adapterAddress);
+
+      const proxyArtifact = await artifacts.readArtifact(ERC1967_PROXY_FQN);
+      const proxyInterface = new ethers.utils.Interface(proxyArtifact.abi);
+      const mbProxy = await deployCreate3AndInitIfMissing(
+        createX,
+        owner.address,
+        mbSalt,
+        proxyArtifact.bytecode,
+        proxyInterface.encodeFunctionData('initialize', [
+          minterBurnerImpl.address,
+          MinterBurnerFactory.interface.encodeFunctionData('initialize', [
+            celoContracts.NameService,
+            adapterAddress,
+          ]),
         ]),
       );
+      const adapterProxy = await deployCreate3AndInitIfMissing(
+        createX,
+        owner.address,
+        adapterSalt,
+        proxyArtifact.bytecode,
+        proxyInterface.encodeFunctionData('initialize', [
+          adapterImpl.address,
+          AdapterFactory.interface.encodeFunctionData('initialize', [
+            celoContracts.GoodDollar,
+            mbAddress,
+            owner.address,
+            avatar,
+          ]),
+        ]),
+      );
+
+      // CREATE3: both proxies land on the addresses predicted before the implementations existed,
+      // and those addresses carry over to every other chain deployed from this signer
+      expect(mbProxy.address).to.equal(mbAddress);
+      expect(adapterProxy.address).to.equal(adapterAddress);
 
       const implSlot = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc';
       const implOf = async (proxy: string) =>

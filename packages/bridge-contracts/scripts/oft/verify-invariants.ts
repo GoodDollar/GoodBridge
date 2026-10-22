@@ -66,6 +66,13 @@ export async function verifyOftInvariants(hre: HardhatRuntimeEnvironment) {
     same(await adapter.peers(remoteEid), ethers.utils.hexZeroPad(remoteAdapter, 32)),
     `adapter.peers(${remoteEid}) == ${remoteNetwork} adapter ${remoteAdapter}`
   );
+  // CREATE3 deployments from one deployer share an address across chains; a mismatch means the
+  // chains were deployed from different keys or salts. The bridge still works, so this only warns.
+  if (!same(adapterAddress, remoteAdapter)) {
+    console.log(
+      `warn adapter address differs from ${remoteNetwork}: ${adapterAddress} vs ${remoteAdapter}`
+    );
+  }
 
   const token = await ethers.getContractAt(
     "contracts/oft/interfaces/ISuperGoodDollar.sol:ISuperGoodDollar",
