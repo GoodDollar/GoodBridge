@@ -138,6 +138,10 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     /// @dev Event emitted when fees are collected
     event FeeCollected(address indexed recipient, uint256 amount);
 
+    /// @dev Event emitted when a send destroys the sender's tokens at the MinterBurner. The MinterBurner's
+    /// own TokensBurned names itself as the debited account, so this is what ties the burn to the sender.
+    event SenderTokensBurned(address indexed from, uint256 amount);
+
     /// @dev Event emitted when bridge limits are updated
     event BridgeLimitsSet(
         uint256 dailyLimit,
@@ -545,7 +549,10 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     }
     
     /**
-     * @notice Pulls tokens from the sender (adapter is the spender) and burns them via the MinterBurner
+     * @notice Moves the sender's tokens straight to the MinterBurner (adapter is the spender) and burns them
+     * @dev One transfer rather than pulling into the adapter and pushing on: the adapter never custodies
+     *      user funds and needs no allowance to the MinterBurner. The burn itself debits the MinterBurner,
+     *      so SenderTokensBurned is emitted here to record whose tokens funded it.
      * @param _from The address to debit the tokens from
      * @param _amountLD The amount of tokens to send in local decimals
      * @param _minAmountLD The minimum amount to send in local decimals
@@ -560,11 +567,14 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
-        uint256 balanceBefore = innerToken.balanceOf(address(this));
-        innerToken.safeTransferFrom(_from, address(this), amountSentLD);
-        require(innerToken.balanceOf(address(this)) - balanceBefore == amountSentLD, 'received amount mismatch');
-        innerToken.forceApprove(address(minterBurner), amountSentLD);
-        require(minterBurner.burn(address(this), amountSentLD), 'GoodDollarOFTAdapter: Burn failed');
+        uint256 balanceBefore = innerToken.balanceOf(address(minterBurner));
+        innerToken.safeTransferFrom(_from, address(minterBurner), amountSentLD);
+        require(
+            innerToken.balanceOf(address(minterBurner)) - balanceBefore == amountSentLD,
+            'received amount mismatch'
+        );
+        require(minterBurner.burn(address(minterBurner), amountSentLD), 'GoodDollarOFTAdapter: Burn failed');
+        emit SenderTokensBurned(_from, amountSentLD);
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner {}

@@ -89,7 +89,7 @@ describe("OFT (unit, no fork)", () => {
         .withArgs(adapter.address, true);
     });
 
-    it("operators can mint/burn; burn requires allowance", async () => {
+    it("operators can mint/burn; burn requires the tokens to be delivered first", async () => {
       const { minterBurner, token, user, avatar, owner } = await loadFixture(fixture);
 
       await expect(minterBurner.connect(user).mint(user.address, 1)).to.be.revertedWith("Not authorized");
@@ -104,18 +104,20 @@ describe("OFT (unit, no fork)", () => {
         "TokensMinted"
       );
 
-      await expect(minterBurner.connect(owner).burn(owner.address, amount)).to.be.revertedWith(
-        "ERC20: insufficient allowance"
+      // burn only ever debits the MinterBurner itself, so an allowance no longer helps
+      await token.connect(owner).approve(minterBurner.address, amount);
+      await expect(minterBurner.connect(owner).burn(minterBurner.address, amount)).to.be.revertedWith(
+        "tokens not received"
       );
 
-      await token.connect(owner).approve(minterBurner.address, amount);
+      await token.connect(owner).transfer(minterBurner.address, amount);
 
       const supplyBefore = await token.totalSupply();
-      await expect(minterBurner.connect(owner).burn(owner.address, amount)).to.emit(
-        minterBurner,
-        "TokensBurned"
-      );
+      await expect(minterBurner.connect(owner).burn(minterBurner.address, amount))
+        .to.emit(minterBurner, "TokensBurned")
+        .withArgs(minterBurner.address, amount, owner.address);
       expect(await token.totalSupply()).to.equal(supplyBefore.sub(amount));
+      expect(await token.balanceOf(minterBurner.address)).to.equal(0);
     });
 
     // L-01: an operator can no longer burn tokens of an arbitrary approver
@@ -127,6 +129,14 @@ describe("OFT (unit, no fork)", () => {
       await minterBurner.connect(owner).mint(user.address, amount);
       await token.connect(user).approve(minterBurner.address, amount);
 
+      await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
+        "can only burn own tokens"
+      );
+      expect(await token.balanceOf(user.address)).to.equal(amount);
+
+      // still refused once the MinterBurner holds a burnable balance of its own, so no operator can
+      // launder a third party's allowance through it
+      await minterBurner.connect(owner).mint(minterBurner.address, amount);
       await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
         "can only burn own tokens"
       );
@@ -143,7 +153,6 @@ describe("OFT (unit, no fork)", () => {
         "Contract is paused"
       );
 
-      await token.connect(owner).approve(minterBurner.address, 1);
       await expect(minterBurner.connect(owner).burn(owner.address, 1)).to.be.revertedWith(
         "Contract is paused"
       );
@@ -1163,21 +1172,26 @@ describe("OFT (unit, no fork)", () => {
       return { user, token, harness, minterBurner };
     }
 
-    it("pulls approved tokens into the adapter and burns them", async () => {
+    it("moves approved tokens straight to the MinterBurner and burns them, attributed to the sender", async () => {
       const { user, token, harness, minterBurner } = await loadFixture(debitFixture);
       const amount = ethers.utils.parseEther("10");
       await token.mint(user.address, amount);
 
       await token.connect(user).approve(harness.address, amount);
       const supplyBefore = await token.totalSupply();
+      // the burn debits the MinterBurner; SenderTokensBurned is what ties it to the user
       await expect(harness.exposed_debit(user.address, amount, amount, 1))
         .to.emit(minterBurner, "TokensBurned")
-        .withArgs(harness.address, amount, harness.address);
+        .withArgs(minterBurner.address, amount, harness.address)
+        .and.to.emit(harness, "SenderTokensBurned")
+        .withArgs(user.address, amount);
 
       expect(await token.balanceOf(user.address)).to.equal(0);
+      // the adapter never takes custody on the way through
       expect(await token.balanceOf(harness.address)).to.equal(0);
       expect(await token.balanceOf(minterBurner.address)).to.equal(0);
       expect(await token.totalSupply()).to.equal(supplyBefore.sub(amount));
+      // and never needs an allowance to the MinterBurner
       expect(await token.allowance(harness.address, minterBurner.address)).to.equal(0);
     });
 
