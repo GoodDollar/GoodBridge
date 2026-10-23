@@ -61,17 +61,21 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
     }
 
     /**
-     * @dev Burn the caller's tokens; the caller must have approved this contract
-     * @param _from Must be msg.sender (kept for IMintableBurnable compatibility)
+     * @dev Burn tokens the calling operator has already transferred to this contract
+     * @param _from Must be this contract - the account actually debited (kept for IMintableBurnable compatibility)
      * @param _amount The amount of tokens to burn
      * @return success True if the burn was successful
+     * @dev Only ever destroys this contract's own balance: it does not call transferFrom, so an operator
+     *      cannot reach a third party's allowance and the L-01 property holds structurally. The operator
+     *      transfers the tokens here first; whoever they originated from is recorded by the operator, not
+     *      here, so nothing in this event can misrepresent where the tokens came from.
      */
     function burn(address _from, uint256 _amount) external onlyOperators returns (bool) {
-        require(_from == msg.sender, 'can only burn own tokens');
+        require(_from == address(this), 'can only burn own tokens');
         uint256 balanceBefore = token.balanceOf(address(this));
-        require(token.transferFrom(_from, address(this), _amount), 'TRANSFER_FROM_FAILED');
-        require(token.balanceOf(address(this)) - balanceBefore == _amount, 'received amount mismatch');
+        require(balanceBefore >= _amount, 'tokens not received');
         token.burn(_amount);
+        require(token.balanceOf(address(this)) == balanceBefore - _amount, 'burned amount mismatch');
 
         emit TokensBurned(_from, _amount, msg.sender);
         return true;

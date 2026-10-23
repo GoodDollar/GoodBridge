@@ -15,6 +15,7 @@ function encodeOFTMessage(toAddress: string, amountSD: ethers.BigNumber): string
 // Convert local-decimal amount to shared-decimal amount (sharedDecimals=6)
 // For MockGoodDollar (18 decimals): decimalConversionRate = 10^(18-6) = 10^12
 const DECIMAL_CONVERSION_RATE = ethers.BigNumber.from(10).pow(12);
+
 function toSD(amountLD: ethers.BigNumber): ethers.BigNumber {
   return amountLD.div(DECIMAL_CONVERSION_RATE);
 }
@@ -88,7 +89,7 @@ describe("OFT (unit, no fork)", () => {
         .withArgs(adapter.address, true);
     });
 
-    it("operators can mint/burn; burn requires allowance", async () => {
+    it("operators can mint/burn; burn requires the tokens to be delivered first", async () => {
       const { minterBurner, token, user, avatar, owner } = await loadFixture(fixture);
 
       await expect(minterBurner.connect(user).mint(user.address, 1)).to.be.revertedWith("Not authorized");
@@ -103,18 +104,20 @@ describe("OFT (unit, no fork)", () => {
         "TokensMinted"
       );
 
-      await expect(minterBurner.connect(owner).burn(owner.address, amount)).to.be.revertedWith(
-        "ERC20: insufficient allowance"
+      // burn only ever debits the MinterBurner itself, so an allowance no longer helps
+      await token.connect(owner).approve(minterBurner.address, amount);
+      await expect(minterBurner.connect(owner).burn(minterBurner.address, amount)).to.be.revertedWith(
+        "tokens not received"
       );
 
-      await token.connect(owner).approve(minterBurner.address, amount);
+      await token.connect(owner).transfer(minterBurner.address, amount);
 
       const supplyBefore = await token.totalSupply();
-      await expect(minterBurner.connect(owner).burn(owner.address, amount)).to.emit(
-        minterBurner,
-        "TokensBurned"
-      );
+      await expect(minterBurner.connect(owner).burn(minterBurner.address, amount))
+        .to.emit(minterBurner, "TokensBurned")
+        .withArgs(minterBurner.address, amount, owner.address);
       expect(await token.totalSupply()).to.equal(supplyBefore.sub(amount));
+      expect(await token.balanceOf(minterBurner.address)).to.equal(0);
     });
 
     // L-01: an operator can no longer burn tokens of an arbitrary approver
@@ -126,6 +129,14 @@ describe("OFT (unit, no fork)", () => {
       await minterBurner.connect(owner).mint(user.address, amount);
       await token.connect(user).approve(minterBurner.address, amount);
 
+      await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
+        "can only burn own tokens"
+      );
+      expect(await token.balanceOf(user.address)).to.equal(amount);
+
+      // still refused once the MinterBurner holds a burnable balance of its own, so no operator can
+      // launder a third party's allowance through it
+      await minterBurner.connect(owner).mint(minterBurner.address, amount);
       await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
         "can only burn own tokens"
       );
@@ -142,7 +153,6 @@ describe("OFT (unit, no fork)", () => {
         "Contract is paused"
       );
 
-      await token.connect(owner).approve(minterBurner.address, 1);
       await expect(minterBurner.connect(owner).burn(owner.address, 1)).to.be.revertedWith(
         "Contract is paused"
       );
@@ -626,12 +636,9 @@ describe("OFT (unit, no fork)", () => {
       return { owner, user, feeRecipient, avatar, nameService, token, endpoint, minterBurner, harness };
     }
 
-    // Helper: build an Origin struct for testing
-    const origin = (srcEid = 1) => ({
-      srcEid,
-      sender: ethers.utils.hexZeroPad(ethers.constants.AddressZero, 32),
-      nonce: 1,
-    });
+    // Helper: build an Origin struct for testing. A non-zero sender/nonce keeps the parked Origin meaningful.
+    const PEER = ethers.utils.hexZeroPad("0x00000000000000000000000000000000000000aa", 32);
+    const origin = (srcEid = 1, nonce = 1) => ({ srcEid, sender: PEER, nonce });
 
     it("stores failedReceiveRequest when bridge limits exceeded on receive", async () => {
       const { harness, user } = await loadFixture(harnessFixture);
@@ -652,11 +659,65 @@ describe("OFT (unit, no fork)", () => {
         .to.emit(harness, "ReceiveRequestFailed")
         .withArgs(guid, user.address, amountLD, 1);
 
+      // only what the replay needs is parked: the message plus the Origin to replay it under.
+      // recipient and amount are not stored - the event above carries them, and they are derivable
+      // from the message anyway
       const req = await harness.failedReceiveRequests(guid);
       expect(req.failed).to.equal(true);
-      expect(req.toAddress).to.equal(user.address);
-      expect(req.amount).to.equal(amountLD);
+      expect(req.message).to.equal(message.toLowerCase());
       expect(req.srcEid).to.equal(1);
+      expect(req.nonce).to.equal(1);
+      expect(req.sender).to.equal(PEER);
+      expect(req.timestamp).to.be.gt(0);
+
+      // the replay still credits the right recipient the right amount, decoded from the parked message
+      await expect(harness.approveFailedRequest(guid))
+        .to.emit(harness, "OFTReceived")
+        .withArgs(guid, 1, user.address, amountLD);
+    });
+
+    it("failedRequestDetails decodes the recipient and amount the struct no longer stores", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      await harness.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("50"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: false,
+      });
+
+      const amountLD = ethers.utils.parseEther("100");
+      const guid = ethers.utils.formatBytes32String("guid-details");
+      const message = encodeOFTMessage(user.address, toSD(amountLD));
+      await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
+
+      const plain = await harness.failedRequestDetails(guid);
+      expect(plain.toAddress).to.equal(user.address);
+      expect(plain.amountLD).to.equal(amountLD);
+      expect(plain.isComposed).to.equal(false);
+
+      // and it reports a composed payload, so a caller can tell a compose will be dispatched on approval
+      const composedGuid = ethers.utils.formatBytes32String("guid-details-composed");
+      const composedMessage =
+        message + ethers.utils.hexZeroPad(user.address, 32).slice(2) + "deadbeef";
+      await harness.exposed_lzReceive(origin(1, 2), composedGuid, composedMessage, ethers.constants.AddressZero, "0x");
+
+      const composed = await harness.failedRequestDetails(composedGuid);
+      expect(composed.toAddress).to.equal(user.address);
+      expect(composed.amountLD).to.equal(amountLD);
+      expect(composed.isComposed).to.equal(true);
+
+      // the raw message stays readable straight off the autogenerated getter
+      expect((await harness.failedReceiveRequests(composedGuid)).message).to.equal(
+        composedMessage.toLowerCase()
+      );
+    });
+
+    it("failedRequestDetails reverts for a guid with no parked message", async () => {
+      const { harness } = await loadFixture(harnessFixture);
+      await expect(
+        harness.failedRequestDetails(ethers.utils.formatBytes32String("guid-absent"))
+      ).to.be.revertedWith("no parked message");
     });
 
     it("reverts with BRIDGE_NOT_ALLOWED when bridge is closed on receive", async () => {
@@ -714,7 +775,7 @@ describe("OFT (unit, no fork)", () => {
       await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
 
       // Confirm it's stored
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.true;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
 
       // Raise limits so _credit succeeds
       await harness.setBridgeLimits({
@@ -732,7 +793,7 @@ describe("OFT (unit, no fork)", () => {
         .to.emit(harness, "FailedReceiveRequestApproved")
         .withArgs(guid);
 
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.false;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
       expect((await token.balanceOf(user.address)).sub(balBefore)).to.equal(amountLD);
     });
 
@@ -790,7 +851,7 @@ describe("OFT (unit, no fork)", () => {
       const guid = ethers.utils.formatBytes32String(label);
       const message = encodeOFTMessage(to, toSD(ethers.utils.parseEther("100")));
       await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.true;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
       return guid;
     }
 
@@ -817,7 +878,7 @@ describe("OFT (unit, no fork)", () => {
       await expect(harness.rejectFailedRequest(guid))
         .to.emit(harness, "FailedReceiveRequestRejected")
         .withArgs(guid);
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.false;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
 
       await time.increase(3 * 24 * 60 * 60 + 1);
       await expect(harness.connect(user).approveFailedRequest(guid)).to.be.revertedWith("request not failed");
@@ -830,7 +891,7 @@ describe("OFT (unit, no fork)", () => {
       const guid = await parkFailedRequest(harness, user.address, "guid-reject-non-owner");
 
       await expect(harness.connect(user).rejectFailedRequest(guid)).to.be.revertedWith("Ownable: caller is not the owner");
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.true;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
     });
 
     it("rejectFailedRequest: reverts for non-existent or already approved request", async () => {
@@ -866,9 +927,9 @@ describe("OFT (unit, no fork)", () => {
       expect(await token.balanceOf(user.address)).to.equal(netAmount);
     });
 
-    // M-02: composed messages must not be parked (the compose payload would be lost)
-    it("reverts composed messages that exceed limits instead of parking them", async () => {
-      const { harness, user } = await loadFixture(harnessFixture);
+    // M-02: a composed message parks like any other, and approval replays it compose payload included
+    it("parks a composed message that exceeds limits and dispatches the compose on approval", async () => {
+      const { harness, endpoint, user, token } = await loadFixture(harnessFixture);
       await harness.setBridgeLimits({
         dailyLimit: ethers.utils.parseEther("1000"),
         txLimit: ethers.utils.parseEther("50"),
@@ -877,15 +938,46 @@ describe("OFT (unit, no fork)", () => {
         onlyWhitelisted: false,
       });
 
+      const amountLD = ethers.utils.parseEther("100");
       const guid = ethers.utils.formatBytes32String("guid-composed");
       const composeFrom = ethers.utils.hexZeroPad(user.address, 32);
-      const message =
-        encodeOFTMessage(user.address, toSD(ethers.utils.parseEther("100"))) + composeFrom.slice(2) + "deadbeef";
+      const message = encodeOFTMessage(user.address, toSD(amountLD)) + composeFrom.slice(2) + "deadbeef";
 
       await expect(harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x"))
-        .to.be.revertedWithCustomError(harness, "BRIDGE_LIMITS")
-        .withArgs("txLimit");
-      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+        .to.emit(harness, "ReceiveRequestFailed")
+        .withArgs(guid, user.address, amountLD, 1);
+
+      const req = await harness.failedReceiveRequests(guid);
+      expect(req.failed).to.equal(true);
+      expect(req.message).to.equal(message.toLowerCase());
+
+      // the replay goes through the full OFT receive path, so the compose payload is dispatched
+      // rather than silently dropped the way a credit-only approval would
+      await expect(harness.approveFailedRequest(guid))
+        .to.emit(endpoint, "ComposeSent")
+        .withArgs(harness.address, user.address, guid, 0, (composed: string) => composed.endsWith("deadbeef"));
+      expect(await token.balanceOf(user.address)).to.equal(amountLD);
+    });
+
+    it("an approved replay emits OFTReceived, so it is indistinguishable from a normal receive", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      const guid = await parkFailedRequest(harness, user.address, "guid-replay-event");
+
+      await expect(harness.approveFailedRequest(guid))
+        .to.emit(harness, "OFTReceived")
+        .withArgs(guid, 1, user.address, ethers.utils.parseEther("100"));
+    });
+
+    it("replayFailedRequest cannot be called from outside", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      const message = encodeOFTMessage(user.address, toSD(ethers.utils.parseEther("100")));
+
+      await expect(
+        harness.replayFailedRequest(origin(), ethers.utils.formatBytes32String("guid-direct"), message)
+      ).to.be.revertedWith("only self");
+      await expect(
+        harness.connect(user).replayFailedRequest(origin(), ethers.utils.formatBytes32String("guid-direct"), message)
+      ).to.be.revertedWith("only self");
     });
 
     // M-03: inbound and outbound traffic use separate counters
@@ -1124,21 +1216,26 @@ describe("OFT (unit, no fork)", () => {
       return { user, token, harness, minterBurner };
     }
 
-    it("pulls approved tokens into the adapter and burns them", async () => {
+    it("moves approved tokens straight to the MinterBurner and burns them, attributed to the sender", async () => {
       const { user, token, harness, minterBurner } = await loadFixture(debitFixture);
       const amount = ethers.utils.parseEther("10");
       await token.mint(user.address, amount);
 
       await token.connect(user).approve(harness.address, amount);
       const supplyBefore = await token.totalSupply();
+      // the burn debits the MinterBurner; SenderTokensBurned is what ties it to the user
       await expect(harness.exposed_debit(user.address, amount, amount, 1))
         .to.emit(minterBurner, "TokensBurned")
-        .withArgs(harness.address, amount, harness.address);
+        .withArgs(minterBurner.address, amount, harness.address)
+        .and.to.emit(harness, "SenderTokensBurned")
+        .withArgs(user.address, amount);
 
       expect(await token.balanceOf(user.address)).to.equal(0);
+      // the adapter never takes custody on the way through
       expect(await token.balanceOf(harness.address)).to.equal(0);
       expect(await token.balanceOf(minterBurner.address)).to.equal(0);
       expect(await token.totalSupply()).to.equal(supplyBefore.sub(amount));
+      // and never needs an allowance to the MinterBurner
       expect(await token.allowance(harness.address, minterBurner.address)).to.equal(0);
     });
 
