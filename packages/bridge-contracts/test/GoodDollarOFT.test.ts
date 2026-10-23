@@ -15,6 +15,7 @@ function encodeOFTMessage(toAddress: string, amountSD: ethers.BigNumber): string
 // Convert local-decimal amount to shared-decimal amount (sharedDecimals=6)
 // For MockGoodDollar (18 decimals): decimalConversionRate = 10^(18-6) = 10^12
 const DECIMAL_CONVERSION_RATE = ethers.BigNumber.from(10).pow(12);
+
 function toSD(amountLD: ethers.BigNumber): ethers.BigNumber {
   return amountLD.div(DECIMAL_CONVERSION_RATE);
 }
@@ -626,12 +627,9 @@ describe("OFT (unit, no fork)", () => {
       return { owner, user, feeRecipient, avatar, nameService, token, endpoint, minterBurner, harness };
     }
 
-    // Helper: build an Origin struct for testing
-    const origin = (srcEid = 1) => ({
-      srcEid,
-      sender: ethers.utils.hexZeroPad(ethers.constants.AddressZero, 32),
-      nonce: 1,
-    });
+    // Helper: build an Origin struct for testing. A non-zero sender/nonce keeps the parked Origin meaningful.
+    const PEER = ethers.utils.hexZeroPad("0x00000000000000000000000000000000000000aa", 32);
+    const origin = (srcEid = 1, nonce = 1) => ({ srcEid, sender: PEER, nonce });
 
     it("stores failedReceiveRequest when bridge limits exceeded on receive", async () => {
       const { harness, user } = await loadFixture(harnessFixture);
@@ -652,11 +650,21 @@ describe("OFT (unit, no fork)", () => {
         .to.emit(harness, "ReceiveRequestFailed")
         .withArgs(guid, user.address, amountLD, 1);
 
+      // only what the replay needs is parked: the message plus the Origin to replay it under.
+      // recipient and amount are not stored - the event above carries them, and they are derivable
+      // from the message anyway
       const req = await harness.failedReceiveRequests(guid);
       expect(req.failed).to.equal(true);
-      expect(req.toAddress).to.equal(user.address);
-      expect(req.amount).to.equal(amountLD);
+      expect(req.message).to.equal(message.toLowerCase());
       expect(req.srcEid).to.equal(1);
+      expect(req.nonce).to.equal(1);
+      expect(req.sender).to.equal(PEER);
+      expect(req.timestamp).to.be.gt(0);
+
+      // the replay still credits the right recipient the right amount, decoded from the parked message
+      await expect(harness.approveFailedRequest(guid))
+        .to.emit(harness, "OFTReceived")
+        .withArgs(guid, 1, user.address, amountLD);
     });
 
     it("reverts with BRIDGE_NOT_ALLOWED when bridge is closed on receive", async () => {
@@ -714,7 +722,7 @@ describe("OFT (unit, no fork)", () => {
       await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
 
       // Confirm it's stored
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.true;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
 
       // Raise limits so _credit succeeds
       await harness.setBridgeLimits({
@@ -732,7 +740,7 @@ describe("OFT (unit, no fork)", () => {
         .to.emit(harness, "FailedReceiveRequestApproved")
         .withArgs(guid);
 
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.false;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
       expect((await token.balanceOf(user.address)).sub(balBefore)).to.equal(amountLD);
     });
 
@@ -790,7 +798,7 @@ describe("OFT (unit, no fork)", () => {
       const guid = ethers.utils.formatBytes32String(label);
       const message = encodeOFTMessage(to, toSD(ethers.utils.parseEther("100")));
       await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.true;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
       return guid;
     }
 
@@ -817,7 +825,7 @@ describe("OFT (unit, no fork)", () => {
       await expect(harness.rejectFailedRequest(guid))
         .to.emit(harness, "FailedReceiveRequestRejected")
         .withArgs(guid);
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.false;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
 
       await time.increase(3 * 24 * 60 * 60 + 1);
       await expect(harness.connect(user).approveFailedRequest(guid)).to.be.revertedWith("request not failed");
@@ -830,7 +838,7 @@ describe("OFT (unit, no fork)", () => {
       const guid = await parkFailedRequest(harness, user.address, "guid-reject-non-owner");
 
       await expect(harness.connect(user).rejectFailedRequest(guid)).to.be.revertedWith("Ownable: caller is not the owner");
-      expect((await harness.failedReceiveRequests(guid)).failed).to.be.true;
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
     });
 
     it("rejectFailedRequest: reverts for non-existent or already approved request", async () => {
@@ -866,9 +874,9 @@ describe("OFT (unit, no fork)", () => {
       expect(await token.balanceOf(user.address)).to.equal(netAmount);
     });
 
-    // M-02: composed messages must not be parked (the compose payload would be lost)
-    it("reverts composed messages that exceed limits instead of parking them", async () => {
-      const { harness, user } = await loadFixture(harnessFixture);
+    // M-02: a composed message parks like any other, and approval replays it compose payload included
+    it("parks a composed message that exceeds limits and dispatches the compose on approval", async () => {
+      const { harness, endpoint, user, token } = await loadFixture(harnessFixture);
       await harness.setBridgeLimits({
         dailyLimit: ethers.utils.parseEther("1000"),
         txLimit: ethers.utils.parseEther("50"),
@@ -877,15 +885,46 @@ describe("OFT (unit, no fork)", () => {
         onlyWhitelisted: false,
       });
 
+      const amountLD = ethers.utils.parseEther("100");
       const guid = ethers.utils.formatBytes32String("guid-composed");
       const composeFrom = ethers.utils.hexZeroPad(user.address, 32);
-      const message =
-        encodeOFTMessage(user.address, toSD(ethers.utils.parseEther("100"))) + composeFrom.slice(2) + "deadbeef";
+      const message = encodeOFTMessage(user.address, toSD(amountLD)) + composeFrom.slice(2) + "deadbeef";
 
       await expect(harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x"))
-        .to.be.revertedWithCustomError(harness, "BRIDGE_LIMITS")
-        .withArgs("txLimit");
-      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+        .to.emit(harness, "ReceiveRequestFailed")
+        .withArgs(guid, user.address, amountLD, 1);
+
+      const req = await harness.failedReceiveRequests(guid);
+      expect(req.failed).to.equal(true);
+      expect(req.message).to.equal(message.toLowerCase());
+
+      // the replay goes through the full OFT receive path, so the compose payload is dispatched
+      // rather than silently dropped the way a credit-only approval would
+      await expect(harness.approveFailedRequest(guid))
+        .to.emit(endpoint, "ComposeSent")
+        .withArgs(harness.address, user.address, guid, 0, (composed: string) => composed.endsWith("deadbeef"));
+      expect(await token.balanceOf(user.address)).to.equal(amountLD);
+    });
+
+    it("an approved replay emits OFTReceived, so it is indistinguishable from a normal receive", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      const guid = await parkFailedRequest(harness, user.address, "guid-replay-event");
+
+      await expect(harness.approveFailedRequest(guid))
+        .to.emit(harness, "OFTReceived")
+        .withArgs(guid, 1, user.address, ethers.utils.parseEther("100"));
+    });
+
+    it("replayFailedRequest cannot be called from outside", async () => {
+      const { harness, user } = await loadFixture(harnessFixture);
+      const message = encodeOFTMessage(user.address, toSD(ethers.utils.parseEther("100")));
+
+      await expect(
+        harness.replayFailedRequest(origin(), ethers.utils.formatBytes32String("guid-direct"), message)
+      ).to.be.revertedWith("only self");
+      await expect(
+        harness.connect(user).replayFailedRequest(origin(), ethers.utils.formatBytes32String("guid-direct"), message)
+      ).to.be.revertedWith("only self");
     });
 
     // M-03: inbound and outbound traffic use separate counters
