@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /packages/bridge-app
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /packages/bridge-app
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /packages/bridge-contracts
+    schedule:
+      interval: weekly
