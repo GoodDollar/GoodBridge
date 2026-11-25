@@ -102,6 +102,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     /// @dev Inbound (receive) account daily limit tracking
     mapping(address => AccountLimit) public accountsReceiveDailyLimit;
 
+    /// @dev Failed requests approved for one limit-bypassing LayerZero retry
+    mapping(bytes32 => bool) public approvedFailedReceiveRequests;
+
     /// @dev Error for bridge limits violations
     error BRIDGE_LIMITS(string reason);
 
@@ -288,16 +291,15 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Approves a failed receive request with optimistic window or by owner
-     * @dev Approved amounts intentionally skip the daily limit counters
+     * @dev Approval does not credit tokens. It permits the original LayerZero message to bypass limits once.
      */
     function approveFailedRequest(bytes32 _guid) external nonReentrant {
         require(!isClosed, 'closed');
         FailedReceiveRequest memory request = failedReceiveRequests[_guid];
         require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp || msg.sender == owner(), 'optimistic period not ended or not owner');
         require(request.failed, 'request not failed');
-        // G$ mint calls the recipient's ERC777 hook, so state must be final before _credit
         failedReceiveRequests[_guid].failed = false;
-        _credit(request.toAddress, request.amount, request.srcEid);
+        approvedFailedReceiveRequests[_guid] = true;
         emit FailedReceiveRequestApproved(_guid);
     }
 
@@ -448,7 +450,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Overrides the default _lzReceive function to enforce limits on receiving side.
-     * @dev Closed/not whitelisted or limits exceeded: revert so LayerZero can retry the original message.
+     * @dev Limit failures retain minimal request metadata for approval; the approved retry bypasses limits.
      */
     function _lzReceive(
         Origin calldata _origin,
@@ -465,18 +467,30 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
             revert BRIDGE_NOT_ALLOWED(reason);
         }
 
+        if (approvedFailedReceiveRequests[_guid]) {
+            approvedFailedReceiveRequests[_guid] = false;
+            super._lzReceive(_origin, _guid, _message, _executor, _extraData);
+            return;
+        }
+
         AccountLimit storage account = accountsReceiveDailyLimit[toAddress];
         _resetDailyLimitsIfNeeded(bridgeReceiveDailyLimit, account);
 
         (ok, reason) = _checkBridgeLimits(amountLD, bridgeReceiveDailyLimit, account);
         if (!ok) {
+            failedReceiveRequests[_guid] = FailedReceiveRequest(
+                true,
+                toAddress,
+                uint64(block.timestamp),
+                amountLD,
+                _origin.srcEid
+            );
             emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid, reason);
-            revert BRIDGE_LIMITS(reason);
-        } else {
-            bridgeReceiveDailyLimit.bridged24Hours += amountLD;
-            account.bridged24Hours += amountLD;
-            super._lzReceive(_origin, _guid, _message, _executor, _extraData);
+            return;
         }
+        bridgeReceiveDailyLimit.bridged24Hours += amountLD;
+        account.bridged24Hours += amountLD;
+        super._lzReceive(_origin, _guid, _message, _executor, _extraData);
     }
     /**
      * @notice Mints tokens to the specified address upon receiving them
@@ -539,5 +553,5 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[50] private __gap;
+    uint256[49] private __gap;
 }

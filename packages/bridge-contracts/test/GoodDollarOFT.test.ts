@@ -640,7 +640,7 @@ describe("OFT (unit, no fork)", () => {
     const PEER = ethers.utils.hexZeroPad("0x00000000000000000000000000000000000000aa", 32);
     const origin = (srcEid = 1, nonce = 1) => ({ srcEid, sender: PEER, nonce });
 
-    it("reverts without parking when bridge limits are exceeded on receive", async () => {
+    it("records a guid and reason when bridge limits are exceeded on receive", async () => {
       const { harness, user } = await loadFixture(harnessFixture);
 
       await harness.setBridgeLimits({
@@ -656,9 +656,9 @@ describe("OFT (unit, no fork)", () => {
       const message = encodeOFTMessage(user.address, toSD(amountLD));
 
       await expect(harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x"))
-        .to.be.revertedWithCustomError(harness, "BRIDGE_LIMITS")
-        .withArgs("accountDailyLimit");
-      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+        .to.emit(harness, "ReceiveRequestFailed")
+        .withArgs(guid, user.address, amountLD, 1, "accountDailyLimit");
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
     });
 
     it("reverts with BRIDGE_NOT_ALLOWED when bridge is closed on receive", async () => {
@@ -711,19 +711,11 @@ describe("OFT (unit, no fork)", () => {
 
       const amountLD = ethers.utils.parseEther("100"); // exceeds txLimit
       const guid = ethers.utils.formatBytes32String("test-guid-owner-approve");
-      await harness.storeFailedReceiveRequest(guid, user.address, amountLD, 1);
+      const message = encodeOFTMessage(user.address, toSD(amountLD));
+      await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
 
       // Confirm it's stored
       expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
-
-      // Raise limits so _credit succeeds
-      await harness.setBridgeLimits({
-        dailyLimit: ethers.utils.parseEther("10000"),
-        txLimit: ethers.utils.parseEther("10000"),
-        accountDailyLimit: ethers.utils.parseEther("10000"),
-        minAmount: ethers.utils.parseEther("1"),
-        onlyWhitelisted: false,
-      });
 
       const balBefore = await token.balanceOf(user.address);
 
@@ -733,6 +725,13 @@ describe("OFT (unit, no fork)", () => {
         .withArgs(guid);
 
       expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+      expect(await harness.approvedFailedReceiveRequests(guid)).to.equal(true);
+      expect(await token.balanceOf(user.address)).to.equal(balBefore);
+
+      await expect(harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x"))
+        .to.emit(harness, "OFTReceived")
+        .withArgs(guid, 1, user.address, amountLD);
+      expect(await harness.approvedFailedReceiveRequests(guid)).to.equal(false);
       expect((await token.balanceOf(user.address)).sub(balBefore)).to.equal(amountLD);
     });
 
@@ -749,7 +748,8 @@ describe("OFT (unit, no fork)", () => {
 
       const amountLD = ethers.utils.parseEther("100");
       const guid = ethers.utils.formatBytes32String("test-guid-optimistic");
-      await harness.storeFailedReceiveRequest(guid, user.address, amountLD, 1);
+      const message = encodeOFTMessage(user.address, toSD(amountLD));
+      await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
 
       // Non-owner cannot approve before optimistic window
       await expect(
@@ -766,6 +766,8 @@ describe("OFT (unit, no fork)", () => {
         .to.emit(harness, "FailedReceiveRequestApproved")
         .withArgs(guid);
 
+      expect(await token.balanceOf(user.address)).to.equal(balBefore);
+      await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
       expect((await token.balanceOf(user.address)).sub(balBefore)).to.equal(amountLD);
     });
 
@@ -786,7 +788,8 @@ describe("OFT (unit, no fork)", () => {
         onlyWhitelisted: false,
       });
       const guid = ethers.utils.formatBytes32String(label);
-      await harness.storeFailedReceiveRequest(guid, to, ethers.utils.parseEther("100"), 1);
+      const message = encodeOFTMessage(to, toSD(ethers.utils.parseEther("100")));
+      await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
       expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
       return guid;
     }
@@ -804,6 +807,9 @@ describe("OFT (unit, no fork)", () => {
 
       await harness.pauseBridge(false);
       await harness.connect(user).approveFailedRequest(guid);
+      expect(await token.balanceOf(user.address)).to.equal(0);
+      const message = encodeOFTMessage(user.address, toSD(ethers.utils.parseEther("100")));
+      await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
       expect(await token.balanceOf(user.address)).to.equal(ethers.utils.parseEther("100"));
     });
 
@@ -863,9 +869,9 @@ describe("OFT (unit, no fork)", () => {
       expect(await token.balanceOf(user.address)).to.equal(netAmount);
     });
 
-    // M-02: composed messages must not be parked because the complete payload would need recovery storage
-    it("reverts composed messages that exceed limits instead of parking them", async () => {
-      const { harness, user } = await loadFixture(harnessFixture);
+    // M-02: only minimal metadata is stored; the complete composed message arrives again on retry
+    it("approves and retries a composed message that exceeds limits", async () => {
+      const { harness, endpoint, user, token } = await loadFixture(harnessFixture);
       await harness.setBridgeLimits({
         dailyLimit: ethers.utils.parseEther("1000"),
         txLimit: ethers.utils.parseEther("50"),
@@ -880,9 +886,24 @@ describe("OFT (unit, no fork)", () => {
       const message = encodeOFTMessage(user.address, toSD(amountLD)) + composeFrom.slice(2) + "deadbeef";
 
       await expect(harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x"))
-        .to.be.revertedWithCustomError(harness, "BRIDGE_LIMITS")
-        .withArgs("txLimit");
-      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+        .to.emit(harness, "ReceiveRequestFailed")
+        .withArgs(guid, user.address, amountLD, 1, "txLimit");
+      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
+
+      await harness.approveFailedRequest(guid);
+      expect(await token.balanceOf(user.address)).to.equal(0);
+      const retry = await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
+      const receipt = await retry.wait();
+      const composeSent = endpoint.interface.parseLog(
+        receipt.logs.find((log: any) => log.address === endpoint.address)!
+      );
+      expect(composeSent.name).to.equal("ComposeSent");
+      expect(composeSent.args.from).to.equal(harness.address);
+      expect(composeSent.args.to).to.equal(user.address);
+      expect(composeSent.args.guid).to.equal(guid);
+      expect(composeSent.args.index).to.equal(0);
+      expect(composeSent.args.message.endsWith("deadbeef")).to.equal(true);
+      expect(await token.balanceOf(user.address)).to.equal(amountLD);
     });
 
     // M-03: inbound and outbound traffic use separate counters
@@ -912,7 +933,7 @@ describe("OFT (unit, no fork)", () => {
       expect((await harness.accountsDailyLimit(user.address)).bridged24Hours).to.equal(0);
     });
 
-    it("reverts a receive that exceeds the inbound dailyLimit", async () => {
+    it("records a receive that exceeds the inbound dailyLimit", async () => {
       const { harness, user, owner } = await loadFixture(harnessFixture);
       await harness.setBridgeLimits({
         dailyLimit: ethers.utils.parseEther("150"),
@@ -941,11 +962,11 @@ describe("OFT (unit, no fork)", () => {
           "0x"
         )
       )
-        .to.be.revertedWithCustomError(harness, "BRIDGE_LIMITS")
-        .withArgs("dailyLimit");
+        .to.emit(harness, "ReceiveRequestFailed")
+        .withArgs(guid2, owner.address, amountLD, 1, "dailyLimit");
 
       expect((await harness.failedReceiveRequests(guid1)).failed).to.equal(false);
-      expect((await harness.failedReceiveRequests(guid2)).failed).to.equal(false);
+      expect((await harness.failedReceiveRequests(guid2)).failed).to.equal(true);
     });
   });
 

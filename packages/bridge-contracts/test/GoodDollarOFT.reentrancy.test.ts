@@ -5,9 +5,16 @@ import contracts from '@gooddollar/goodprotocol/releases/deployment.json';
 import { deployMinterBurnerProxy } from './helpers/deployMinterBurnerProxy';
 
 // Regression for C-01: G$ (SuperGoodDollar) calls the recipient's ERC777 tokensReceived hook on mint,
-// so approveFailedRequest must not be re-enterable from inside _credit.
+// so approving must not mint and the LayerZero retry must not be re-enterable through approval.
+const DECIMAL_CONVERSION_RATE = ethers.BigNumber.from(10).pow(12);
 const OPTIMISTIC_WINDOW = 3 * 24 * 60 * 60;
 const CELO_CHAIN_URL = 'https://forno.celo.org';
+
+function encodeOFTMessage(toAddress: string, amountLD: ethers.BigNumber): string {
+  const toBytes32 = ethers.utils.hexZeroPad(toAddress, 32);
+  const amountHex = ethers.utils.hexZeroPad(amountLD.div(DECIMAL_CONVERSION_RATE).toHexString(), 8);
+  return toBytes32 + amountHex.slice(2);
+}
 
 async function deployHarness(tokenAddress: string, nameServiceAddress: string, endpointAddress: string) {
   const [owner, feeRecipient] = await ethers.getSigners();
@@ -40,20 +47,30 @@ async function assertReentrancyBlocked(harness: any, token: any) {
 
   const amountLD = ethers.utils.parseEther('60000');
   const guid = ethers.utils.formatBytes32String('reentrancy-guid');
-  await harness.storeFailedReceiveRequest(guid, attacker.address, amountLD, 1);
+  const origin = { srcEid: 1, sender: ethers.constants.HashZero, nonce: 1 };
+  const message = encodeOFTMessage(attacker.address, amountLD);
+  await harness.exposed_lzReceive(origin, guid, message, ethers.constants.AddressZero, '0x');
   expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
 
   await networkHelpers.time.increase(OPTIMISTIC_WINDOW + 1);
 
-  // the hook fires inside the approval credit
-  await expect(attacker.attack(guid, 30)).to.be.revertedWith('ReentrancyGuard: reentrant call');
+  // Approval only marks the guid for retry; no mint hook runs and no tokens are credited.
+  await attacker.attack(guid, 30);
   expect(await token.balanceOf(attacker.address)).to.equal(0);
-  expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
+  expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+  expect(await harness.approvedFailedReceiveRequests(guid)).to.equal(true);
 
-  // the hook still runs on a legitimate approval, but the request is credited exactly once
-  await attacker.attack(guid, 0);
+  // Re-entering approval from the mint hook cannot consume the retry approval again.
+  await expect(
+    harness.exposed_lzReceive(origin, guid, message, ethers.constants.AddressZero, '0x'),
+  ).to.be.revertedWith('request not failed');
+  expect(await harness.approvedFailedReceiveRequests(guid)).to.equal(true);
+
+  await attacker.configure(guid, 0);
+  await harness.exposed_lzReceive(origin, guid, message, ethers.constants.AddressZero, '0x');
   expect(await token.balanceOf(attacker.address)).to.equal(amountLD);
   expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+  expect(await harness.approvedFailedReceiveRequests(guid)).to.equal(false);
   await expect(harness.approveFailedRequest(guid)).to.be.revertedWith('request not failed');
 }
 
