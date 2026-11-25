@@ -23,6 +23,22 @@ contract GoodDollarOFTAdapterHarness is GoodDollarOFTAdapter {
         _lzReceive(_origin, _guid, _message, _executor, _extraData);
     }
 
+    /// @dev Seeds a legacy failed request to test its optimistic approval path
+    function storeFailedReceiveRequest(
+        bytes32 _guid,
+        address _toAddress,
+        uint256 _amount,
+        uint32 _srcEid
+    ) external {
+        failedReceiveRequests[_guid] = FailedReceiveRequest(
+            true,
+            _toAddress,
+            uint64(block.timestamp),
+            _amount,
+            _srcEid
+        );
+    }
+
     /// @dev Calls internal _credit for isolated fee-collection testing
     function exposed_credit(
         address _to,

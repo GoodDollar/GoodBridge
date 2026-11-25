@@ -6,15 +6,8 @@ import { deployMinterBurnerProxy } from './helpers/deployMinterBurnerProxy';
 
 // Regression for C-01: G$ (SuperGoodDollar) calls the recipient's ERC777 tokensReceived hook on mint,
 // so approveFailedRequest must not be re-enterable from inside _credit.
-const DECIMAL_CONVERSION_RATE = ethers.BigNumber.from(10).pow(12);
 const OPTIMISTIC_WINDOW = 3 * 24 * 60 * 60;
 const CELO_CHAIN_URL = 'https://forno.celo.org';
-
-function encodeOFTMessage(toAddress: string, amountLD: ethers.BigNumber): string {
-  const toBytes32 = ethers.utils.hexZeroPad(toAddress, 32);
-  const amountHex = ethers.utils.hexZeroPad(amountLD.div(DECIMAL_CONVERSION_RATE).toHexString(), 8);
-  return toBytes32 + amountHex.slice(2);
-}
 
 async function deployHarness(tokenAddress: string, nameServiceAddress: string, endpointAddress: string) {
   const [owner, feeRecipient] = await ethers.getSigners();
@@ -47,13 +40,12 @@ async function assertReentrancyBlocked(harness: any, token: any) {
 
   const amountLD = ethers.utils.parseEther('60000');
   const guid = ethers.utils.formatBytes32String('reentrancy-guid');
-  const origin = { srcEid: 1, sender: ethers.constants.HashZero, nonce: 1 };
-  await harness.exposed_lzReceive(origin, guid, encodeOFTMessage(attacker.address, amountLD), ethers.constants.AddressZero, '0x');
+  await harness.storeFailedReceiveRequest(guid, attacker.address, amountLD, 1);
   expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
 
   await networkHelpers.time.increase(OPTIMISTIC_WINDOW + 1);
 
-  // approval now replays the parked message, so the hook fires inside the replay rather than inside _credit
+  // the hook fires inside the approval credit
   await expect(attacker.attack(guid, 30)).to.be.revertedWith('ReentrancyGuard: reentrant call');
   expect(await token.balanceOf(attacker.address)).to.equal(0);
   expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);

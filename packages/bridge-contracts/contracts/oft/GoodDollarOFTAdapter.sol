@@ -78,33 +78,12 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     /// @dev Outbound (send) account daily limit tracking
     mapping(address => AccountLimit) public accountsDailyLimit;
 
-    /**
-     * @dev Holds only what the replay needs: the message, the Origin to replay it under, whether the request
-     *      is still outstanding, and the clock for the optimistic window.
-     * @dev toAddress and amount are deliberately absent - both are pure functions of the message, and
-     *      ReceiveRequestFailed already carries them for off-chain consumers. _executor and _extraData are
-     *      absent too: OFTCore._lzReceive ignores both, and _extraData is not covered by the verified payload
-     *      hash, so it is unauthenticated data not worth a slot.
-     * @dev Origin is flattened rather than nested because its bytes32 sender cannot share a slot: a nested
-     *      Origin would occupy three slots, where this packs failed/timestamp/srcEid/nonce into one (21 of 32
-     *      bytes) and leaves sender its own. Parking a plain message therefore writes 5 slots, not 7, which
-     *      is what keeps it inside the executor's gas allowance.
-     * @dev UPGRADE NOTE: this layout is NOT compatible with the previous one. Only the mapping's value layout
-     *      changed - every other state variable keeps its slot - so an upgrade is safe for limits, fees and
-     *      counters, but pre-existing failedReceiveRequests entries are misread: `failed` still decodes
-     *      correctly, while timestamp/srcEid/nonce/sender come from the old toAddress/timestamp bytes and
-     *      `message` from the old srcEid slot. Such a record cannot be approved (the garbage timestamp fails
-     *      the optimistic check, and the replay reverts crediting a zero recipient), so it is inert rather
-     *      than dangerous. Only testnets have ever been deployed; a mainnet deployment carrying parked
-     *      requests would need them drained before this upgrade.
-     */
     struct FailedReceiveRequest {
         bool failed;
+        address toAddress;
         uint64 timestamp;
+        uint256 amount;
         uint32 srcEid;
-        uint64 nonce;
-        bytes32 sender;
-        bytes message;
     }
     /// @dev A mapping for failed requests, keyed by the LayerZero message guid
     mapping(bytes32 => FailedReceiveRequest) public failedReceiveRequests;
@@ -153,8 +132,14 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     /// @dev Event emitted when bridge pause status changes
     event BridgePaused(bool isPaused);
 
-    /// @dev Event emitted when a limit-blocked receive is registered for recovery
-    event ReceiveRequestFailed(bytes32 indexed guid, address toAddress, uint256 amount, uint32 srcEid);
+    /// @dev Event emitted when a receive request is rejected for a failed limits check
+    event ReceiveRequestFailed(
+        bytes32 indexed guid,
+        address toAddress,
+        uint256 amount,
+        uint32 srcEid,
+        string reason
+    );
 
     /// @dev Event emitted when a failed receive request is approved
     event FailedReceiveRequestApproved(bytes32 indexed guid);
@@ -303,9 +288,6 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Approves a failed receive request with optimistic window or by owner
-     * @dev Replays the parked message through the inherited OFT receive logic rather than only crediting it,
-     *      so a compose payload is still dispatched. That is what lets composed and plain messages share one
-     *      failure path: parking is no longer lossy.
      * @dev Approved amounts intentionally skip the daily limit counters
      */
     function approveFailedRequest(bytes32 _guid) external nonReentrant {
@@ -313,54 +295,10 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         FailedReceiveRequest memory request = failedReceiveRequests[_guid];
         require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp || msg.sender == owner(), 'optimistic period not ended or not owner');
         require(request.failed, 'request not failed');
-        // G$ mint calls the recipient's ERC777 hook, so state must be final before the replay
+        // G$ mint calls the recipient's ERC777 hook, so state must be final before _credit
         failedReceiveRequests[_guid].failed = false;
+        _credit(request.toAddress, request.amount, request.srcEid);
         emit FailedReceiveRequestApproved(_guid);
-        this.replayFailedRequest(Origin(request.srcEid, request.sender, request.nonce), _guid, request.message);
-    }
-
-    /**
-     * @notice Replays an approved request's message through the inherited OFT receive logic
-     * @dev Self-call only. OFTCore._lzReceive takes the message as calldata while the parked copy lives in
-     *      storage, so the replay has to cross an ABI boundary to re-encode it. It deliberately bypasses this
-     *      contract's _lzReceive override: the limits were already adjudicated by the approval, and the
-     *      endpoint consumed the message when it was parked, so this is the only way it can ever execute.
-     */
-    function replayFailedRequest(Origin calldata _origin, bytes32 _guid, bytes calldata _message) external {
-        require(msg.sender == address(this), 'only self');
-        // _message[:0] is an empty calldata slice: OFTCore._lzReceive ignores _executor and _extraData,
-        // and a literal cannot be passed where calldata is expected
-        super._lzReceive(_origin, _guid, _message, address(0), _message[:0]);
-    }
-
-    /**
-     * @notice Decodes a parked request into the values the struct does not store
-     * @dev failedReceiveRequests already returns the raw message - bytes members are included in an
-     *      autogenerated struct getter, only mappings and non-byte arrays are omitted - but toAddress and
-     *      amount are derived rather than stored, so this saves callers decoding the OFT payload themselves.
-     * @param _guid The guid of the parked request
-     * @return toAddress The recipient the replay will credit
-     * @return amountLD The amount in local decimals, before the receive fee
-     * @return isComposed Whether the replay will also dispatch a compose payload
-     */
-    function failedRequestDetails(
-        bytes32 _guid
-    ) external view returns (address toAddress, uint256 amountLD, bool isComposed) {
-        bytes memory message = failedReceiveRequests[_guid].message;
-        require(message.length >= 40, 'no parked message');
-        return this.decodeOftMessage(message);
-    }
-
-    /**
-     * @notice Decodes an OFT payload with the same codec the receive path uses
-     * @dev Takes calldata because OFTMsgCodec slices calldata, so failedRequestDetails reaches it through a
-     *      static self-call - the same ABI-boundary step replayFailedRequest needs, and the reason this is
-     *      a separate function rather than inlined.
-     */
-    function decodeOftMessage(
-        bytes calldata _message
-    ) external view returns (address toAddress, uint256 amountLD, bool isComposed) {
-        return (_message.sendTo().bytes32ToAddress(), _toLD(_message.amountSD()), _message.isComposed());
     }
 
     /**
@@ -374,8 +312,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Bridge closed / whitelist check only (no limit checks).
-     * @dev Revert on this path does not store to failedReceiveRequests, so the message stays retryable
-     *      at the endpoint instead of becoming a parked request.
+     * @dev Revert on this path keeps the message retryable at the endpoint.
      */
     function _checkBridgeClosedAndWhitelisted(address _from) internal view returns (bool ok, string memory reason) {
         if (isClosed) return (false, 'closed');
@@ -391,8 +328,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Bridge limits check only (minAmount, accountDailyLimit, txLimit, dailyLimit).
-     * @dev Assumes daily limit resets have already been applied. Failure on receive is stored in
-     *      failedReceiveRequests, for composed and plain messages alike.
+     * @dev Assumes daily limit resets have already been applied.
      */
     function _checkBridgeLimits(
         uint256 _amount,
@@ -512,9 +448,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Overrides the default _lzReceive function to enforce limits on receiving side.
-     * @dev Closed/not whitelisted: revert. Limits exceeded: park in failedReceiveRequests, whatever the
-     *      message type. The whole message is parked, so approveFailedRequest can replay it in full and a
-     *      compose payload survives - which is why the message type no longer changes the failure handling.
+     * @dev Closed/not whitelisted or limits exceeded: revert so LayerZero can retry the original message.
      */
     function _lzReceive(
         Origin calldata _origin,
@@ -536,15 +470,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
         (ok, reason) = _checkBridgeLimits(amountLD, bridgeReceiveDailyLimit, account);
         if (!ok) {
-            failedReceiveRequests[_guid] = FailedReceiveRequest(
-                true,
-                uint64(block.timestamp),
-                _origin.srcEid,
-                _origin.nonce,
-                _origin.sender,
-                _message
-            );
-            emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid);
+            emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid, reason);
+            revert BRIDGE_LIMITS(reason);
         } else {
             bridgeReceiveDailyLimit.bridged24Hours += amountLD;
             account.bridged24Hours += amountLD;
