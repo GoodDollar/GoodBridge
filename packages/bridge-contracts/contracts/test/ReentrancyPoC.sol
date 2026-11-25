@@ -67,11 +67,6 @@ contract FailedRequestReentrancyAttacker {
         adapter.approveFailedRequest(_guid);
     }
 
-    function configure(bytes32 _guid, uint256 _maxReentries) external {
-        guid = _guid;
-        maxReentries = _maxReentries;
-    }
-
     function tokensReceived(address, address, address, uint256, bytes calldata, bytes calldata) external {
         if (reentries < maxReentries) {
             reentries++;
