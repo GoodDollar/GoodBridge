@@ -314,7 +314,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp || msg.sender == owner(), 'optimistic period not ended or not owner');
         require(request.failed, 'request not failed');
         // G$ mint calls the recipient's ERC777 hook, so state must be final before the replay
-        failedReceiveRequests[_guid].failed = false;
+        // Delete the parked request to reclaim storage and prevent leaving approved messages readable.
+        // `request` is already loaded into memory, so replay can still use `request.message`.
+        delete failedReceiveRequests[_guid];
         emit FailedReceiveRequestApproved(_guid);
         this.replayFailedRequest(Origin(request.srcEid, request.sender, request.nonce), _guid, request.message);
     }
