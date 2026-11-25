@@ -62,13 +62,13 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
 
     /**
      * @dev Burn tokens the calling operator has already transferred to this contract
-     * @param _from The original account whose tokens were transferred here
+     * @param _from Operator-provided attribution for the original account whose tokens were transferred here
      * @param _amount The amount of tokens to burn
      * @return success True if the burn was successful
      * @dev Only ever destroys this contract's own balance: it does not call transferFrom, so an operator
      *      cannot reach a third party's allowance and the L-01 property holds structurally. The operator
-     *      transfers the tokens here first; whoever they originated from is recorded by the operator, not
-     *      here, so nothing in this event can misrepresent where the tokens came from.
+     *      transfers the tokens here first. Note: `_from` is not validated on-chain and is emitted for
+     *      off-chain attribution only; consumers MUST NOT treat it as proven token provenance.
      */
     function burn(address _from, uint256 _amount) external onlyOperators returns (bool) {
         uint256 balanceBefore = token.balanceOf(address(this));
