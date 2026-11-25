@@ -53,6 +53,7 @@ async function assertReentrancyBlocked(harness: any, token: any) {
 
   await networkHelpers.time.increase(OPTIMISTIC_WINDOW + 1);
 
+  // approval now replays the parked message, so the hook fires inside the replay rather than inside _credit
   await expect(attacker.attack(guid, 30)).to.be.revertedWith('ReentrancyGuard: reentrant call');
   expect(await token.balanceOf(attacker.address)).to.equal(0);
   expect((await harness.failedReceiveRequests(guid)).failed).to.equal(true);
