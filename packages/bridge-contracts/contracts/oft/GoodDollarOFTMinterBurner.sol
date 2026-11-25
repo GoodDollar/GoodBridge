@@ -62,7 +62,7 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
 
     /**
      * @dev Burn tokens the calling operator has already transferred to this contract
-     * @param _from Must be this contract - the account actually debited (kept for IMintableBurnable compatibility)
+     * @param _from The original account whose tokens were transferred here
      * @param _amount The amount of tokens to burn
      * @return success True if the burn was successful
      * @dev Only ever destroys this contract's own balance: it does not call transferFrom, so an operator
@@ -71,7 +71,6 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
      *      here, so nothing in this event can misrepresent where the tokens came from.
      */
     function burn(address _from, uint256 _amount) external onlyOperators returns (bool) {
-        require(_from == address(this), 'can only burn own tokens');
         uint256 balanceBefore = token.balanceOf(address(this));
         require(balanceBefore >= _amount, 'tokens not received');
         token.burn(_amount);

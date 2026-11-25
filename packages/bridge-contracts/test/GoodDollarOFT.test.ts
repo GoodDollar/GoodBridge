@@ -106,22 +106,22 @@ describe("OFT (unit, no fork)", () => {
 
       // burn only ever debits the MinterBurner itself, so an allowance no longer helps
       await token.connect(owner).approve(minterBurner.address, amount);
-      await expect(minterBurner.connect(owner).burn(minterBurner.address, amount)).to.be.revertedWith(
+      await expect(minterBurner.connect(owner).burn(owner.address, amount)).to.be.revertedWith(
         "tokens not received"
       );
 
       await token.connect(owner).transfer(minterBurner.address, amount);
 
       const supplyBefore = await token.totalSupply();
-      await expect(minterBurner.connect(owner).burn(minterBurner.address, amount))
+      await expect(minterBurner.connect(owner).burn(owner.address, amount))
         .to.emit(minterBurner, "TokensBurned")
-        .withArgs(minterBurner.address, amount, owner.address);
+        .withArgs(owner.address, amount, owner.address);
       expect(await token.totalSupply()).to.equal(supplyBefore.sub(amount));
       expect(await token.balanceOf(minterBurner.address)).to.equal(0);
     });
 
-    // L-01: an operator can no longer burn tokens of an arbitrary approver
-    it("operator cannot burn another account's tokens even with allowance", async () => {
+    // L-01: the source argument attributes the event but never controls which balance is burned
+    it("burns the MinterBurner's balance regardless of the source argument", async () => {
       const { minterBurner, token, user, avatar, owner } = await loadFixture(fixture);
 
       await minterBurner.connect(avatar).setOperator(owner.address, true);
@@ -130,17 +130,17 @@ describe("OFT (unit, no fork)", () => {
       await token.connect(user).approve(minterBurner.address, amount);
 
       await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
-        "can only burn own tokens"
+        "tokens not received"
       );
       expect(await token.balanceOf(user.address)).to.equal(amount);
 
-      // still refused once the MinterBurner holds a burnable balance of its own, so no operator can
-      // launder a third party's allowance through it
+      // Once this contract holds a balance, _from only provides event attribution.
       await minterBurner.connect(owner).mint(minterBurner.address, amount);
-      await expect(minterBurner.connect(owner).burn(user.address, amount)).to.be.revertedWith(
-        "can only burn own tokens"
-      );
+      await expect(minterBurner.connect(owner).burn(user.address, amount))
+        .to.emit(minterBurner, "TokensBurned")
+        .withArgs(user.address, amount, owner.address);
       expect(await token.balanceOf(user.address)).to.equal(amount);
+      expect(await token.balanceOf(minterBurner.address)).to.equal(0);
     });
 
     it("pause blocks operator mint/burn", async () => {
@@ -1223,10 +1223,10 @@ describe("OFT (unit, no fork)", () => {
 
       await token.connect(user).approve(harness.address, amount);
       const supplyBefore = await token.totalSupply();
-      // the burn debits the MinterBurner; SenderTokensBurned is what ties it to the user
+      // The burn debits the MinterBurner but records the original source.
       await expect(harness.exposed_debit(user.address, amount, amount, 1))
         .to.emit(minterBurner, "TokensBurned")
-        .withArgs(minterBurner.address, amount, harness.address)
+        .withArgs(user.address, amount, harness.address)
         .and.to.emit(harness, "SenderTokensBurned")
         .withArgs(user.address, amount);
 

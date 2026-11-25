@@ -138,8 +138,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     /// @dev Event emitted when fees are collected
     event FeeCollected(address indexed recipient, uint256 amount);
 
-    /// @dev Event emitted when a send destroys the sender's tokens at the MinterBurner. The MinterBurner's
-    /// own TokensBurned names itself as the debited account, so this is what ties the burn to the sender.
+    /// @dev Event emitted when a send destroys the sender's tokens at the MinterBurner.
     event SenderTokensBurned(address indexed from, uint256 amount);
 
     /// @dev Event emitted when bridge limits are updated
@@ -603,7 +602,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
             innerToken.balanceOf(address(minterBurner)) - balanceBefore == amountSentLD,
             'received amount mismatch'
         );
-        require(minterBurner.burn(address(minterBurner), amountSentLD), 'GoodDollarOFTAdapter: Burn failed');
+        require(minterBurner.burn(_from, amountSentLD), 'GoodDollarOFTAdapter: Burn failed');
         emit SenderTokensBurned(_from, amountSentLD);
     }
 
