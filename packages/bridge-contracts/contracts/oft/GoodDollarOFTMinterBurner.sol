@@ -43,6 +43,7 @@ contract GoodDollarOFTMinterBurner is DAOUpgradeableContract {
 
         setDAO(_nameService);
         token = ISuperGoodDollar(address(nativeToken()));
+        require(address(token) != address(0), 'token required');
 
         operators[_adapter] = true;
         emit OperatorSet(_adapter, true);

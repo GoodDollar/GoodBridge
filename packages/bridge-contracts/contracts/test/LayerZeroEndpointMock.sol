@@ -11,9 +11,12 @@ contract LayerZeroEndpointMock {
     event ComposeSent(address indexed from, address indexed to, bytes32 indexed guid, uint16 index, bytes message);
 
     mapping(bytes32 => bytes) public composeQueue;
+    mapping(address => address) public delegates;
 
     // OAppCoreUpgradeable expects endpoint.setDelegate(_delegate) during initialization.
-    function setDelegate(address) external {}
+    function setDelegate(address _delegate) external {
+        delegates[msg.sender] = _delegate;
+    }
 
     function sendCompose(address _to, bytes32 _guid, uint16 _index, bytes calldata _message) external {
         bytes32 key = keccak256(abi.encodePacked(msg.sender, _to, _guid, _index));
