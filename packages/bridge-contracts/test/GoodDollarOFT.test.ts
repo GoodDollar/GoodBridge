@@ -973,8 +973,8 @@ describe("OFT (unit, no fork)", () => {
       await expect(harness.rejectFailedRequest(guid)).to.be.revertedWith("request not failed");
     });
 
-    it("emits OFTReceived with the net amount after fees", async () => {
-      const { harness, user, token } = await loadFixture(harnessFixture);
+    it("emits OFTReceived with the full received amount (fees are deducted on source)", async () => {
+      const { harness, user, token, feeRecipient } = await loadFixture(harnessFixture);
       await harness.setBridgeLimits({
         dailyLimit: ethers.utils.parseEther("1000"),
         txLimit: ethers.utils.parseEther("1000"),
@@ -985,14 +985,14 @@ describe("OFT (unit, no fork)", () => {
       await harness.setBridgeFees({ minFee: 0, maxFee: 0, fee: 100 });
 
       const amountLD = ethers.utils.parseEther("100");
-      const netAmount = amountLD.sub(amountLD.mul(100).div(10000));
       const guid = ethers.utils.formatBytes32String("guid-net-received");
       const message = encodeOFTMessage(user.address, toSD(amountLD));
 
       await expect(harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x"))
         .to.emit(harness, "OFTReceived")
-        .withArgs(guid, 1, user.address, netAmount);
-      expect(await token.balanceOf(user.address)).to.equal(netAmount);
+        .withArgs(guid, 1, user.address, amountLD);
+      expect(await token.balanceOf(user.address)).to.equal(amountLD);
+      expect(await token.balanceOf(feeRecipient.address)).to.equal(0);
     });
 
     // M-02: a composed message parks like any other, and approval replays it compose payload included
@@ -1156,20 +1156,22 @@ describe("OFT (unit, no fork)", () => {
       return { owner, user, feeRecipient, token, harness, minterBurner };
     }
 
-    it("mints full amount to recipient when no fee is configured", async () => {
+    it("mints full amount to recipient on _credit regardless of bridgeFees", async () => {
       const { harness, user, token, feeRecipient } = await loadFixture(feeHarnessFixture);
+      await harness.setBridgeFees({ minFee: 0, maxFee: 0, fee: 100 });
 
       const amount = ethers.utils.parseEther("100");
       const userBefore = await token.balanceOf(user.address);
       const feeBefore = await token.balanceOf(feeRecipient.address);
 
+      expect(await harness.callStatic.exposed_credit(user.address, amount, 1)).to.equal(amount);
       await harness.exposed_credit(user.address, amount, 1);
 
       expect((await token.balanceOf(user.address)).sub(userBefore)).to.equal(amount);
       expect((await token.balanceOf(feeRecipient.address)).sub(feeBefore)).to.equal(0);
     });
 
-    it("deducts fee and mints to feeRecipient", async () => {
+    it("deducts fee on source in _debit, burns net amount, and transfers fee to feeRecipient", async () => {
       const { harness, user, token, feeRecipient } = await loadFixture(feeHarnessFixture);
 
       // 1% fee (100 basis points)
@@ -1181,29 +1183,82 @@ describe("OFT (unit, no fork)", () => {
 
       const amount = ethers.utils.parseEther("1000");
       const expectedFee = amount.mul(100).div(10000); // 10 tokens
-      const expectedRecipient = amount.sub(expectedFee); // 990 tokens
+      const expectedBridged = amount.sub(expectedFee); // 990 tokens
+      await token.mint(user.address, amount);
+      await token.connect(user).approve(harness.address, amount);
 
-      await expect(harness.exposed_credit(user.address, amount, 1))
+      const supplyBefore = await token.totalSupply();
+      const [sentLD, receivedLD] = await harness.callStatic.exposed_debit(user.address, amount, expectedBridged, 1);
+      expect(sentLD).to.equal(amount);
+      expect(receivedLD).to.equal(expectedBridged);
+
+      await expect(harness.exposed_debit(user.address, amount, expectedBridged, 1))
         .to.emit(harness, "FeeCollected")
-        .withArgs(feeRecipient.address, expectedFee);
+        .withArgs(feeRecipient.address, expectedFee)
+        .and.to.emit(harness, "SenderTokensBurned")
+        .withArgs(user.address, expectedBridged);
 
-      expect(await token.balanceOf(user.address)).to.equal(expectedRecipient);
+      expect(await token.balanceOf(user.address)).to.equal(0);
       expect(await token.balanceOf(feeRecipient.address)).to.equal(expectedFee);
+      expect(await token.totalSupply()).to.equal(supplyBefore.sub(expectedBridged));
     });
 
-    it("returns the net amount credited to the recipient", async () => {
+    it("enforces minAmountLD slippage protection against source-chain fees and quotes fees in quoteOFT", async () => {
       const { harness, user } = await loadFixture(feeHarnessFixture);
-      const amount = ethers.utils.parseEther("1000");
+      await harness.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("10000"),
+        txLimit: ethers.utils.parseEther("1000"),
+        accountDailyLimit: ethers.utils.parseEther("1000"),
+        minAmount: ethers.utils.parseEther("10"),
+        onlyWhitelisted: false,
+      });
+      await harness.setBridgeFees({ minFee: 0, maxFee: 0, fee: 100 }); // 1%
 
-      expect(await harness.callStatic.exposed_credit(user.address, amount, 1)).to.equal(amount);
+      const amount = ethers.utils.parseEther("100");
+      const expectedFee = ethers.utils.parseEther("1");
+      const expectedNet = ethers.utils.parseEther("99");
 
-      await harness.setBridgeFees({ minFee: 0, maxFee: 0, fee: 100 });
-      expect(await harness.callStatic.exposed_credit(user.address, amount, 1)).to.equal(
-        amount.sub(amount.mul(100).div(10000))
-      );
+      // minAmountLD above net amount reverts with SlippageExceeded
+      await expect(
+        harness.callStatic.exposed_debit(user.address, amount, ethers.utils.parseEther("99.5"), 1)
+      ).to.be.revertedWithCustomError(harness, "SlippageExceeded").withArgs(expectedNet, ethers.utils.parseEther("99.5"));
+
+      // quoteOFT reports the fee detail and net receipt
+      const [, feeDetails, receipt] = await harness.connect(user).quoteOFT({
+        dstEid: 1,
+        to: ethers.utils.hexZeroPad(user.address, 32),
+        amountLD: amount,
+        minAmountLD: expectedNet,
+        extraOptions: "0x",
+        composeMsg: "0x",
+        oftCmd: "0x",
+      });
+      expect(feeDetails.length).to.equal(1);
+      expect(feeDetails[0].feeAmountLD).to.equal(expectedFee);
+      expect(feeDetails[0].description).to.equal("Bridge fee");
+      expect(receipt.amountSentLD).to.equal(amount);
+      expect(receipt.amountReceivedLD).to.equal(expectedNet);
+
+      // send checks minAmount against net bridged amount (10 G$ - 1% = 9.9 G$ < 10 G$)
+      await expect(
+        harness.connect(user).send(
+          {
+            dstEid: 1,
+            to: ethers.utils.hexZeroPad(user.address, 32),
+            amountLD: ethers.utils.parseEther("10"),
+            minAmountLD: 0,
+            extraOptions: "0x",
+            composeMsg: "0x",
+            oftCmd: "0x",
+          },
+          { nativeFee: 0, lzTokenFee: 0 },
+          user.address,
+          { value: 0 }
+        )
+      ).to.be.revertedWithCustomError(harness, "BRIDGE_LIMITS").withArgs("minAmount");
     });
 
-    it("enforces minFee when calculated fee is below minimum", async () => {
+    it("enforces minFee on source when calculated fee is below minimum", async () => {
       const { harness, user, token, feeRecipient } = await loadFixture(feeHarnessFixture);
 
       const minFee = ethers.utils.parseEther("5");
@@ -1214,13 +1269,19 @@ describe("OFT (unit, no fork)", () => {
       });
 
       const amount = ethers.utils.parseEther("1000"); // calculated: 1 token, below minFee of 5
-      await harness.exposed_credit(user.address, amount, 1);
+      await token.mint(user.address, amount);
+      await token.connect(user).approve(harness.address, amount);
 
+      const [sentLD, receivedLD] = await harness.callStatic.exposed_debit(user.address, amount, amount.sub(minFee), 1);
+      expect(sentLD).to.equal(amount);
+      expect(receivedLD).to.equal(amount.sub(minFee));
+
+      await harness.exposed_debit(user.address, amount, amount.sub(minFee), 1);
       expect(await token.balanceOf(feeRecipient.address)).to.equal(minFee);
-      expect(await token.balanceOf(user.address)).to.equal(amount.sub(minFee));
+      expect(await token.balanceOf(user.address)).to.equal(0);
     });
 
-    it("enforces maxFee when calculated fee exceeds maximum", async () => {
+    it("enforces maxFee on source when calculated fee exceeds maximum", async () => {
       const { harness, user, token, feeRecipient } = await loadFixture(feeHarnessFixture);
 
       const maxFee = ethers.utils.parseEther("20");
@@ -1231,32 +1292,60 @@ describe("OFT (unit, no fork)", () => {
       });
 
       const amount = ethers.utils.parseEther("1000"); // calculated: 50 tokens, above maxFee of 20
-      await harness.exposed_credit(user.address, amount, 1);
+      await token.mint(user.address, amount);
+      await token.connect(user).approve(harness.address, amount);
 
+      await harness.exposed_debit(user.address, amount, amount.sub(maxFee), 1);
       expect(await token.balanceOf(feeRecipient.address)).to.equal(maxFee);
-      expect(await token.balanceOf(user.address)).to.equal(amount.sub(maxFee));
+      expect(await token.balanceOf(user.address)).to.equal(0);
     });
 
-    // M-01: minFee above the amount is clamped so the credit cannot underflow, and 0-value recipient mint is skipped
-    it("clamps the fee to the amount when minFee exceeds it and skips zero-value recipient mint", async () => {
+    // M-01: minFee above the amount is clamped so _debitView cannot underflow, and 0-value burn is skipped
+    it("clamps the fee to the amount when minFee exceeds it and skips zero-value burn", async () => {
       const { harness, user, token, feeRecipient, minterBurner } = await loadFixture(feeHarnessFixture);
 
       await harness.setBridgeFees({ minFee: ethers.utils.parseEther("5"), maxFee: 0, fee: 10 });
 
       const amount = ethers.utils.parseEther("2");
-      expect(await harness.callStatic.exposed_credit(user.address, amount, 1)).to.equal(0);
-      const tx = await harness.exposed_credit(user.address, amount, 1);
+      await token.mint(user.address, amount);
+      await token.connect(user).approve(harness.address, amount);
+
+      const [sentLD, receivedLD] = await harness.callStatic.exposed_debit(user.address, amount, 0, 1);
+      expect(sentLD).to.equal(amount);
+      expect(receivedLD).to.equal(0);
+
+      const tx = await harness.exposed_debit(user.address, amount, 0, 1);
       const receipt = await tx.wait();
-      const mintLogs = receipt.logs
+      const burnLogs = receipt.logs
         .filter((log: any) => log.address.toLowerCase() === minterBurner.address.toLowerCase())
         .map((log: any) => minterBurner.interface.parseLog(log))
-        .filter((parsed: any) => parsed.name === "TokensMinted");
-      expect(mintLogs.length).to.equal(1);
-      expect(mintLogs[0].args.to).to.equal(feeRecipient.address);
-      expect(mintLogs[0].args.amount).to.equal(amount);
+        .filter((parsed: any) => parsed.name === "TokensBurned");
+      expect(burnLogs.length).to.equal(0);
 
       expect(await token.balanceOf(user.address)).to.equal(0);
       expect(await token.balanceOf(feeRecipient.address)).to.equal(amount);
+    });
+
+    it("keeps fee calculation dust in feeRecipient so bridged amount is dust-free", async () => {
+      const { harness, user, token, feeRecipient } = await loadFixture(feeHarnessFixture);
+      await harness.setBridgeFees({ minFee: 0, maxFee: 0, fee: 100 }); // 1%
+
+      // 100.000001 G$: 1% fee = 1.00000001 G$ (has dust); net dust-free = 99.000000 G$; actual fee = 1.000001 G$
+      const amount = ethers.utils.parseEther("100").add(DECIMAL_CONVERSION_RATE);
+      const expectedBridged = ethers.utils.parseEther("99");
+      const expectedFee = amount.sub(expectedBridged);
+      await token.mint(user.address, amount);
+      await token.connect(user).approve(harness.address, amount);
+
+      const supplyBefore = await token.totalSupply();
+      const [sentLD, receivedLD] = await harness.callStatic.exposed_debit(user.address, amount, expectedBridged, 1);
+      expect(sentLD).to.equal(amount);
+      expect(receivedLD).to.equal(expectedBridged);
+      expect(receivedLD.mod(DECIMAL_CONVERSION_RATE)).to.equal(0);
+
+      await harness.exposed_debit(user.address, amount, expectedBridged, 1);
+      expect(await token.balanceOf(feeRecipient.address)).to.equal(expectedFee);
+      expect(await token.totalSupply()).to.equal(supplyBefore.sub(expectedBridged));
     });
   });
 

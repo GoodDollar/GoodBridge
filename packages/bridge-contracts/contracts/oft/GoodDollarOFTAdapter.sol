@@ -227,9 +227,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Sets the bridge fees configuration
-     * @dev Fees are deducted on the destination chain at `_credit` time (so source `minAmountLD` checks the
-     *      pre-fee amount). `fee` is capped at `MAX_FEE_BPS`, while `minFee` is owner-governed and clamped to
-     *      the transfer amount in `_takeFee` if `minFee > amount`.
+     * @dev Fees are deducted on the source chain in `_debitView`/`_debit` (so `minAmountLD`, `quoteOFT`,
+     *      and `OFTSent` reflect the net bridged amount). `fee` is capped at `MAX_FEE_BPS`, while `minFee`
+     *      is owner-governed and clamped to the transfer amount in `_takeFee` if `minFee > amount`.
      * @param _fees The bridge fees struct containing minFee, maxFee (0 = no cap), and fee (in basis points)
      */
     function setBridgeFees(BridgeFees memory _fees) external onlyOwner {
@@ -349,7 +349,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      *      amount are derived rather than stored, so this saves callers decoding the OFT payload themselves.
      * @param _guid The guid of the parked request
      * @return toAddress The recipient the replay will credit
-     * @return amountLD The amount in local decimals, before the receive fee
+     * @return amountLD The amount in local decimals that the replay will credit
      * @return isComposed Whether the replay will also dispatch a compose payload
      */
     function failedRequestDetails(
@@ -492,14 +492,18 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         }
         oftLimit = OFTLimit(bridgeLimits.minAmount, maxAmount);
 
-        // TODO: destination-chain bridge fee quoting is an open decision; fees are left out of the quote for now
-        oftFeeDetails = new OFTFeeDetail[](0);
-
         (uint256 amountSentLD, uint256 amountReceivedLD) = _debitView(
             _sendParam.amountLD,
             _sendParam.minAmountLD,
             _sendParam.dstEid
         );
+        uint256 fee = amountSentLD - amountReceivedLD;
+        if (fee > 0) {
+            oftFeeDetails = new OFTFeeDetail[](1);
+            oftFeeDetails[0] = OFTFeeDetail({ feeAmountLD: int256(fee), description: 'Bridge fee' });
+        } else {
+            oftFeeDetails = new OFTFeeDetail[](0);
+        }
         oftReceipt = OFTReceipt(amountSentLD, amountReceivedLD);
     }
     
@@ -513,8 +517,10 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     ) internal virtual override nonReentrant returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
         /// @dev revert if sending to zero address
         require(_sendParam.to.bytes32ToAddress() != address(0), 'GoodDollarOFTAdapter: sending to zero address');
-        // limits apply to the dust-free amount that is actually burned and bridged
-        (bool isValid, string memory reason) = _enforceLimits(msg.sender, _removeDust(_sendParam.amountLD));
+        // limits apply to the dust-free net amount that is actually burned and bridged
+        uint256 amountSentLD = _removeDust(_sendParam.amountLD);
+        uint256 amountReceivedLD = _removeDust(amountSentLD - _takeFee(amountSentLD));
+        (bool isValid, string memory reason) = _enforceLimits(msg.sender, amountReceivedLD);
         if (!isValid) {
             revert BRIDGE_LIMITS(reason);
         }
@@ -567,40 +573,51 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      * @param _to The address to credit the tokens to
      * @param _amountLD The amount of tokens to credit in local decimals
      * @return amountReceivedLD The amount of tokens actually received in local decimals
-     * @dev Fees are deducted on the destination chain
+     * @dev Bridge fees are deducted on the source chain in `_debit`, so the full `_amountLD` is minted here.
      */
     function _credit(
         address _to,
         uint256 _amountLD,
         uint32 /* _srcEid */
     ) internal virtual override returns (uint256 amountReceivedLD) {
-        uint256 fee = _takeFee(_amountLD);
-        uint256 recipientAmount = _amountLD - fee;
-        if (recipientAmount > 0) {
-            bool success = minterBurner.mint(_to, recipientAmount);
+        if (_amountLD > 0) {
+            bool success = minterBurner.mint(_to, _amountLD);
             require(success, "GoodDollarOFTAdapter: Mint failed");
         }
+        return _amountLD;
+    }
 
-        if (fee > 0 && feeRecipient != address(0)) {
-            bool feeSuccess = minterBurner.mint(feeRecipient, fee);
-            require(feeSuccess, "GoodDollarOFTAdapter: Fee mint failed");
-            emit FeeCollected(feeRecipient, fee);
+    /**
+     * @notice Calculates the dust-free debited amount and net bridged amount after source-chain bridge fees
+     * @dev Any sub-shared-decimal dust from the fee calculation stays in `amountSentLD - amountReceivedLD`
+     *      (collected by `feeRecipient`), ensuring `amountReceivedLD` is dust-free and conserved 1:1 across chains.
+     */
+    function _debitView(
+        uint256 _amountLD,
+        uint256 _minAmountLD,
+        uint32 /* _dstEid */
+    ) internal view virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
+        amountSentLD = _removeDust(_amountLD);
+        uint256 fee = _takeFee(amountSentLD);
+        amountReceivedLD = _removeDust(amountSentLD - fee);
+
+        if (amountReceivedLD < _minAmountLD) {
+            revert SlippageExceeded(amountReceivedLD, _minAmountLD);
         }
-        
-        return recipientAmount;
     }
     
     /**
-     * @notice Moves the sender's tokens straight to the MinterBurner (adapter is the spender) and burns them
-     * @dev One transfer rather than pulling into the adapter and pushing on: the adapter never custodies
-     *      user funds and needs no allowance to the MinterBurner. The burn itself debits the MinterBurner,
-     *      so SenderTokensBurned is emitted here to record whose tokens funded it.
+     * @notice Moves the net bridged tokens straight to the MinterBurner and burns them, and transfers
+     *         the source-chain bridge fee to `feeRecipient`
+     * @dev One transfer per destination rather than pulling into the adapter and pushing on: the adapter never
+     *      custodies user funds and needs no allowance to the MinterBurner. The burn itself debits the
+     *      MinterBurner, so SenderTokensBurned is emitted here to record whose tokens funded it.
      * @param _from The address to debit the tokens from
      * @param _amountLD The amount of tokens to send in local decimals
-     * @param _minAmountLD The minimum amount to send in local decimals
+     * @param _minAmountLD The minimum net amount to receive on the destination chain in local decimals
      * @param _dstEid The destination chain ID
-     * @return amountSentLD The amount sent in local decimals
-     * @return amountReceivedLD The amount received in local decimals on the remote
+     * @return amountSentLD The total amount debited from the sender in local decimals
+     * @return amountReceivedLD The net amount burned and bridged to the destination chain in local decimals
      */
     function _debit(
         address _from,
@@ -609,14 +626,28 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         uint32 _dstEid
     ) internal virtual override returns (uint256 amountSentLD, uint256 amountReceivedLD) {
         (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
-        uint256 balanceBefore = innerToken.balanceOf(address(minterBurner));
-        innerToken.safeTransferFrom(_from, address(minterBurner), amountSentLD);
-        require(
-            innerToken.balanceOf(address(minterBurner)) - balanceBefore == amountSentLD,
-            'received amount mismatch'
-        );
-        require(minterBurner.burn(_from, amountSentLD), 'GoodDollarOFTAdapter: Burn failed');
-        emit SenderTokensBurned(_from, amountSentLD);
+        uint256 fee = amountSentLD - amountReceivedLD;
+
+        if (amountReceivedLD > 0) {
+            uint256 balanceBefore = innerToken.balanceOf(address(minterBurner));
+            innerToken.safeTransferFrom(_from, address(minterBurner), amountReceivedLD);
+            require(
+                innerToken.balanceOf(address(minterBurner)) - balanceBefore == amountReceivedLD,
+                'received amount mismatch'
+            );
+            require(minterBurner.burn(_from, amountReceivedLD), 'GoodDollarOFTAdapter: Burn failed');
+            emit SenderTokensBurned(_from, amountReceivedLD);
+        }
+
+        if (fee > 0 && feeRecipient != address(0)) {
+            uint256 feeBalanceBefore = innerToken.balanceOf(feeRecipient);
+            innerToken.safeTransferFrom(_from, feeRecipient, fee);
+            require(
+                innerToken.balanceOf(feeRecipient) - feeBalanceBefore == fee,
+                'fee received amount mismatch'
+            );
+            emit FeeCollected(feeRecipient, fee);
+        }
     }
 
     /**
