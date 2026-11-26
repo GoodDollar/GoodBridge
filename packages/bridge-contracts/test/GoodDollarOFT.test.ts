@@ -72,6 +72,18 @@ describe("OFT (unit, no fork)", () => {
       expect(await minterBurner.token()).to.equal(token.address);
     });
 
+    it("reverts initialize when NameService has no GOODDOLLAR token", async () => {
+      const { avatar, adapter } = await loadFixture(fixture);
+      const NameService = await ethers.getContractFactory("NameServiceMock");
+      const emptyNs = await NameService.deploy();
+      const Controller = await ethers.getContractFactory("ControllerMock");
+      const controller = await Controller.deploy(avatar.address);
+      await emptyNs.setAddress("CONTROLLER", controller.address);
+
+      const minterBurner = await deployMinterBurnerProxy();
+      await expect(minterBurner.initialize(emptyNs.address, adapter.address)).to.be.revertedWith("token required");
+    });
+
     it("authorizes the adapter as operator on initialize", async () => {
       const { minterBurner, adapter } = await loadFixture(fixture);
       expect(await minterBurner.operators(adapter.address)).to.equal(true);
@@ -221,6 +233,9 @@ describe("OFT (unit, no fork)", () => {
       await expect(adapter.setBridgeLimits({ ...base, minAmount: ethers.utils.parseEther("101") })).to.be.revertedWith(
         "minAmount > txLimit"
       );
+      await expect(
+        adapter.setBridgeLimits({ ...base, accountDailyLimit: ethers.utils.parseEther("0.5") })
+      ).to.be.revertedWith("minAmount > accountDailyLimit");
       await expect(adapter.setBridgeLimits({ ...base, txLimit: ethers.utils.parseEther("1001") })).to.be.revertedWith(
         "txLimit > dailyLimit"
       );
@@ -285,6 +300,51 @@ describe("OFT (unit, no fork)", () => {
       await adapter.pauseBridge(true);
       [limit] = await adapter.connect(user).quoteOFT(sendParam(amount));
       expect(limit.maxAmountLD).to.equal(0);
+    });
+
+    it("quoteOFT returns 0 maxAmount for non-whitelisted caller and dust-aligns maxAmount", async () => {
+      const { adapter, user, nameService } = await loadFixture(fixture);
+      const Identity = await ethers.getContractFactory("IdentityMock");
+      const identity = await Identity.deploy();
+      await nameService.setAddress("IDENTITY", identity.address);
+      await adapter.setNameService(nameService.address);
+
+      const dust = DECIMAL_CONVERSION_RATE.sub(1);
+      await adapter.setBridgeLimits({
+        dailyLimit: ethers.utils.parseEther("1000"),
+        txLimit: ethers.utils.parseEther("50").add(dust),
+        accountDailyLimit: ethers.utils.parseEther("100"),
+        minAmount: ethers.utils.parseEther("1"),
+        onlyWhitelisted: true,
+      });
+
+      const sendParam = {
+        dstEid: 1,
+        to: ethers.utils.hexZeroPad(user.address, 32),
+        amountLD: ethers.utils.parseEther("10"),
+        minAmountLD: 0,
+        extraOptions: "0x",
+        composeMsg: "0x",
+        oftCmd: "0x",
+      };
+
+      let [limit] = await adapter.connect(user).quoteOFT(sendParam);
+      expect(limit.maxAmountLD).to.equal(0);
+
+      await identity.setWhitelisted(user.address, true);
+      [limit] = await adapter.connect(user).quoteOFT(sendParam);
+      expect(limit.maxAmountLD).to.equal(ethers.utils.parseEther("50"));
+    });
+
+    it("transferOwnership syncs LayerZero delegate and renounceOwnership is disabled", async () => {
+      const { adapter, endpoint, owner, avatar } = await loadFixture(fixture);
+      expect(await endpoint.delegates(adapter.address)).to.equal(owner.address);
+
+      await adapter.transferOwnership(avatar.address);
+      expect(await adapter.owner()).to.equal(avatar.address);
+      expect(await endpoint.delegates(adapter.address)).to.equal(avatar.address);
+
+      await expect(adapter.connect(avatar).renounceOwnership()).to.be.revertedWith("renounceOwnership disabled");
     });
 
     it("sets bridge fees / feeRecipient / limits / pause", async () => {
@@ -814,13 +874,18 @@ describe("OFT (unit, no fork)", () => {
 
       await harness.exposed_lzReceive(origin(), guid, message, ethers.constants.AddressZero, "0x");
 
-      // Non-owner cannot approve before optimistic window
+      // Non-owner cannot approve before optimistic window (including after 3 days)
       await expect(
         harness.connect(user).approveFailedRequest(guid)
       ).to.be.revertedWith("optimistic period not ended or not owner");
 
-      // Advance past OPTIMISTIC_WINDOW (3 days)
       await time.increase(3 * 24 * 60 * 60 + 1);
+      await expect(
+        harness.connect(user).approveFailedRequest(guid)
+      ).to.be.revertedWith("optimistic period not ended or not owner");
+
+      // Advance past OPTIMISTIC_WINDOW (7 days total)
+      await time.increase(4 * 24 * 60 * 60);
 
       const balBefore = await token.balanceOf(user.address);
 
@@ -860,7 +925,7 @@ describe("OFT (unit, no fork)", () => {
       const guid = await parkFailedRequest(harness, user.address, "guid-closed-approve");
 
       await harness.pauseBridge(true);
-      await time.increase(3 * 24 * 60 * 60 + 1);
+      await time.increase(7 * 24 * 60 * 60 + 1);
 
       await expect(harness.approveFailedRequest(guid)).to.be.revertedWith("closed");
       await expect(harness.connect(user).approveFailedRequest(guid)).to.be.revertedWith("closed");
@@ -871,16 +936,19 @@ describe("OFT (unit, no fork)", () => {
       expect(await token.balanceOf(user.address)).to.equal(ethers.utils.parseEther("100"));
     });
 
-    it("rejectFailedRequest: owner can reject, and a rejected request cannot be approved", async () => {
+    it("rejectFailedRequest: owner can reject, deletes storage, and rejected request cannot be approved or read", async () => {
       const { harness, user, token } = await loadFixture(harnessFixture);
       const guid = await parkFailedRequest(harness, user.address, "guid-reject");
 
       await expect(harness.rejectFailedRequest(guid))
         .to.emit(harness, "FailedReceiveRequestRejected")
         .withArgs(guid);
-      expect((await harness.failedReceiveRequests(guid)).failed).to.equal(false);
+      const rejected = await harness.failedReceiveRequests(guid);
+      expect(rejected.failed).to.equal(false);
+      expect(rejected.message).to.equal("0x");
+      await expect(harness.failedRequestDetails(guid)).to.be.revertedWith("no parked message");
 
-      await time.increase(3 * 24 * 60 * 60 + 1);
+      await time.increase(7 * 24 * 60 * 60 + 1);
       await expect(harness.connect(user).approveFailedRequest(guid)).to.be.revertedWith("request not failed");
       await expect(harness.approveFailedRequest(guid)).to.be.revertedWith("request not failed");
       expect(await token.balanceOf(user.address)).to.equal(0);
@@ -1039,6 +1107,8 @@ describe("OFT (unit, no fork)", () => {
 
       expect((await harness.failedReceiveRequests(guid1)).failed).to.equal(false);
       expect((await harness.failedReceiveRequests(guid2)).failed).to.equal(true);
+      // parking a limit-blocked transfer does not mutate the recipient's receive reset timestamp
+      expect((await harness.accountsReceiveDailyLimit(owner.address)).lastTransferReset).to.equal(0);
     });
   });
 
@@ -1167,15 +1237,23 @@ describe("OFT (unit, no fork)", () => {
       expect(await token.balanceOf(user.address)).to.equal(amount.sub(maxFee));
     });
 
-    // M-01: minFee above the amount is clamped so the credit cannot underflow
-    it("clamps the fee to the amount when minFee exceeds it", async () => {
-      const { harness, user, token, feeRecipient } = await loadFixture(feeHarnessFixture);
+    // M-01: minFee above the amount is clamped so the credit cannot underflow, and 0-value recipient mint is skipped
+    it("clamps the fee to the amount when minFee exceeds it and skips zero-value recipient mint", async () => {
+      const { harness, user, token, feeRecipient, minterBurner } = await loadFixture(feeHarnessFixture);
 
       await harness.setBridgeFees({ minFee: ethers.utils.parseEther("5"), maxFee: 0, fee: 10 });
 
       const amount = ethers.utils.parseEther("2");
       expect(await harness.callStatic.exposed_credit(user.address, amount, 1)).to.equal(0);
-      await harness.exposed_credit(user.address, amount, 1);
+      const tx = await harness.exposed_credit(user.address, amount, 1);
+      const receipt = await tx.wait();
+      const mintLogs = receipt.logs
+        .filter((log: any) => log.address.toLowerCase() === minterBurner.address.toLowerCase())
+        .map((log: any) => minterBurner.interface.parseLog(log))
+        .filter((parsed: any) => parsed.name === "TokensMinted");
+      expect(mintLogs.length).to.equal(1);
+      expect(mintLogs[0].args.to).to.equal(feeRecipient.address);
+      expect(mintLogs[0].args.amount).to.equal(amount);
 
       expect(await token.balanceOf(user.address)).to.equal(0);
       expect(await token.balanceOf(feeRecipient.address)).to.equal(amount);

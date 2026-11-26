@@ -92,11 +92,11 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      * @dev UPGRADE NOTE: this layout is NOT compatible with the previous one. Only the mapping's value layout
      *      changed - every other state variable keeps its slot - so an upgrade is safe for limits, fees and
      *      counters, but pre-existing failedReceiveRequests entries are misread: `failed` still decodes
-     *      correctly, while timestamp/srcEid/nonce/sender come from the old toAddress/timestamp bytes and
-     *      `message` from the old srcEid slot. Such a record cannot be approved (the garbage timestamp fails
-     *      the optimistic check, and the replay reverts crediting a zero recipient), so it is inert rather
-     *      than dangerous. Only testnets have ever been deployed; a mainnet deployment carrying parked
-     *      requests would need them drained before this upgrade.
+     *      correctly, while timestamp/srcEid/nonce come from the old toAddress bytes, `sender` from old `amount`,
+     *      and `message` from the old `srcEid` slot (for odd EIDs, decoding as a large zero-filled bytes array).
+     *      Such a record cannot be approved (it either overflows the optimistic check or reverts crediting a
+     *      zero recipient), so it is inert rather than dangerous. Only testnets have ever been deployed; a
+     *      mainnet deployment carrying parked requests would need them drained before this upgrade.
      */
     struct FailedReceiveRequest {
         bool failed;
@@ -109,7 +109,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     /// @dev A mapping for failed requests, keyed by the LayerZero message guid
     mapping(bytes32 => FailedReceiveRequest) public failedReceiveRequests;
 
-    uint64 public constant OPTIMISTIC_WINDOW = 3 days;
+    uint64 public constant OPTIMISTIC_WINDOW = 7 days;
 
     /// @dev A boolean for whether the bridge is closed
     bool public isClosed;
@@ -227,6 +227,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
 
     /**
      * @notice Sets the bridge fees configuration
+     * @dev Fees are deducted on the destination chain at `_credit` time (so source `minAmountLD` checks the
+     *      pre-fee amount). `fee` is capped at `MAX_FEE_BPS`, while `minFee` is owner-governed and clamped to
+     *      the transfer amount in `_takeFee` if `minFee > amount`.
      * @param _fees The bridge fees struct containing minFee, maxFee (0 = no cap), and fee (in basis points)
      */
     function setBridgeFees(BridgeFees memory _fees) external onlyOwner {
@@ -271,6 +274,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      */
     function setBridgeLimits(BridgeLimits memory _limits) external onlyOwner {
         require(_limits.minAmount <= _limits.txLimit, 'minAmount > txLimit');
+        require(_limits.minAmount <= _limits.accountDailyLimit, 'minAmount > accountDailyLimit');
         require(_limits.txLimit <= _limits.dailyLimit, 'txLimit > dailyLimit');
         require(_limits.accountDailyLimit <= _limits.dailyLimit, 'accountDailyLimit > dailyLimit');
         bridgeLimits = _limits;
@@ -306,13 +310,16 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      * @dev Replays the parked message through the inherited OFT receive logic rather than only crediting it,
      *      so a compose payload is still dispatched. That is what lets composed and plain messages share one
      *      failure path: parking is no longer lossy.
-     * @dev Approved amounts intentionally skip the daily limit counters
+     * @dev Approved amounts intentionally skip the daily limit counters.
+     * @dev Intentionally does not re-check `bridgeLimits.onlyWhitelisted`: whitelist eligibility was already
+     *      enforced when `_lzReceive` parked the request, and only `isClosed` gates approval. If a parked
+     *      recipient should no longer receive funds, the owner can call `rejectFailedRequest`.
      */
     function approveFailedRequest(bytes32 _guid) external nonReentrant {
         require(!isClosed, 'closed');
         FailedReceiveRequest memory request = failedReceiveRequests[_guid];
-        require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp || msg.sender == owner(), 'optimistic period not ended or not owner');
         require(request.failed, 'request not failed');
+        require(request.timestamp + OPTIMISTIC_WINDOW < block.timestamp || msg.sender == owner(), 'optimistic period not ended or not owner');
         // G$ mint calls the recipient's ERC777 hook, so state must be final before the replay
         // Delete the parked request to reclaim storage and prevent leaving approved messages readable.
         // `request` is already loaded into memory, so replay can still use `request.message`.
@@ -348,9 +355,9 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     function failedRequestDetails(
         bytes32 _guid
     ) external view returns (address toAddress, uint256 amountLD, bool isComposed) {
-        bytes memory message = failedReceiveRequests[_guid].message;
-        require(message.length >= 40, 'no parked message');
-        return this.decodeOftMessage(message);
+        FailedReceiveRequest storage request = failedReceiveRequests[_guid];
+        require(request.failed && request.message.length >= 40, 'no parked message');
+        return this.decodeOftMessage(request.message);
     }
 
     /**
@@ -370,7 +377,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
      */
     function rejectFailedRequest(bytes32 _guid) external onlyOwner {
         require(failedReceiveRequests[_guid].failed, 'request not failed');
-        failedReceiveRequests[_guid].failed = false;
+        delete failedReceiveRequests[_guid];
         emit FailedReceiveRequestRejected(_guid);
     }
 
@@ -467,7 +474,8 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         returns (OFTLimit memory oftLimit, OFTFeeDetail[] memory oftFeeDetails, OFTReceipt memory oftReceipt)
     {
         uint256 maxAmount;
-        if (!isClosed) {
+        (bool allowed, ) = _checkBridgeClosedAndWhitelisted(msg.sender);
+        if (allowed) {
             BridgeLimits memory limits = bridgeLimits;
             uint256 dailyUsed = bridgeDailyLimit.lastTransferReset < block.timestamp - 1 days
                 ? 0
@@ -480,6 +488,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
             uint256 accountLeft = limits.accountDailyLimit > accountUsed ? limits.accountDailyLimit - accountUsed : 0;
             if (dailyLeft < maxAmount) maxAmount = dailyLeft;
             if (accountLeft < maxAmount) maxAmount = accountLeft;
+            maxAmount = _removeDust(maxAmount);
         }
         oftLimit = OFTLimit(bridgeLimits.minAmount, maxAmount);
 
@@ -501,7 +510,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         SendParam calldata _sendParam,
         MessagingFee calldata _fee,
         address _refundAddress
-    ) internal virtual override returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
+    ) internal virtual override nonReentrant returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) {
         /// @dev revert if sending to zero address
         require(_sendParam.to.bytes32ToAddress() != address(0), 'GoodDollarOFTAdapter: sending to zero address');
         // limits apply to the dust-free amount that is actually burned and bridged
@@ -524,7 +533,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         bytes calldata _message,
         address _executor,
         bytes calldata _extraData
-    ) internal virtual override {
+    ) internal virtual override nonReentrant {
         address toAddress = _message.sendTo().bytes32ToAddress();
         uint256 amountLD = _toLD(_message.amountSD());
 
@@ -534,7 +543,6 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         }
 
         AccountLimit storage account = accountsReceiveDailyLimit[toAddress];
-        _resetDailyLimitsIfNeeded(bridgeReceiveDailyLimit, account);
 
         (ok, reason) = _checkBridgeLimits(amountLD, bridgeReceiveDailyLimit, account);
         if (!ok) {
@@ -548,6 +556,7 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
             );
             emit ReceiveRequestFailed(_guid, toAddress, amountLD, _origin.srcEid);
         } else {
+            _resetDailyLimitsIfNeeded(bridgeReceiveDailyLimit, account);
             bridgeReceiveDailyLimit.bridged24Hours += amountLD;
             account.bridged24Hours += amountLD;
             super._lzReceive(_origin, _guid, _message, _executor, _extraData);
@@ -567,8 +576,10 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
     ) internal virtual override returns (uint256 amountReceivedLD) {
         uint256 fee = _takeFee(_amountLD);
         uint256 recipientAmount = _amountLD - fee;
-        bool success = minterBurner.mint(_to, recipientAmount);
-        require(success, "GoodDollarOFTAdapter: Mint failed");
+        if (recipientAmount > 0) {
+            bool success = minterBurner.mint(_to, recipientAmount);
+            require(success, "GoodDollarOFTAdapter: Mint failed");
+        }
 
         if (fee > 0 && feeRecipient != address(0)) {
             bool feeSuccess = minterBurner.mint(feeRecipient, fee);
@@ -606,6 +617,22 @@ contract GoodDollarOFTAdapter is UUPSUpgradeable, ReentrancyGuardUpgradeable, OF
         );
         require(minterBurner.burn(_from, amountSentLD), 'GoodDollarOFTAdapter: Burn failed');
         emit SenderTokensBurned(_from, amountSentLD);
+    }
+
+    /**
+     * @notice Transfers contract ownership and updates the LayerZero Endpoint delegate to match
+     * @dev Keeps owner and endpoint delegate in sync so the previous owner cannot retain endpoint config control.
+     */
+    function transferOwnership(address newOwner) public virtual override onlyOwner {
+        super.transferOwnership(newOwner);
+        endpoint.setDelegate(newOwner);
+    }
+
+    /**
+     * @notice Disabled to prevent permanently locking upgrades, pause controls, and failed-request rejection.
+     */
+    function renounceOwnership() public virtual override onlyOwner {
+        revert('renounceOwnership disabled');
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner {}

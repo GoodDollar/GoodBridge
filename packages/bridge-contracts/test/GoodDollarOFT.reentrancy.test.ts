@@ -7,7 +7,7 @@ import { deployMinterBurnerProxy } from './helpers/deployMinterBurnerProxy';
 // Regression for C-01: G$ (SuperGoodDollar) calls the recipient's ERC777 tokensReceived hook on mint,
 // so approveFailedRequest must not be re-enterable from inside _credit.
 const DECIMAL_CONVERSION_RATE = ethers.BigNumber.from(10).pow(12);
-const OPTIMISTIC_WINDOW = 3 * 24 * 60 * 60;
+const OPTIMISTIC_WINDOW = 7 * 24 * 60 * 60;
 const CELO_CHAIN_URL = 'https://forno.celo.org';
 
 function encodeOFTMessage(toAddress: string, amountLD: ethers.BigNumber): string {

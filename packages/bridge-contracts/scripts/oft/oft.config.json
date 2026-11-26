@@ -20,7 +20,7 @@
   "production-xdc": {
     "limits": {
       "dailyLimit": "1000000",
-      "txLimit": "100000",
+      "txLimit": "50000",
       "accountDailyLimit": "50000",
       "minAmount": "10",
       "onlyWhitelisted": false
@@ -29,7 +29,7 @@
   "production-celo": {
     "limits": {
       "dailyLimit": "1000000",
-      "txLimit": "100000",
+      "txLimit": "50000",
       "accountDailyLimit": "50000",
       "minAmount": "10",
       "onlyWhitelisted": false

@@ -30,6 +30,12 @@ const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
     gas: 200000,
     value: 0,
   },
+  {
+    msgType: 2,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 250000,
+    value: 0,
+  },
 ];
 
 const pathways: TwoWayConfig[] = [
